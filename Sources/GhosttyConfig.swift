@@ -7,6 +7,7 @@ struct GhosttyConfig {
         case dark
     }
 
+    private static let cmuxReleaseBundleIdentifier = "com.cmuxterm.app"
     private static let loadCacheLock = NSLock()
     private static var cachedConfigsByColorScheme: [ColorSchemePreference: GhosttyConfig] = [:]
 
@@ -27,6 +28,13 @@ struct GhosttyConfig {
     var cursorTextColor: NSColor = NSColor(hex: "#8d8e82")!
     var selectionBackground: NSColor = NSColor(hex: "#57584f")!
     var selectionForeground: NSColor = NSColor(hex: "#fdfff1")!
+
+    // Sidebar appearance
+    var rawSidebarBackground: String?
+    var sidebarBackground: NSColor?
+    var sidebarBackgroundLight: NSColor?
+    var sidebarBackgroundDark: NSColor?
+    var sidebarTintOpacity: Double?
 
     // Palette colors (0-15)
     var palette: [Int: NSColor] = [:]
@@ -87,6 +95,100 @@ struct GhosttyConfig {
         loadCacheLock.unlock()
     }
 
+    private static func cmuxConfigPaths(
+        fileManager: FileManager = .default,
+        currentBundleIdentifier: String? = Bundle.main.bundleIdentifier
+    ) -> [String] {
+        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return []
+        }
+
+        func paths(for bundleIdentifier: String) -> [String] {
+            let directory = appSupport.appendingPathComponent(bundleIdentifier, isDirectory: true)
+            return [
+                directory.appendingPathComponent("config", isDirectory: false).path,
+                directory.appendingPathComponent("config.ghostty", isDirectory: false).path,
+            ]
+        }
+
+        func hasConfig(_ paths: [String]) -> Bool {
+            paths.contains { path in
+                guard let attributes = try? fileManager.attributesOfItem(atPath: path),
+                      let type = attributes[.type] as? FileAttributeType,
+                      type == .typeRegular,
+                      let size = attributes[.size] as? NSNumber else {
+                    return false
+                }
+                return size.intValue > 0
+            }
+        }
+
+        let releasePaths = paths(for: cmuxReleaseBundleIdentifier)
+        guard let currentBundleIdentifier, !currentBundleIdentifier.isEmpty else {
+            return releasePaths
+        }
+        if currentBundleIdentifier == cmuxReleaseBundleIdentifier {
+            return releasePaths
+        }
+
+        let currentPaths = paths(for: currentBundleIdentifier)
+        if hasConfig(currentPaths) {
+            return currentPaths
+        }
+        if SocketControlSettings.isDebugLikeBundleIdentifier(currentBundleIdentifier) {
+            return releasePaths
+        }
+        return []
+    }
+
+    mutating func resolveSidebarBackground(preferredColorScheme: ColorSchemePreference) {
+        guard let raw = rawSidebarBackground else { return }
+
+        let lightResolved = Self.resolveThemeName(from: raw, preferredColorScheme: .light)
+        let darkResolved = Self.resolveThemeName(from: raw, preferredColorScheme: .dark)
+        let hasDualMode = lightResolved != darkResolved
+
+        if hasDualMode {
+            sidebarBackgroundLight = NSColor(hex: lightResolved)
+            sidebarBackgroundDark = NSColor(hex: darkResolved)
+        }
+
+        let resolved = Self.resolveThemeName(from: raw, preferredColorScheme: preferredColorScheme)
+        if let color = NSColor(hex: resolved) {
+            sidebarBackground = color
+        }
+    }
+
+    func applySidebarAppearanceToUserDefaults() {
+        guard rawSidebarBackground != nil else {
+            if let opacity = sidebarTintOpacity {
+                UserDefaults.standard.set(opacity, forKey: "sidebarTintOpacity")
+            }
+            return
+        }
+
+        let defaults = UserDefaults.standard
+
+        if let light = sidebarBackgroundLight {
+            defaults.set(light.hexString(), forKey: "sidebarTintHexLight")
+        } else {
+            defaults.removeObject(forKey: "sidebarTintHexLight")
+        }
+        if let dark = sidebarBackgroundDark {
+            defaults.set(dark.hexString(), forKey: "sidebarTintHexDark")
+        } else {
+            defaults.removeObject(forKey: "sidebarTintHexDark")
+        }
+        if let color = sidebarBackground {
+            defaults.set(color.hexString(), forKey: "sidebarTintHex")
+        } else {
+            defaults.removeObject(forKey: "sidebarTintHex")
+        }
+        if let opacity = sidebarTintOpacity {
+            defaults.set(opacity, forKey: "sidebarTintOpacity")
+        }
+    }
+
     private static func loadFromDisk(preferredColorScheme: ColorSchemePreference) -> GhosttyConfig {
         var config = GhosttyConfig()
 
@@ -96,7 +198,7 @@ struct GhosttyConfig {
             "~/.config/ghostty/config.ghostty",
             "~/Library/Application Support/com.mitchellh.ghostty/config",
             "~/Library/Application Support/com.mitchellh.ghostty/config.ghostty",
-        ].map { NSString(string: $0).expandingTildeInPath }
+        ].map { NSString(string: $0).expandingTildeInPath } + cmuxConfigPaths()
 
         for path in configPaths {
             if let contents = readConfigFile(at: path) {
@@ -113,6 +215,9 @@ struct GhosttyConfig {
                 preferredColorScheme: preferredColorScheme
             )
         }
+
+        config.resolveSidebarBackground(preferredColorScheme: preferredColorScheme)
+        config.applySidebarAppearanceToUserDefaults()
 
         return config
     }
@@ -192,6 +297,12 @@ struct GhosttyConfig {
                 case "split-divider-color":
                     if let color = NSColor(hex: value) {
                         splitDividerColor = color
+                    }
+                case "sidebar-background":
+                    rawSidebarBackground = value
+                case "sidebar-tint-opacity":
+                    if let opacity = Double(value) {
+                        sidebarTintOpacity = min(max(opacity, 0), 1)
                     }
                 default:
                     break

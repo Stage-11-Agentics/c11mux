@@ -63,6 +63,10 @@ final class TerminalPanel: Panel, ObservableObject {
         surface.hostedView
     }
 
+    var requestedWorkingDirectory: String? {
+        surface.requestedWorkingDirectory
+    }
+
     init(workspaceId: UUID, surface: TerminalSurface) {
         self.id = surface.id
         self.workspaceId = workspaceId
@@ -84,14 +88,18 @@ final class TerminalPanel: Panel, ObservableObject {
         context: ghostty_surface_context_e = GHOSTTY_SURFACE_CONTEXT_SPLIT,
         configTemplate: ghostty_surface_config_s? = nil,
         workingDirectory: String? = nil,
-        additionalEnvironment: [String: String] = [:],
-        portOrdinal: Int = 0
+        portOrdinal: Int = 0,
+        initialCommand: String? = nil,
+        initialEnvironmentOverrides: [String: String] = [:],
+        additionalEnvironment: [String: String] = [:]
     ) {
         let surface = TerminalSurface(
             tabId: workspaceId,
             context: context,
             configTemplate: configTemplate,
             workingDirectory: workingDirectory,
+            initialCommand: initialCommand,
+            initialEnvironmentOverrides: initialEnvironmentOverrides,
             additionalEnvironment: additionalEnvironment
         )
         surface.portOrdinal = portOrdinal
@@ -184,6 +192,12 @@ final class TerminalPanel: Panel, ObservableObject {
 
     func needsConfirmClose() -> Bool {
         surface.needsConfirmClose()
+    }
+
+    func shouldPersistScrollbackForSessionSnapshot() -> Bool {
+        // Session restore only replays terminal output into a fresh shell. If Ghostty
+        // says we are not safely at a prompt, replaying that state later is misleading.
+        !surface.needsConfirmClose()
     }
 
     func triggerFlash() {
