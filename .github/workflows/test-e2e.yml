@@ -342,7 +342,7 @@ jobs:
           path: /tmp/test-recording.mp4
           if-no-files-found: warn
 
-      - name: Post results to cmux-dev-artifacts
+      - name: Post results to c11mux-dev-artifacts
         if: always()
         env:
           GH_TOKEN: ${{ secrets.DEV_ARTIFACTS_TOKEN }}
@@ -399,7 +399,7 @@ jobs:
           fi
 
           ISSUE_URL=$(gh issue create \
-            --repo manaflow-ai/cmux-dev-artifacts \
+            --repo Stage-11-Agentics/c11mux-dev-artifacts \
             --title "[$STATUS_EMOJI] $TEST_FILTER @ ${COMMIT_SHA:0:7} ($REF_DISPLAY)" \
             --body "$BODY" \
             --label "$LABEL")
