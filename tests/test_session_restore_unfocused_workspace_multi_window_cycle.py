@@ -30,7 +30,7 @@ def _bundle_id(app_path: Path) -> str:
 
 def _snapshot_path(bundle_id: str) -> Path:
     safe_bundle = re.sub(r"[^A-Za-z0-9._-]", "_", bundle_id)
-    return Path.home() / "Library/Application Support/cmux" / f"session-{safe_bundle}.json"
+    return Path.home() / "Library/Application Support/c11mux" / f"session-{safe_bundle}.json"
 
 
 def _sanitize_tag_slug(raw: str) -> str:
