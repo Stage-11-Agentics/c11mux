@@ -102,7 +102,7 @@ jobs:
     needs: decide
     if: needs.decide.outputs.should_build == 'true'
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - name: Checkout build ref
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
