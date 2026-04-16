@@ -8,9 +8,8 @@ on:
 
 jobs:
   build-ghosttykit:
-    # Never run WarpBuild jobs for fork pull requests (avoid billing on external PRs).
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: warp-macos-15-arm64-6x
+    runs-on: macos-15
     timeout-minutes: 20
     steps:
       - name: Checkout

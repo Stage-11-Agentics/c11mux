@@ -71,9 +71,8 @@ jobs:
         run: bun tsc --noEmit
 
   tests:
-    # Never run WarpBuild jobs for fork pull requests (avoid billing on external PRs).
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: warp-macos-15-arm64-6x
+    runs-on: macos-15
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -230,12 +229,12 @@ jobs:
           CMUX_CLI_BIN="$CLI_BIN" python3 tests/test_cli_version_memory_guard.py
 
   tests-build-and-lag:
-    # Build the full cmux scheme and run the lag regression on WarpBuild.
-    # XCUITests cannot run on WarpBuild (Virtualization.framework limitation:
-    # XCUIApplication stuck "Running Background", 62s activation timeout per
-    # test). Interactive UI tests run via test-e2e.yml on GitHub-hosted runners.
+    # Build the full cmux scheme and run the lag regression.
+    # XCUITests cannot run here (Virtualization.framework limitation: XCUIApplication
+    # stuck "Running Background", 62s activation timeout per test). Interactive UI
+    # tests run via test-e2e.yml.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: warp-macos-15-arm64-6x
+    runs-on: macos-15
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -388,7 +387,7 @@ jobs:
 
   ui-display-resolution-regression:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: warp-macos-15-arm64-6x
+    runs-on: macos-15
     timeout-minutes: 25
     steps:
       - name: Checkout
