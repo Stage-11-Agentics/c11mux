@@ -34,7 +34,7 @@ final class MainWindowHostingView<Content: View>: NSHostingView<Content> {
 }
 
 private enum CmuxThemeNotifications {
-    static let reloadConfig = Notification.Name("com.cmuxterm.themes.reload-config")
+    static let reloadConfig = Notification.Name("com.stage11.c11mux.themes.reload-config")
 }
 
 #if DEBUG
@@ -2230,7 +2230,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
+    private func migrateLegacyPreferencesIfNeeded() {
+        let migratedFlagKey = "c11mux.preferencesMigrated.v1"
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: migratedFlagKey) else { return }
+
+        let legacyDomains = ["ai.manaflow.cmuxterm", "com.cmuxterm.app"]
+        for domain in legacyDomains {
+            guard let legacyPrefs = UserDefaults(suiteName: domain)?.persistentDomain(forName: domain),
+                  !legacyPrefs.isEmpty else { continue }
+#if DEBUG
+            dlog("prefs.migrate: copying \(legacyPrefs.count) keys from legacy domain \(domain)")
+#endif
+            for (key, value) in legacyPrefs {
+                // Don't overwrite any value already set under the new domain.
+                if defaults.object(forKey: key) == nil {
+                    defaults.set(value, forKey: key)
+                }
+            }
+        }
+        defaults.set(true, forKey: migratedFlagKey)
+#if DEBUG
+        dlog("prefs.migrate: complete; flag=\(migratedFlagKey) set")
+#endif
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Migrate preferences from legacy upstream cmux bundle IDs before anything
+        // else touches UserDefaults. One-time, idempotent, guarded by a flag key.
+        migrateLegacyPreferencesIfNeeded()
+
         // Register fenced code renderers for the markdown panel content pipeline.
         FencedCodeRendererRegistry.shared.register(MermaidRenderer.shared)
 
