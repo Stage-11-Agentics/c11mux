@@ -12,7 +12,7 @@ fi
 cd "$(dirname "$0")/.."
 
 DERIVED_DATA_PATH="$HOME/Library/Developer/Xcode/DerivedData/cmux-tests-v2"
-APP="$DERIVED_DATA_PATH/Build/Products/Debug/cmux DEV.app"
+APP="$DERIVED_DATA_PATH/Build/Products/Debug/c11mux DEV.app"
 RUN_TAG="tests-v2"
 
 echo "== build =="
@@ -29,14 +29,13 @@ xcodebuild \
   build >/dev/null
 
 if [ ! -d "$APP" ]; then
-  echo "ERROR: cmux DEV.app not found at expected path: $APP" >&2
+  echo "ERROR: c11mux DEV.app not found at expected path: $APP" >&2
   exit 1
 fi
 
 cleanup() {
-  pkill -x "cmux DEV" || true
   pkill -x "cmux" || true
-  rm -f /tmp/cmux*.sock || true
+  rm -f /tmp/c11mux*.sock || true
 }
 
 launch_and_wait() {
@@ -44,19 +43,19 @@ launch_and_wait() {
   # Wait briefly for the previous instance to fully terminate; LaunchServices can flake if we
   # relaunch too quickly.
   for _ in {1..50}; do
-    pgrep -x "cmux DEV" >/dev/null 2>&1 || break
+    pgrep -x "cmux" >/dev/null 2>&1 || break
     sleep 0.1
   done
 
   # Force socket mode for deterministic automation runs, independent of prior user settings.
-  defaults write com.cmuxterm.app.debug socketControlMode -string full >/dev/null 2>&1 || true
+  defaults write com.stage11.c11mux.debug socketControlMode -string full >/dev/null 2>&1 || true
 
   # Launch directly with UI test mode enabled so startup follows deterministic test codepaths.
-  CMUX_TAG="$RUN_TAG" CMUX_UI_TEST_MODE=1 "$APP/Contents/MacOS/cmux DEV" >/dev/null 2>&1 &
+  CMUX_TAG="$RUN_TAG" CMUX_UI_TEST_MODE=1 "$APP/Contents/MacOS/cmux" >/dev/null 2>&1 &
 
   SOCK=""
   for _ in {1..120}; do
-    SOCK=$(ls -t /tmp/cmux-debug*.sock /tmp/cmux*.sock 2>/dev/null | head -1 || true)
+    SOCK=$(ls -t /tmp/c11mux-debug*.sock /tmp/c11mux*.sock 2>/dev/null | head -1 || true)
     if [ -n "$SOCK" ] && [ -S "$SOCK" ]; then
       break
     fi
@@ -64,7 +63,7 @@ launch_and_wait() {
   done
 
   if [ -z "$SOCK" ] || [ ! -S "$SOCK" ]; then
-    echo "ERROR: Socket not ready (looked for /tmp/cmux*.sock)" >&2
+    echo "ERROR: Socket not ready (looked for /tmp/c11mux*.sock)" >&2
     exit 1
   fi
   export CMUX_SOCKET_PATH="$SOCK"

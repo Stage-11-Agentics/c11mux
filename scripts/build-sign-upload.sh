@@ -48,7 +48,7 @@ fi
 TAG="$1"
 SIGN_HASH="A050CC7E193C8221BDBA204E731B046CDCCC1B30"
 ENTITLEMENTS="cmux.entitlements"
-APP_PATH="build/Build/Products/Release/cmux.app"
+APP_PATH="build/Build/Products/Release/c11mux.app"
 
 # --- Pre-flight ---
 source ~/.secrets/cmuxterm.env
@@ -185,12 +185,14 @@ cask "cmux" do
 
   depends_on macos: ">= :ventura"
 
-  app "cmux.app"
-  binary "#{appdir}/cmux.app/Contents/Resources/bin/cmux"
+  app "c11mux.app"
+  binary "#{appdir}/c11mux.app/Contents/Resources/bin/cmux"
 
   zap trash: [
+    "~/Library/Application Support/c11mux",
     "~/Library/Application Support/cmux",
     "~/Library/Caches/cmux",
+    "~/Library/Preferences/com.stage11.c11mux.plist",
     "~/Library/Preferences/ai.manaflow.cmuxterm.plist",
   ]
 end

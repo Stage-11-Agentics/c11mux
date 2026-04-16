@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="cmux DEV"
-BUNDLE_ID="com.cmuxterm.app.debug"
-BASE_APP_NAME="cmux DEV"
+APP_NAME="c11mux DEV"
+BUNDLE_ID="com.stage11.c11mux.debug"
+BASE_APP_NAME="c11mux DEV"
+BASE_EXECUTABLE_NAME="cmux"
 DERIVED_DATA=""
 NAME_SET=0
 BUNDLE_SET=0
@@ -11,7 +12,7 @@ DERIVED_SET=0
 TAG=""
 CMUX_DEBUG_LOG=""
 CLI_PATH=""
-LAST_SOCKET_PATH_DIR="$HOME/Library/Application Support/cmux"
+LAST_SOCKET_PATH_DIR="$HOME/Library/Application Support/c11mux"
 LAST_SOCKET_PATH_FILE="${LAST_SOCKET_PATH_DIR}/last-socket-path"
 
 write_dev_cli_shim() {
@@ -20,10 +21,10 @@ write_dev_cli_shim() {
   mkdir -p "$(dirname "$target")"
   cat > "$target" <<EOF
 #!/usr/bin/env bash
-# cmux dev shim (managed by scripts/reload.sh)
+# c11mux dev shim (managed by scripts/reload.sh)
 set -euo pipefail
 
-CLI_PATH_FILE="/tmp/cmux-last-cli-path"
+CLI_PATH_FILE="/tmp/c11mux-last-cli-path"
 CLI_PATH_OWNER="\$(stat -f '%u' "\$CLI_PATH_FILE" 2>/dev/null || stat -c '%u' "\$CLI_PATH_FILE" 2>/dev/null || echo -1)"
 if [[ -r "\$CLI_PATH_FILE" ]] && [[ ! -L "\$CLI_PATH_FILE" ]] && [[ "\$CLI_PATH_OWNER" == "\$(id -u)" ]]; then
   CLI_PATH="\$(cat "\$CLI_PATH_FILE")"
@@ -43,8 +44,8 @@ EOF
 }
 
 select_cmux_shim_target() {
-  local app_cli_dir="/Applications/cmux.app/Contents/Resources/bin"
-  local marker="cmux dev shim (managed by scripts/reload.sh)"
+  local app_cli_dir="/Applications/c11mux.app/Contents/Resources/bin"
+  local marker="c11mux dev shim (managed by scripts/reload.sh)"
   local target=""
   local path_entry=""
   local candidate=""
@@ -96,7 +97,7 @@ write_last_socket_path() {
   local socket_path="$1"
   mkdir -p "$LAST_SOCKET_PATH_DIR"
   echo "$socket_path" > "$LAST_SOCKET_PATH_FILE" || true
-  echo "$socket_path" > /tmp/cmux-last-socket-path || true
+  echo "$socket_path" > /tmp/c11mux-last-socket-path || true
 }
 
 usage() {
@@ -146,8 +147,8 @@ print_tag_cleanup_reminder() {
   local -a stale_tags=()
 
   while IFS= read -r -d '' path; do
-    if [[ "$path" == /tmp/cmux-* ]]; then
-      tag="${path#/tmp/cmux-}"
+    if [[ "$path" == /tmp/c11mux-* ]]; then
+      tag="${path#/tmp/c11mux-}"
     elif [[ "$path" == "$HOME/Library/Developer/Xcode/DerivedData/cmux-"* ]]; then
       tag="${path#$HOME/Library/Developer/Xcode/DerivedData/cmux-}"
     else
@@ -166,7 +167,7 @@ print_tag_cleanup_reminder() {
     seen="${seen}${tag} "
     stale_tags+=("$tag")
   done < <(
-    find /tmp -maxdepth 1 -name 'cmux-*' -print0 2>/dev/null
+    find /tmp -maxdepth 1 -name 'c11mux-*' -print0 2>/dev/null
     find "$HOME/Library/Developer/Xcode/DerivedData" -maxdepth 1 -type d -name 'cmux-*' -print0 2>/dev/null
   )
 
@@ -183,17 +184,17 @@ print_tag_cleanup_reminder() {
     done
     echo "Cleanup stale tags only:"
     for tag in "${stale_tags[@]}"; do
-      echo "  pkill -f \"cmux DEV ${tag}.app/Contents/MacOS/cmux DEV\""
-      echo "  rm -rf \"$(tagged_derived_data_path "$tag")\" \"/tmp/cmux-${tag}\" \"/tmp/cmux-debug-${tag}.sock\""
-      echo "  rm -f \"/tmp/cmux-debug-${tag}.log\""
-      echo "  rm -f \"$HOME/Library/Application Support/cmux/cmuxd-dev-${tag}.sock\""
+      echo "  pkill -f \"c11mux DEV ${tag}.app/Contents/MacOS/cmux\""
+      echo "  rm -rf \"$(tagged_derived_data_path "$tag")\" \"/tmp/c11mux-${tag}\" \"/tmp/c11mux-debug-${tag}.sock\""
+      echo "  rm -f \"/tmp/c11mux-debug-${tag}.log\""
+      echo "  rm -f \"$HOME/Library/Application Support/c11mux/cmuxd-dev-${tag}.sock\""
     done
   fi
   echo "After you verify current tag, cleanup command:"
-  echo "  pkill -f \"cmux DEV ${current_slug}.app/Contents/MacOS/cmux DEV\""
-  echo "  rm -rf \"$(tagged_derived_data_path "$current_slug")\" \"/tmp/cmux-${current_slug}\" \"/tmp/cmux-debug-${current_slug}.sock\""
-  echo "  rm -f \"/tmp/cmux-debug-${current_slug}.log\""
-  echo "  rm -f \"$HOME/Library/Application Support/cmux/cmuxd-dev-${current_slug}.sock\""
+  echo "  pkill -f \"c11mux DEV ${current_slug}.app/Contents/MacOS/cmux\""
+  echo "  rm -rf \"$(tagged_derived_data_path "$current_slug")\" \"/tmp/c11mux-${current_slug}\" \"/tmp/c11mux-debug-${current_slug}.sock\""
+  echo "  rm -f \"/tmp/c11mux-debug-${current_slug}.log\""
+  echo "  rm -f \"$HOME/Library/Application Support/c11mux/cmuxd-dev-${current_slug}.sock\""
 }
 
 while [[ $# -gt 0 ]]; do
@@ -255,10 +256,10 @@ if [[ -n "$TAG" ]]; then
   TAG_ID="$(sanitize_bundle "$TAG")"
   TAG_SLUG="$(sanitize_path "$TAG")"
   if [[ "$NAME_SET" -eq 0 ]]; then
-    APP_NAME="cmux DEV ${TAG}"
+    APP_NAME="c11mux DEV ${TAG}"
   fi
   if [[ "$BUNDLE_SET" -eq 0 ]]; then
-    BUNDLE_ID="com.cmuxterm.app.debug.${TAG_ID}"
+    BUNDLE_ID="com.stage11.c11mux.debug.${TAG_ID}"
   fi
   if [[ "$DERIVED_SET" -eq 0 ]]; then
     DERIVED_DATA="$(tagged_derived_data_path "$TAG_SLUG")"
@@ -283,7 +284,7 @@ if [[ -z "$TAG" ]]; then
 fi
 XCODEBUILD_ARGS+=(build)
 
-XCODE_LOG="/tmp/cmux-xcodebuild-${TAG_SLUG}.log"
+XCODE_LOG="/tmp/c11mux-xcodebuild-${TAG_SLUG}.log"
 xcodebuild "${XCODEBUILD_ARGS[@]}" 2>&1 | tee "$XCODE_LOG" | grep -E '(warning:|error:|fatal:|BUILD FAILED|BUILD SUCCEEDED|\*\* BUILD)' || true
 XCODE_EXIT="${PIPESTATUS[0]}"
 echo "Full build log: $XCODE_LOG"
@@ -305,7 +306,7 @@ if [[ -n "$DERIVED_DATA" ]]; then
   fi
 else
   APP_BINARY="$(
-    find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Debug/${SEARCH_APP_NAME}.app/Contents/MacOS/${SEARCH_APP_NAME}" -print0 \
+    find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Debug/${SEARCH_APP_NAME}.app/Contents/MacOS/${BASE_EXECUTABLE_NAME}" -print0 \
     | xargs -0 /usr/bin/stat -f "%m %N" 2>/dev/null \
     | sort -nr \
     | head -n 1 \
@@ -316,7 +317,7 @@ else
   fi
   if [[ -z "${APP_PATH}" && "$SEARCH_APP_NAME" != "$FALLBACK_APP_NAME" ]]; then
     APP_BINARY="$(
-      find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Debug/${FALLBACK_APP_NAME}.app/Contents/MacOS/${FALLBACK_APP_NAME}" -print0 \
+      find "$HOME/Library/Developer/Xcode/DerivedData" -path "*/Build/Products/Debug/${FALLBACK_APP_NAME}.app/Contents/MacOS/${BASE_EXECUTABLE_NAME}" -print0 \
       | xargs -0 /usr/bin/stat -f "%m %N" 2>/dev/null \
       | sort -nr \
       | head -n 1 \
@@ -333,7 +334,7 @@ if [[ -z "${APP_PATH}" || ! -d "${APP_PATH}" ]]; then
 fi
 
 if [[ -n "${TAG_SLUG:-}" ]]; then
-  TMP_COMPAT_DERIVED_LINK="/tmp/cmux-${TAG_SLUG}"
+  TMP_COMPAT_DERIVED_LINK="/tmp/c11mux-${TAG_SLUG}"
   if [[ "$DERIVED_DATA" != "$TMP_COMPAT_DERIVED_LINK" ]]; then
     ABS_DERIVED_DATA="$(cd "$DERIVED_DATA" && pwd)"
     rm -rf "$TMP_COMPAT_DERIVED_LINK"
@@ -354,12 +355,12 @@ if [[ -n "$TAG" && "$APP_NAME" != "$SEARCH_APP_NAME" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$INFO_PLIST" 2>/dev/null \
       || /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $BUNDLE_ID" "$INFO_PLIST"
     if [[ -n "${TAG_SLUG:-}" ]]; then
-      APP_SUPPORT_DIR="$HOME/Library/Application Support/cmux"
+      APP_SUPPORT_DIR="$HOME/Library/Application Support/c11mux"
       CMUXD_SOCKET="${APP_SUPPORT_DIR}/cmuxd-dev-${TAG_SLUG}.sock"
-      CMUX_SOCKET="/tmp/cmux-debug-${TAG_SLUG}.sock"
-      CMUX_DEBUG_LOG="/tmp/cmux-debug-${TAG_SLUG}.log"
+      CMUX_SOCKET="/tmp/c11mux-debug-${TAG_SLUG}.sock"
+      CMUX_DEBUG_LOG="/tmp/c11mux-debug-${TAG_SLUG}.log"
       write_last_socket_path "$CMUX_SOCKET"
-      echo "$CMUX_DEBUG_LOG" > /tmp/cmux-last-debug-log-path || true
+      echo "$CMUX_DEBUG_LOG" > /tmp/c11mux-last-debug-log-path || true
       /usr/libexec/PlistBuddy -c "Add :LSEnvironment dict" "$INFO_PLIST" 2>/dev/null || true
       /usr/libexec/PlistBuddy -c "Set :LSEnvironment:CMUXD_UNIX_PATH \"${CMUXD_SOCKET}\"" "$INFO_PLIST" 2>/dev/null \
         || /usr/libexec/PlistBuddy -c "Add :LSEnvironment:CMUXD_UNIX_PATH string \"${CMUXD_SOCKET}\"" "$INFO_PLIST"
@@ -392,16 +393,16 @@ fi
 
 CLI_PATH="$(dirname "$APP_PATH")/cmux"
 if [[ -x "$CLI_PATH" ]]; then
-  (umask 077; printf '%s\n' "$CLI_PATH" > /tmp/cmux-last-cli-path) || true
-  ln -sfn "$CLI_PATH" /tmp/cmux-cli || true
+  (umask 077; printf '%s\n' "$CLI_PATH" > /tmp/c11mux-last-cli-path) || true
+  ln -sfn "$CLI_PATH" /tmp/c11mux-cli || true
 
   # Stable shim that always follows the last reload-selected dev CLI.
   DEV_CLI_SHIM="$HOME/.local/bin/cmux-dev"
-  write_dev_cli_shim "$DEV_CLI_SHIM" "/Applications/cmux.app/Contents/Resources/bin/cmux"
+  write_dev_cli_shim "$DEV_CLI_SHIM" "/Applications/c11mux.app/Contents/Resources/bin/cmux"
 
   CMUX_SHIM_TARGET="$(select_cmux_shim_target || true)"
   if [[ -n "${CMUX_SHIM_TARGET:-}" ]]; then
-    write_dev_cli_shim "$CMUX_SHIM_TARGET" "/Applications/cmux.app/Contents/Resources/bin/cmux"
+    write_dev_cli_shim "$CMUX_SHIM_TARGET" "/Applications/c11mux.app/Contents/Resources/bin/cmux"
   fi
 fi
 
@@ -410,10 +411,10 @@ fi
 sleep 0.3
 if [[ -z "$TAG" ]]; then
   # Non-tag mode: kill any running instance (across any DerivedData path) to avoid socket conflicts.
-  pkill -f "/${BASE_APP_NAME}.app/Contents/MacOS/${BASE_APP_NAME}" || true
+  pkill -f "/${BASE_APP_NAME}.app/Contents/MacOS/${BASE_EXECUTABLE_NAME}" || true
 else
   # Tag mode: only kill the tagged instance; allow side-by-side with the main app.
-  pkill -f "${APP_NAME}.app/Contents/MacOS/${BASE_APP_NAME}" || true
+  pkill -f "${APP_NAME}.app/Contents/MacOS/${BASE_EXECUTABLE_NAME}" || true
 fi
 sleep 0.3
 CMUXD_SRC="$PWD/cmuxd/zig-out/bin/cmuxd"
@@ -438,7 +439,7 @@ if [[ -x "$GHOSTTY_HELPER_SRC" ]]; then
 fi
 CLI_PATH="$APP_PATH/Contents/Resources/bin/cmux"
 if [[ -x "$CLI_PATH" ]]; then
-  echo "$CLI_PATH" > /tmp/cmux-last-cli-path || true
+  echo "$CLI_PATH" > /tmp/c11mux-last-cli-path || true
 fi
 # Avoid inheriting cmux/ghostty environment variables from the terminal that
 # runs this script (often inside another cmux instance), which can cause
@@ -472,8 +473,8 @@ if [[ -n "${TAG_SLUG:-}" && -n "${CMUX_SOCKET:-}" ]]; then
 elif [[ -n "${TAG_SLUG:-}" ]]; then
   "${OPEN_CLEAN_ENV[@]}" CMUX_TAG="$TAG_SLUG" CMUX_SOCKET_ENABLE=1 CMUX_SOCKET_MODE=automation CMUX_DEBUG_LOG="$CMUX_DEBUG_LOG" CMUX_REMOTE_DAEMON_ALLOW_LOCAL_BUILD=1 CMUXTERM_REPO_ROOT="$PWD" open -g "$APP_PATH"
 else
-  echo "/tmp/cmux-debug.sock" > /tmp/cmux-last-socket-path || true
-  echo "/tmp/cmux-debug.log" > /tmp/cmux-last-debug-log-path || true
+  echo "/tmp/c11mux-debug.sock" > /tmp/c11mux-last-socket-path || true
+  echo "/tmp/c11mux-debug.log" > /tmp/c11mux-last-debug-log-path || true
   "${OPEN_CLEAN_ENV[@]}" open -g "$APP_PATH"
 fi
 
@@ -506,7 +507,7 @@ if [[ -x "${CLI_PATH:-}" ]]; then
   echo "CLI path:"
   echo "  $CLI_PATH"
   echo "CLI helpers:"
-  echo "  /tmp/cmux-cli ..."
+  echo "  /tmp/c11mux-cli ..."
   echo "  $HOME/.local/bin/cmux-dev ..."
   if [[ -n "${CMUX_SHIM_TARGET:-}" ]]; then
     echo "  $CMUX_SHIM_TARGET ..."
