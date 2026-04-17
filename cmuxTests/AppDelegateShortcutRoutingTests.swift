@@ -2990,6 +2990,94 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         XCTAssertEqual(activateApplicationCallCount, 1)
     }
 
+    func testCmdRRoutesToMarkdownRefreshWhenMarkdownPanelIsFocused() throws {
+        guard let appDelegate = AppDelegate.shared else {
+            XCTFail("Expected AppDelegate.shared")
+            return
+        }
+
+        let windowId = appDelegate.createMainWindow()
+        defer { closeWindow(withId: windowId) }
+
+        guard let targetWindow = window(withId: windowId),
+              let manager = appDelegate.tabManagerFor(windowId: windowId),
+              let workspace = manager.selectedWorkspace,
+              let paneId = workspace.bonsplitController.allPaneIds.first else {
+            XCTFail("Expected test window, manager, workspace, and pane")
+            return
+        }
+
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-markdown-refresh-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let markdownURL = tempRoot.appendingPathComponent("note.md")
+        try "# before\n".write(to: markdownURL, atomically: true, encoding: .utf8)
+
+        guard let panel = workspace.newMarkdownSurface(
+            inPane: paneId,
+            filePath: markdownURL.path,
+            focus: true
+        ) else {
+            XCTFail("Expected markdown panel")
+            return
+        }
+
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.05))
+
+        XCTAssertTrue(
+            manager.focusedMarkdownPanel === panel,
+            "Markdown panel must be focused for the dispatch test"
+        )
+        XCTAssertEqual(panel.content, "# before\n")
+
+        try "# after\n".write(to: markdownURL, atomically: true, encoding: .utf8)
+
+        // The carve-out in the renameTab branch must prevent the command
+        // palette rename-tab request from firing when a markdown panel is
+        // focused. If the bypass regresses, this observer will count a post.
+        var renameTabRequests = 0
+        let observer = NotificationCenter.default.addObserver(
+            forName: .commandPaletteRenameTabRequested,
+            object: nil,
+            queue: .main
+        ) { _ in
+            renameTabRequests += 1
+        }
+        defer { NotificationCenter.default.removeObserver(observer) }
+
+        guard let event = makeKeyDownEvent(
+            key: "r",
+            modifiers: [.command],
+            keyCode: 15, // kVK_ANSI_R
+            windowNumber: targetWindow.windowNumber
+        ) else {
+            XCTFail("Failed to construct Cmd+R event")
+            return
+        }
+
+#if DEBUG
+        XCTAssertTrue(
+            appDelegate.debugHandleCustomShortcut(event: event),
+            "Cmd+R should be consumed when a markdown panel is focused"
+        )
+#else
+        XCTFail("debugHandleCustomShortcut is only available in DEBUG")
+#endif
+
+        XCTAssertEqual(
+            renameTabRequests,
+            0,
+            "renameTab command palette must not fire when a markdown panel is focused"
+        )
+        XCTAssertEqual(
+            panel.content,
+            "# after\n",
+            "Cmd+R should trigger markdown refresh, pulling the updated file from disk"
+        )
+    }
+
     private func makeKeyDownEvent(
         key: String,
         modifiers: NSEvent.ModifierFlags,
