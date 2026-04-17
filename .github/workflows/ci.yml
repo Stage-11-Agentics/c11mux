@@ -96,7 +96,10 @@ jobs:
           fi
           echo "DEVELOPER_DIR=$XCODE_DIR" >> "$GITHUB_ENV"
           export DEVELOPER_DIR="$XCODE_DIR"
-          xcodebuild -version
+          XCODE_VERSION_OUTPUT="$(xcodebuild -version)"
+          XCODE_VER="${XCODE_VERSION_OUTPUT%%$'\n'*}"
+          echo "XCODE_VER=$XCODE_VER" >> "$GITHUB_ENV"
+          echo "$XCODE_VERSION_OUTPUT"
 
       - name: Cache GhosttyKit.xcframework
         id: cache-ghosttykit
@@ -135,17 +138,18 @@ jobs:
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: ~/Library/Developer/Xcode/DerivedData/GhosttyTabs-*
-          key: deriveddata-tests-${{ hashFiles('GhosttyTabs.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ hashFiles('GhosttyTabs.xcodeproj/project.pbxproj') }}
+          key: deriveddata-tests-${{ runner.os }}-${{ env.XCODE_VER }}-${{ hashFiles('GhosttyTabs.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ hashFiles('GhosttyTabs.xcodeproj/project.pbxproj') }}
           restore-keys: |
-            deriveddata-tests-${{ hashFiles('GhosttyTabs.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
-            deriveddata-tests-
+            deriveddata-tests-${{ runner.os }}-${{ env.XCODE_VER }}-${{ hashFiles('GhosttyTabs.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
+            deriveddata-tests-${{ runner.os }}-${{ env.XCODE_VER }}-
+            deriveddata-tests-${{ runner.os }}-
 
       - name: Cache Swift packages
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: .ci-source-packages
-          key: spm-${{ hashFiles('GhosttyTabs.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
-          restore-keys: spm-
+          key: spm-${{ runner.os }}-${{ hashFiles('GhosttyTabs.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
 
       - name: Resolve Swift packages
         run: |
@@ -172,9 +176,15 @@ jobs:
           set -euo pipefail
           SOURCE_PACKAGES_DIR="$PWD/.ci-source-packages"
           run_unit_tests() {
+            # -parallel-testing-enabled + worker count: XCTest fans test classes
+            # across worker processes. macos-15-xlarge runners have 6 cores; 4
+            # workers keeps each worker's build/test overhead contained without
+            # thrashing. Measured wall-time impact is the point of this PR.
             xcodebuild -project GhosttyTabs.xcodeproj -scheme cmux-unit -configuration Debug \
               -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_DIR" \
               -disableAutomaticPackageResolution \
+              -parallel-testing-enabled YES \
+              -maximum-parallel-testing-workers 4 \
               -destination "platform=macOS" test 2>&1
           }
 
