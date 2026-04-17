@@ -24,10 +24,6 @@ final class MarkdownPanel: Panel, ObservableObject {
     /// per-panel override.
     static let defaultThemeDefaultsKey = "markdownThemeDefault"
 
-    /// Notification posted when `themeChoice` changes so external observers
-    /// (session persistence) can react.
-    static let themeChoiceDidChangeNotification = Notification.Name("cmux.markdownPanel.themeChoiceDidChange")
-
     let id: UUID
     let panelType: PanelType = .markdown
 
@@ -61,6 +57,11 @@ final class MarkdownPanel: Panel, ObservableObject {
 
     /// Tracks the appearance used for the last mermaid render pass.
     private var lastRenderedDark: Bool?
+
+    /// Bumped every time the effective theme changes so that late completions
+    /// from a prior render pass cannot overwrite the current theme's images
+    /// during rapid ⌘⇧T cycling.
+    private var renderGeneration: Int = 0
 
     /// Observer for system appearance changes.
     private var appearanceObserver: NSObjectProtocol?
@@ -115,10 +116,6 @@ final class MarkdownPanel: Panel, ObservableObject {
     func setTheme(_ choice: MarkdownThemeChoice) {
         guard themeChoice != choice else { return }
         themeChoice = choice
-        NotificationCenter.default.post(
-            name: Self.themeChoiceDidChangeNotification,
-            object: self
-        )
         handleAppearanceChangeIfNeeded()
     }
 
@@ -287,6 +284,7 @@ final class MarkdownPanel: Panel, ObservableObject {
     private func renderFencedCodeSegments() {
         let isDark = effectiveIsDark
         lastRenderedDark = isDark
+        let generation = renderGeneration
 
         let registry = FencedCodeRendererRegistry.shared
 
@@ -309,6 +307,10 @@ final class MarkdownPanel: Panel, ObservableObject {
             guard let renderer = registry.renderer(for: language) else { continue }
             renderer.render(code: code, isDark: isDark) { [weak self] image in
                 guard let self else { return }
+                // Theme changed since this render started — drop the result so
+                // a late completion from a prior theme cannot corrupt the
+                // current theme's rendered images.
+                guard generation == self.renderGeneration else { return }
                 guard index < self.segments.count,
                       case .fencedCode(let currentId, _, _, _) = self.segments[index],
                       currentId == id else { return }
@@ -354,6 +356,9 @@ final class MarkdownPanel: Panel, ObservableObject {
     private func handleAppearanceChangeIfNeeded() {
         let isDark = effectiveIsDark
         guard isDark != lastRenderedDark else { return }
+        // Invalidate any in-flight renders kicked off for the prior theme so
+        // their completions become no-ops (see `renderFencedCodeSegments`).
+        renderGeneration &+= 1
         // Clear rendered images so they re-render with the new theme
         for (i, segment) in segments.enumerated() {
             if case .fencedCode(let id, let lang, let code, let image) = segment, image != nil {
