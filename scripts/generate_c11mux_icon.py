@@ -21,7 +21,7 @@ import json
 import os
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(REPO, "Assets.xcassets")
@@ -157,53 +157,53 @@ def add_banner(
     text: str,
     color: tuple[int, int, int, int],
 ) -> Image.Image:
-    """Overlay a bottom-edge channel banner (DEV/NIGHTLY/STAGING)."""
+    """Overlay a bottom-edge channel banner (DEV/NIGHTLY/STAGING).
+
+    Skipped at sizes where no text fits — at those sizes the colored band
+    would only cover the bottom cap of the simplified hub-and-spokes glyph
+    with no added channel signal.
+    """
     icon = icon.copy().convert("RGBA")
     w, h = icon.size
+    if h < 64:
+        return icon
+
     banner_h = max(8, int(round(h * 0.18)))
     banner_y = h - banner_h
 
-    # Banner alpha: intersection of squircle silhouette and bottom band.
+    # Banner alpha = squircle silhouette ∩ bottom band.
     mask = squircle_mask(w)
     band = Image.new("L", (w, h), 0)
     ImageDraw.Draw(band).rectangle((0, banner_y, w, h), fill=255)
-    banner_alpha = Image.eval(mask, lambda v: v).point(
-        lambda _: 0
-    )  # placeholder, replaced below
-    banner_alpha = Image.new("L", icon.size, 0)
-    for y in range(banner_y, h):
-        for x in range(w):
-            banner_alpha.putpixel((x, y), mask.getpixel((x, y)))
+    banner_alpha = ImageChops.multiply(mask, band)
 
     banner_rgba = Image.new("RGBA", icon.size, color)
     banner_rgba.putalpha(banner_alpha)
     composed = Image.alpha_composite(icon, banner_rgba)
 
-    # Text centered in the banner. Skip at tiny sizes.
-    if h >= 64:
-        font_size = max(6, int(round(banner_h * 0.58)))
-        font = None
-        for path in (
-            "/System/Library/Fonts/SFCompact-Bold.otf",
-            "/System/Library/Fonts/SFCompactDisplay.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-            "/System/Library/Fonts/Helvetica.ttc",
-        ):
-            if os.path.exists(path):
-                try:
-                    font = ImageFont.truetype(path, font_size)
-                    break
-                except Exception:
-                    continue
-        if font is None:
-            font = ImageFont.load_default()
-        td = ImageDraw.Draw(composed)
-        bbox = td.textbbox((0, 0), text, font=font)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
-        tx = (w - tw) // 2 - bbox[0]
-        ty = banner_y + (banner_h - th) // 2 - bbox[1]
-        td.text((tx, ty), text, fill=WHITE, font=font)
+    font_size = max(6, int(round(banner_h * 0.58)))
+    font = None
+    for path in (
+        "/System/Library/Fonts/SFCompact-Bold.otf",
+        "/System/Library/Fonts/SFCompactDisplay.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+    ):
+        if os.path.exists(path):
+            try:
+                font = ImageFont.truetype(path, font_size)
+                break
+            except Exception:
+                continue
+    if font is None:
+        font = ImageFont.load_default()
+    td = ImageDraw.Draw(composed)
+    bbox = td.textbbox((0, 0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    tx = (w - tw) // 2 - bbox[0]
+    ty = banner_y + (banner_h - th) // 2 - bbox[1]
+    td.text((tx, ty), text, fill=WHITE, font=font)
 
     return composed
 
