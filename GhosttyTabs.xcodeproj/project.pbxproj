@@ -955,6 +955,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.stage11.c11mux.debug;
 				PRODUCT_NAME = "c11mux DEV";
+				PRODUCT_MODULE_NAME = cmux_DEV;
 				EXECUTABLE_NAME = cmux;
 				SPARKLE_PUBLIC_KEY = "avjcgKibf1FTvhIjLBxhd+0HSpsXU4D0IGlVk8cgqRc=";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -996,6 +997,7 @@
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stage11.c11mux;
 				PRODUCT_NAME = c11mux;
+				PRODUCT_MODULE_NAME = cmux;
 				EXECUTABLE_NAME = cmux;
 				SPARKLE_PUBLIC_KEY = "avjcgKibf1FTvhIjLBxhd+0HSpsXU4D0IGlVk8cgqRc=";
 				SWIFT_EMIT_LOC_STRINGS = YES;
