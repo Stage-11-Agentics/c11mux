@@ -14,7 +14,7 @@ a terminal — reimagined — for human:digital operators. built by stage 11 for
 
 **lineage.** tmux taught the terminal to split. [cmux](https://github.com/manaflow-ai/cmux) rebuilt that idea as a macOS-native app on a GPU-accelerated renderer, shaped for coding agents. c11mux is stage 11's fork — same bones, different room, tuned for the spike.
 
-stage 11 is a small outpost in a very large dark. we built this because we needed it. it is now yours.
+stage 11 is an outpost in a very large dark. we built this because we needed it. it is now yours too.
 
 ---
 
