@@ -16,7 +16,7 @@ env:
 
 jobs:
   build-sign-notarize:
-    runs-on: macos-15
+    runs-on: macos-15-large
     timeout-minutes: 60
     steps:
       - name: Checkout

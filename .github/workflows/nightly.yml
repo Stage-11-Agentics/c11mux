@@ -101,7 +101,7 @@ jobs:
   build-sign-notarize-nightly:
     needs: decide
     if: needs.decide.outputs.should_build == 'true'
-    runs-on: macos-15
+    runs-on: macos-15-large
     timeout-minutes: 60
     steps:
       - name: Checkout build ref

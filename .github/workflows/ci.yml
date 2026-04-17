@@ -72,7 +72,7 @@ jobs:
 
   tests:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: macos-15
+    runs-on: macos-15-large
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -234,7 +234,7 @@ jobs:
     # stuck "Running Background", 62s activation timeout per test). Interactive UI
     # tests run via test-e2e.yml.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: macos-15
+    runs-on: macos-15-large
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -387,7 +387,7 @@ jobs:
 
   ui-display-resolution-regression:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: macos-15
+    runs-on: macos-15-large
     timeout-minutes: 45
     steps:
       - name: Checkout
