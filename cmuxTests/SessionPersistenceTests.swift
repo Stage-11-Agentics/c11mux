@@ -44,6 +44,73 @@ final class SessionPersistenceTests: XCTestCase {
     }
 
     @MainActor
+    func testLegacyMarkdownSnapshotWithNilThemeChoiceRestoresUnderAppWideDefault() throws {
+        let defaultsKey = MarkdownPanel.defaultThemeDefaultsKey
+        let previous = UserDefaults.standard.string(forKey: defaultsKey)
+        UserDefaults.standard.set(MarkdownThemeChoice.dark.rawValue, forKey: defaultsKey)
+        defer {
+            if let previous {
+                UserDefaults.standard.set(previous, forKey: defaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: defaultsKey)
+            }
+        }
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cmux-session-markdown-legacynil-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let markdownURL = root.appendingPathComponent("note.md")
+        try "# legacy\n".write(to: markdownURL, atomically: true, encoding: .utf8)
+
+        // Seed a fully-populated snapshot by creating a markdown panel and
+        // taking its snapshot, then strip the themeChoice so we're exercising
+        // the "legacy snapshot predates per-panel theme persistence" decode
+        // path that the docstring promises restores under the app-wide default.
+        let source = Workspace()
+        let sourcePaneId = try XCTUnwrap(source.bonsplitController.allPaneIds.first)
+        _ = try XCTUnwrap(
+            source.newMarkdownSurface(
+                inPane: sourcePaneId,
+                filePath: markdownURL.path,
+                focus: true
+            )
+        )
+
+        var snapshot = source.sessionSnapshot(includeScrollback: false)
+        var stripped = false
+        for i in snapshot.panels.indices where snapshot.panels[i].type == .markdown {
+            snapshot.panels[i].markdown?.themeChoice = nil
+            stripped = true
+        }
+        XCTAssertTrue(stripped, "Expected a markdown panel snapshot to strip themeChoice on")
+
+        let encoded = try JSONEncoder().encode(snapshot)
+        XCTAssertFalse(
+            try XCTUnwrap(String(data: encoded, encoding: .utf8)).contains("\"themeChoice\""),
+            "Legacy snapshots should not encode themeChoice when nil"
+        )
+        let decoded = try JSONDecoder().decode(SessionWorkspaceSnapshot.self, from: encoded)
+
+        let restored = Workspace()
+        restored.restoreSessionSnapshot(decoded)
+
+        let restoredPanelId = try XCTUnwrap(restored.focusedPanelId)
+        let restoredPanel = try XCTUnwrap(restored.markdownPanel(for: restoredPanelId))
+        XCTAssertEqual(
+            restoredPanel.themeChoice,
+            MarkdownPanel.appWideDefaultThemeChoice(),
+            "Legacy snapshot with themeChoice=nil should restore under the current app-wide default"
+        )
+        XCTAssertEqual(
+            restoredPanel.themeChoice,
+            .dark,
+            "App-wide default we seeded should be reflected in the restored panel"
+        )
+    }
+
+    @MainActor
     func testWorkspaceSessionSnapshotRoundTripsEveryMarkdownThemeChoice() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("cmux-session-markdown-themes-\(UUID().uuidString)", isDirectory: true)
