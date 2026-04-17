@@ -1803,6 +1803,9 @@ class TerminalController {
         case "ports_kick":
             return portsKick(args)
 
+        case "agent_kick":
+            return agentKick(args)
+
         case "report_shell_state":
             return reportShellState(args)
 
@@ -2132,6 +2135,12 @@ class TerminalController {
             return v2Result(id: id, self.v2SurfaceClearHistory(params: params))
         case "surface.trigger_flash":
             return v2Result(id: id, self.v2SurfaceTriggerFlash(params: params))
+        case "surface.set_metadata":
+            return v2Result(id: id, self.v2SurfaceSetMetadata(params: params))
+        case "surface.get_metadata":
+            return v2Result(id: id, self.v2SurfaceGetMetadata(params: params))
+        case "surface.clear_metadata":
+            return v2Result(id: id, self.v2SurfaceClearMetadata(params: params))
 
         // Panes
         case "pane.list":
@@ -2472,6 +2481,9 @@ class TerminalController {
             "surface.read_text",
             "surface.clear_history",
             "surface.trigger_flash",
+            "surface.set_metadata",
+            "surface.get_metadata",
+            "surface.clear_metadata",
             "pane.list",
             "pane.focus",
             "pane.surfaces",
@@ -5689,6 +5701,183 @@ class TerminalController {
             result = .ok(["workspace_id": ws.id.uuidString, "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id), "surface_id": surfaceId.uuidString, "surface_ref": v2Ref(kind: .surface, uuid: surfaceId), "window_id": v2OrNull(v2ResolveWindowId(tabManager: tabManager)?.uuidString), "window_ref": v2Ref(kind: .window, uuid: v2ResolveWindowId(tabManager: tabManager))])
         }
         return result
+    }
+
+    // MARK: - V2 Surface Metadata (Module 2)
+
+    /// Resolve the (workspaceId, surfaceId) pair for a metadata call.
+    /// Runs off-main — touches only `TabManager.tabs` snapshot + v2 handle refs.
+    private func v2ResolveSurfaceForMetadata(
+        params: [String: Any]
+    ) -> (workspaceId: UUID, surfaceId: UUID, tabManager: TabManager)? {
+        guard let tabManager = v2ResolveTabManager(params: params) else {
+            return nil
+        }
+        return v2MainSync {
+            let ws: Workspace?
+            if let surfaceId = v2UUID(params, "surface_id") {
+                ws = tabManager.tabs.first(where: { $0.panels[surfaceId] != nil })
+                guard let workspace = ws else { return nil }
+                return (workspace.id, surfaceId, tabManager)
+            }
+            // Fallback: explicit workspace_id, then default to focused.
+            guard let workspace = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
+                return nil
+            }
+            if let focused = workspace.focusedPanelId {
+                return (workspace.id, focused, tabManager)
+            }
+            return nil
+        }
+    }
+
+    private func v2SurfaceSetMetadata(params: [String: Any]) -> V2CallResult {
+        guard let metadataObj = params["metadata"] as? [String: Any] else {
+            return .err(code: "invalid_json", message: "metadata must be a JSON object", data: nil)
+        }
+
+        let modeStr = (v2String(params, "mode") ?? "merge").lowercased()
+        guard let mode = SurfaceMetadataStore.WriteMode(rawValue: modeStr) else {
+            return .err(code: "invalid_mode", message: "mode must be 'merge' or 'replace'", data: nil)
+        }
+
+        let sourceStr = (v2String(params, "source") ?? "explicit").lowercased()
+        guard let source = MetadataSource(rawValue: sourceStr) else {
+            return .err(code: "invalid_source", message: "source must be one of: explicit, declare, osc, heuristic", data: nil)
+        }
+
+        guard let resolved = v2ResolveSurfaceForMetadata(params: params) else {
+            return .err(code: "surface_not_found", message: "Surface not found", data: nil)
+        }
+
+        do {
+            let result = try SurfaceMetadataStore.shared.setMetadata(
+                workspaceId: resolved.workspaceId,
+                surfaceId: resolved.surfaceId,
+                partial: metadataObj,
+                mode: mode,
+                source: source
+            )
+            return .ok(buildMetadataOkPayload(
+                workspaceId: resolved.workspaceId,
+                surfaceId: resolved.surfaceId,
+                tabManager: resolved.tabManager,
+                result: result
+            ))
+        } catch let err as SurfaceMetadataStore.WriteError {
+            return .err(code: err.code, message: err.message, data: err.detailData)
+        } catch {
+            return .err(code: "internal_error", message: "\(error)", data: nil)
+        }
+    }
+
+    private func v2SurfaceGetMetadata(params: [String: Any]) -> V2CallResult {
+        let keys: [String]?
+        if params["keys"] is NSNull || params["keys"] == nil {
+            keys = nil
+        } else if let arr = v2StringArray(params, "keys") {
+            keys = arr
+        } else {
+            return .err(code: "invalid_keys_param", message: "keys must be an array of strings", data: nil)
+        }
+
+        let includeSources = v2Bool(params, "include_sources") ?? false
+
+        guard let resolved = v2ResolveSurfaceForMetadata(params: params) else {
+            return .err(code: "surface_not_found", message: "Surface not found", data: nil)
+        }
+
+        let (fullMetadata, fullSources) = SurfaceMetadataStore.shared.getMetadata(
+            workspaceId: resolved.workspaceId,
+            surfaceId: resolved.surfaceId
+        )
+
+        var metadataOut: [String: Any] = fullMetadata
+        var sourcesOut: [String: [String: Any]] = fullSources
+        if let filterKeys = keys {
+            metadataOut = [:]
+            sourcesOut = [:]
+            for k in filterKeys {
+                if let v = fullMetadata[k] { metadataOut[k] = v }
+                if let s = fullSources[k] { sourcesOut[k] = s }
+            }
+        }
+
+        var payload: [String: Any] = [
+            "workspace_id": resolved.workspaceId.uuidString,
+            "workspace_ref": v2Ref(kind: .workspace, uuid: resolved.workspaceId),
+            "surface_id": resolved.surfaceId.uuidString,
+            "surface_ref": v2Ref(kind: .surface, uuid: resolved.surfaceId),
+            "metadata": metadataOut
+        ]
+        if includeSources {
+            payload["metadata_sources"] = sourcesOut
+        }
+        return .ok(payload)
+    }
+
+    private func v2SurfaceClearMetadata(params: [String: Any]) -> V2CallResult {
+        let keys: [String]?
+        if params["keys"] == nil || params["keys"] is NSNull {
+            keys = nil
+        } else if let arr = v2StringArray(params, "keys") {
+            keys = arr
+        } else {
+            return .err(code: "invalid_keys_param", message: "keys must be an array of strings", data: nil)
+        }
+
+        let sourceStr = (v2String(params, "source") ?? "explicit").lowercased()
+        guard let source = MetadataSource(rawValue: sourceStr) else {
+            return .err(code: "invalid_source", message: "source must be one of: explicit, declare, osc, heuristic", data: nil)
+        }
+
+        guard let resolved = v2ResolveSurfaceForMetadata(params: params) else {
+            return .err(code: "surface_not_found", message: "Surface not found", data: nil)
+        }
+
+        do {
+            let result = try SurfaceMetadataStore.shared.clearMetadata(
+                workspaceId: resolved.workspaceId,
+                surfaceId: resolved.surfaceId,
+                keys: keys,
+                source: source
+            )
+            return .ok(buildMetadataOkPayload(
+                workspaceId: resolved.workspaceId,
+                surfaceId: resolved.surfaceId,
+                tabManager: resolved.tabManager,
+                result: result
+            ))
+        } catch let err as SurfaceMetadataStore.WriteError {
+            return .err(code: err.code, message: err.message, data: err.detailData)
+        } catch {
+            return .err(code: "internal_error", message: "\(error)", data: nil)
+        }
+    }
+
+    private func buildMetadataOkPayload(
+        workspaceId: UUID,
+        surfaceId: UUID,
+        tabManager: TabManager,
+        result: SurfaceMetadataStore.WriteResult
+    ) -> [String: Any] {
+        var appliedAny: [String: Any] = [:]
+        for (k, v) in result.applied { appliedAny[k] = v }
+        var reasonsAny: [String: Any] = [:]
+        for (k, v) in result.reasons { reasonsAny[k] = v }
+        let windowId = v2ResolveWindowId(tabManager: tabManager)
+        return [
+            "workspace_id": workspaceId.uuidString,
+            "workspace_ref": v2Ref(kind: .workspace, uuid: workspaceId),
+            "surface_id": surfaceId.uuidString,
+            "surface_ref": v2Ref(kind: .surface, uuid: surfaceId),
+            "window_id": v2OrNull(windowId?.uuidString),
+            "window_ref": v2Ref(kind: .window, uuid: windowId),
+            "applied": appliedAny,
+            "reasons": reasonsAny,
+            "metadata": result.metadata,
+            "metadata_sources": result.sources
+        ]
     }
 
     // MARK: - V2 Pane Methods
@@ -14946,6 +15135,7 @@ class TerminalController {
                 guard validSurfaceIds.contains(scope.panelId) else { return }
                 tab.surfaceTTYNames[scope.panelId] = ttyName
                 PortScanner.shared.registerTTY(workspaceId: scope.workspaceId, panelId: scope.panelId, ttyName: ttyName)
+                AgentDetector.shared.registerTTY(workspaceId: scope.workspaceId, panelId: scope.panelId, ttyName: ttyName)
             }
             return "OK"
         }
@@ -14985,6 +15175,54 @@ class TerminalController {
 
             tab.surfaceTTYNames[surfaceId] = ttyName
             PortScanner.shared.registerTTY(workspaceId: tab.id, panelId: surfaceId, ttyName: ttyName)
+            AgentDetector.shared.registerTTY(workspaceId: tab.id, panelId: surfaceId, ttyName: ttyName)
+        }
+        return result
+    }
+
+    private func agentKick(_ args: String) -> String {
+        let parsed = parseOptions(args)
+        if let scope = Self.explicitSocketScope(options: parsed.options) {
+            DispatchQueue.main.async {
+                guard let tabManager = AppDelegate.shared?.tabManagerFor(tabId: scope.workspaceId),
+                      let tab = tabManager.tabs.first(where: { $0.id == scope.workspaceId }) else {
+                    return
+                }
+                let validSurfaceIds = Set(tab.panels.keys)
+                guard validSurfaceIds.contains(scope.panelId) else { return }
+                AgentDetector.shared.kick(workspaceId: scope.workspaceId, panelId: scope.panelId)
+            }
+            return "OK"
+        }
+
+        var result = "OK"
+        DispatchQueue.main.sync {
+            guard let tab = resolveTabForReport(args) else {
+                result = parsed.options["tab"] != nil ? "ERROR: Tab not found" : "ERROR: No tab selected"
+                return
+            }
+
+            let panelArg = parsed.options["panel"] ?? parsed.options["surface"]
+            let surfaceId: UUID
+            if let panelArg {
+                if panelArg.isEmpty {
+                    result = "ERROR: Missing panel id — usage: agent_kick [--tab=X] [--panel=Y]"
+                    return
+                }
+                guard let parsedId = UUID(uuidString: panelArg) else {
+                    result = "ERROR: Invalid panel id '\(panelArg)'"
+                    return
+                }
+                surfaceId = parsedId
+            } else {
+                guard let focused = tab.focusedPanelId else {
+                    result = "ERROR: Missing panel id (no focused surface)"
+                    return
+                }
+                surfaceId = focused
+            }
+
+            AgentDetector.shared.kick(workspaceId: tab.id, panelId: surfaceId)
         }
         return result
     }
