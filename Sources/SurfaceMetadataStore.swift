@@ -24,6 +24,23 @@ public enum MetadataSource: String, CaseIterable, Codable, Sendable {
     public var rank: Int { precedence }
 }
 
+/// Canonical reserved metadata keys (c11mux Module 2).
+///
+/// These string constants mirror `SurfaceMetadataStore.reservedKeys` and exist
+/// so call sites can write `MetadataKey.title` instead of the raw literal
+/// `"title"`. The store's validation is still driven by the string values
+/// themselves — this enum is a convenience namespace.
+public enum MetadataKey {
+    public static let role = "role"
+    public static let status = "status"
+    public static let task = "task"
+    public static let model = "model"
+    public static let progress = "progress"
+    public static let terminalType = "terminal_type"
+    public static let title = "title"
+    public static let description = "description"
+}
+
 /// Per-surface JSON metadata store (c11mux Module 2 storage primitive).
 ///
 /// Each surface owns two parallel dictionaries:

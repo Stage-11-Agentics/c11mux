@@ -10869,7 +10869,7 @@ private struct TabItemView: View, Equatable {
                         .foregroundColor(activeSecondaryColor(0.8))
                 }
 
-                Text(tab.title)
+                Text(TitleFormatting.sidebarLabel(from: tab.title))
                     .font(.system(size: 12.5, weight: titleFontWeight))
                     .foregroundColor(activePrimaryTextColor)
                     .lineLimit(1)
