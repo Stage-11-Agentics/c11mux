@@ -2710,7 +2710,29 @@ class TerminalController {
         if params["workspace_id"] != nil && workspaceFilter == nil {
             return .err(code: "invalid_params", message: "Missing or invalid workspace_id", data: nil)
         }
-        let includeAllWindows = v2Bool(params, "all_windows") ?? false
+
+        // Resolve scope: explicit `scope` wins, then legacy `all_windows`, then default workspace.
+        // Legal scope values: "workspace" | "window" | "all".
+        let rawScope = (params["scope"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let scope: String
+        if let rawScope, !rawScope.isEmpty {
+            switch rawScope {
+            case "workspace", "window", "all":
+                scope = rawScope
+            default:
+                return .err(
+                    code: "invalid_params",
+                    message: "Invalid scope: \(rawScope) (expected workspace|window|all)",
+                    data: ["scope": rawScope]
+                )
+            }
+        } else if let legacy = v2Bool(params, "all_windows") {
+            scope = legacy ? "all" : "window"
+        } else if workspaceFilter != nil {
+            scope = "workspace"
+        } else {
+            scope = "workspace"
+        }
 
         var identifyParams: [String: Any] = [:]
         if let caller = params["caller"] as? [String: Any], !caller.isEmpty {
@@ -2720,6 +2742,8 @@ class TerminalController {
         let focused = identifyPayload["focused"] as? [String: Any] ?? [:]
         let caller = identifyPayload["caller"] as? [String: Any] ?? [:]
         let focusedWindowId = v2UUIDAny(focused["window_id"]) ?? v2UUIDAny(focused["window_ref"])
+        let focusedWorkspaceId = v2UUIDAny(focused["workspace_id"]) ?? v2UUIDAny(focused["workspace_ref"])
+        let callerWorkspaceId = v2UUIDAny(caller["workspace_id"]) ?? v2UUIDAny(caller["workspace_ref"])
 
         var windowNodes: [[String: Any]] = []
         var workspaceFound = (workspaceFilter == nil)
@@ -2728,6 +2752,13 @@ class TerminalController {
             guard let app = AppDelegate.shared else { return }
             let summaries = app.listMainWindowSummaries()
             let defaultWindowId = focusedWindowId ?? summaries.first?.windowId
+
+            // Caller-current-workspace lookup for `scope == "workspace"`. Priority:
+            //   1. Explicit --workspace (handled below by workspaceFilter branch)
+            //   2. Caller env (CMUX_WORKSPACE_ID, propagated via params.caller)
+            //   3. Focused workspace
+            //   4. Selected workspace of the current window
+            let callerScopeWorkspaceId: UUID? = callerWorkspaceId ?? focusedWorkspaceId
 
             for (windowIndex, summary) in summaries.enumerated() {
                 guard let manager = app.tabManagerFor(windowId: summary.windowId) else { continue }
@@ -2753,25 +2784,65 @@ class TerminalController {
                     break
                 }
 
-                if !includeAllWindows && summary.windowId != defaultWindowId {
-                    continue
-                }
+                switch scope {
+                case "all":
+                    let workspaceNodesForWindow = manager.tabs.enumerated().map { workspaceIndex, workspace in
+                        v2TreeWorkspaceNode(
+                            workspace: workspace,
+                            index: workspaceIndex,
+                            selected: workspace.id == manager.selectedTabId
+                        )
+                    }
+                    windowNodes.append(
+                        v2TreeWindowNode(
+                            summary: summary,
+                            index: windowIndex,
+                            workspaceNodes: workspaceNodesForWindow
+                        )
+                    )
 
-                let workspaceNodesForWindow = manager.tabs.enumerated().map { workspaceIndex, workspace in
-                    v2TreeWorkspaceNode(
+                case "window":
+                    if summary.windowId != defaultWindowId { continue }
+                    let workspaceNodesForWindow = manager.tabs.enumerated().map { workspaceIndex, workspace in
+                        v2TreeWorkspaceNode(
+                            workspace: workspace,
+                            index: workspaceIndex,
+                            selected: workspace.id == manager.selectedTabId
+                        )
+                    }
+                    windowNodes.append(
+                        v2TreeWindowNode(
+                            summary: summary,
+                            index: windowIndex,
+                            workspaceNodes: workspaceNodesForWindow
+                        )
+                    )
+
+                case "workspace":
+                    // Find the caller's current workspace; only include the window that owns it.
+                    let target: UUID? = callerScopeWorkspaceId ?? manager.selectedTabId
+                    guard let targetId = target,
+                          let workspaceIndex = manager.tabs.firstIndex(where: { $0.id == targetId }) else {
+                        continue
+                    }
+                    let workspace = manager.tabs[workspaceIndex]
+                    let workspaceNode = v2TreeWorkspaceNode(
                         workspace: workspace,
                         index: workspaceIndex,
                         selected: workspace.id == manager.selectedTabId
                     )
-                }
+                    windowNodes = [
+                        v2TreeWindowNode(
+                            summary: summary,
+                            index: windowIndex,
+                            workspaceNodes: [workspaceNode]
+                        )
+                    ]
+                    return  // Only one workspace per "workspace" scope; exit the v2MainSync closure.
 
-                windowNodes.append(
-                    v2TreeWindowNode(
-                        summary: summary,
-                        index: windowIndex,
-                        workspaceNodes: workspaceNodesForWindow
-                    )
-                )
+                default:
+                    continue
+                }
             }
         }
 
@@ -2789,6 +2860,7 @@ class TerminalController {
         return .ok([
             "active": focused.isEmpty ? (NSNull() as Any) : focused,
             "caller": caller.isEmpty ? (NSNull() as Any) : caller,
+            "scope": scope,
             "windows": windowNodes
         ])
     }
@@ -2870,12 +2942,68 @@ class TerminalController {
             }
         }
 
+        // M8: derive content area + per-pane layout from bonsplit's snapshot.
+        // Percent values are workspace-relative regardless of split nesting depth.
+        let snapshot = workspace.bonsplitController.layoutSnapshot()
+        let contentSize = snapshot.containerFrame
+        let contentWidth = contentSize.width
+        let contentHeight = contentSize.height
+        let hasLayout = contentWidth > 0 && contentHeight > 0
+
+        var pixelByPaneId: [UUID: (h0: Int, h1: Int, v0: Int, v1: Int)] = [:]
+        var percentByPaneId: [UUID: (h0: Double, h1: Double, v0: Double, v1: Double)] = [:]
+        if hasLayout {
+            for geom in snapshot.panes {
+                guard let paneUUID = UUID(uuidString: geom.paneId) else { continue }
+                // Subtract the content origin so coordinates are relative to the workspace
+                // content area rather than the host window.
+                let relX = geom.frame.x - contentSize.x
+                let relY = geom.frame.y - contentSize.y
+                let h0 = Int((relX).rounded())
+                let h1 = Int((relX + geom.frame.width).rounded())
+                let v0 = Int((relY).rounded())
+                let v1 = Int((relY + geom.frame.height).rounded())
+                pixelByPaneId[paneUUID] = (h0, h1, v0, v1)
+                percentByPaneId[paneUUID] = (
+                    relX / contentWidth,
+                    (relX + geom.frame.width) / contentWidth,
+                    relY / contentHeight,
+                    (relY + geom.frame.height) / contentHeight
+                )
+            }
+        }
+
+        let splitPathByPaneId = m8SplitPathByPaneId(workspace: workspace)
+
         let focusedPaneId = workspace.bonsplitController.focusedPaneId
         let panes: [[String: Any]] = paneIds.enumerated().map { paneIndex, paneId in
             let tabs = workspace.bonsplitController.tabs(inPane: paneId)
             let surfaceUUIDs: [UUID] = tabs.compactMap { workspace.panelIdFromSurfaceId($0.id) }
             let selectedTab = workspace.bonsplitController.selectedTab(inPane: paneId)
             let selectedSurfaceUUID = selectedTab.flatMap { workspace.panelIdFromSurfaceId($0.id) }
+
+            // M8 layout sub-object.
+            let path = splitPathByPaneId[paneId.id] ?? []
+            let layoutObj: [String: Any]
+            if hasLayout, let pix = pixelByPaneId[paneId.id], let pct = percentByPaneId[paneId.id] {
+                layoutObj = [
+                    "percent": [
+                        "H": [pct.h0, pct.h1],
+                        "V": [pct.v0, pct.v1]
+                    ],
+                    "pixels": [
+                        "H": [pix.h0, pix.h1],
+                        "V": [pix.v0, pix.v1]
+                    ],
+                    "split_path": path
+                ]
+            } else {
+                layoutObj = [
+                    "percent": NSNull(),
+                    "pixels": NSNull(),
+                    "split_path": path
+                ]
+            }
 
             return [
                 "id": paneId.id.uuidString,
@@ -2887,8 +3015,21 @@ class TerminalController {
                 "selected_surface_id": v2OrNull(selectedSurfaceUUID?.uuidString),
                 "selected_surface_ref": v2Ref(kind: .surface, uuid: selectedSurfaceUUID),
                 "surface_count": surfaceUUIDs.count,
-                "surfaces": surfacesByPane[paneId.id] ?? []
+                "surfaces": surfacesByPane[paneId.id] ?? [],
+                "layout": layoutObj
             ]
+        }
+
+        let contentArea: Any
+        if hasLayout {
+            contentArea = [
+                "pixels": [
+                    "width": Int(contentWidth.rounded()),
+                    "height": Int(contentHeight.rounded())
+                ]
+            ]
+        } else {
+            contentArea = NSNull()
         }
 
         return [
@@ -2898,8 +3039,35 @@ class TerminalController {
             "title": workspace.title,
             "selected": selected,
             "pinned": workspace.isPinned,
+            "content_area": contentArea,
             "panes": panes
         ]
+    }
+
+    /// Walk the workspace's split tree and produce a root-to-leaf path of
+    /// `H:left | H:right | V:top | V:bottom` tokens for every pane. The path is
+    /// recomputed on every call — it is **not** a stable identifier and changes
+    /// whenever the surrounding splits change.
+    private func m8SplitPathByPaneId(workspace: Workspace) -> [UUID: [String]] {
+        var result: [UUID: [String]] = [:]
+        let tree = workspace.bonsplitController.treeSnapshot()
+        m8WalkSplitTree(node: tree, path: [], into: &result)
+        return result
+    }
+
+    private func m8WalkSplitTree(node: ExternalTreeNode, path: [String], into result: inout [UUID: [String]]) {
+        switch node {
+        case .pane(let paneNode):
+            if let uuid = UUID(uuidString: paneNode.id) {
+                result[uuid] = path
+            }
+        case .split(let splitNode):
+            let isHorizontal = splitNode.orientation.lowercased() == "horizontal"
+            let firstToken = isHorizontal ? "H:left" : "V:top"
+            let secondToken = isHorizontal ? "H:right" : "V:bottom"
+            m8WalkSplitTree(node: splitNode.first, path: path + [firstToken], into: &result)
+            m8WalkSplitTree(node: splitNode.second, path: path + [secondToken], into: &result)
+        }
     }
 
     // MARK: - V2 Helpers (encoding + result plumbing)
