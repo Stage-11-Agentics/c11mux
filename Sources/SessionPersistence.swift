@@ -238,8 +238,10 @@ struct SessionBrowserPanelSnapshot: Codable, Sendable {
 
 struct SessionMarkdownPanelSnapshot: Codable, Sendable {
     var filePath: String
-    /// Raw value of `MarkdownThemeChoice` when the user picked a per-panel
-    /// override. `nil` means "inherit the app-wide default at restore time".
+    /// Raw value of `MarkdownThemeChoice`. Current writers always serialize a
+    /// concrete choice (including `"auto"`), so restore pins exactly what the
+    /// user had. `nil` only appears in legacy snapshots predating per-panel
+    /// theme persistence; those restore under the app-wide default.
     var themeChoice: String?
 }
 
