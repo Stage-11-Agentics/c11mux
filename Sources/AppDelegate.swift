@@ -9523,6 +9523,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             if tabManager?.focusedBrowserPanel != nil {
                 return false
             }
+            // Let Cmd+R reach the markdown refresh handler below instead of the rename-tab palette.
+            if tabManager?.focusedMarkdownPanel != nil {
+                return false
+            }
             let targetWindow = commandPaletteTargetWindow ?? event.window ?? NSApp.keyWindow ?? NSApp.mainWindow
             requestCommandPaletteRenameTab(preferredWindow: targetWindow, source: "shortcut.renameTab")
             return true
