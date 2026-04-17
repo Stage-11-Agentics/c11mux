@@ -172,9 +172,15 @@ jobs:
           set -euo pipefail
           SOURCE_PACKAGES_DIR="$PWD/.ci-source-packages"
           run_unit_tests() {
+            # -parallel-testing-enabled + worker count: XCTest fans test classes
+            # across worker processes. macos-15-xlarge runners have 6 cores; 4
+            # workers keeps each worker's build/test overhead contained without
+            # thrashing. Measured wall-time impact is the point of this PR.
             xcodebuild -project GhosttyTabs.xcodeproj -scheme cmux-unit -configuration Debug \
               -clonedSourcePackagesDirPath "$SOURCE_PACKAGES_DIR" \
               -disableAutomaticPackageResolution \
+              -parallel-testing-enabled YES \
+              -maximum-parallel-testing-workers 4 \
               -destination "platform=macOS" test 2>&1
           }
 
