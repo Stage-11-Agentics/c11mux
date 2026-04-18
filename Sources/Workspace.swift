@@ -9039,6 +9039,58 @@ extension Workspace: BonsplitDelegate {
         }
     }
 
+    /// Present a `.textInput` pane interaction on the given panel and await the
+    /// user's submitted value. Returns `nil` if the user cancelled or the
+    /// interaction was dismissed (panel torn down, workspace closed, etc.) so
+    /// callers can no-op instead of applying stale input.
+    ///
+    /// `validate` is invoked on each submit attempt; returning a non-nil string
+    /// keeps the card visible with the given error below the field and does not
+    /// resolve the continuation. Return `nil` to accept the value.
+    @MainActor
+    func presentTextInput(
+        panelId: UUID,
+        title: String,
+        message: String?,
+        defaultValue: String,
+        placeholder: String?,
+        confirmLabel: String = String(
+            localized: "dialog.pane.textInput.submit",
+            defaultValue: "OK"
+        ),
+        cancelLabel: String = String(
+            localized: "dialog.pane.confirm.cancel",
+            defaultValue: "Cancel"
+        ),
+        validate: @escaping (String) -> String?,
+        source: InteractionSource = .local,
+        dedupeToken: String? = nil
+    ) async -> String? {
+        await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
+            let content = TextInputContent(
+                title: title,
+                message: message,
+                placeholder: placeholder,
+                defaultValue: defaultValue,
+                confirmLabel: confirmLabel,
+                cancelLabel: cancelLabel,
+                validate: validate,
+                source: source,
+                completion: { result in
+                    switch result {
+                    case .submitted(let value): cont.resume(returning: value)
+                    case .cancelled, .dismissed: cont.resume(returning: nil)
+                    }
+                }
+            )
+            paneInteractionRuntime.present(
+                panelId: panelId,
+                interaction: .textInput(content),
+                dedupeToken: dedupeToken
+            )
+        }
+    }
+
     /// Apply the side-effects of selecting a tab (unfocus others, focus this panel, update state).
     /// bonsplit doesn't always emit didSelectTab for programmatic selection paths (e.g. createTab).
     private func applyTabSelection(

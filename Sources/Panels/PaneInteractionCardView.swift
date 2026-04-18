@@ -92,6 +92,7 @@ private struct ConfirmCard: View {
                         .strokeBorder(BrandColors.ruleSwiftUI, lineWidth: 1)
                 )
         )
+        .accessibilityIdentifier("PaneInteraction.confirm.card")
         .onAppear { focused = .confirm }
         .onKeyPress(.escape) {
             cancel()
@@ -103,7 +104,7 @@ private struct ConfirmCard: View {
     private func cancel() { runtime.resolveConfirm(panelId: panelId, result: .cancelled) }
 }
 
-// MARK: - TextInput variant (Phase 1 scaffold; IME-safe NSTextField lands in Phase 6b)
+// MARK: - TextInput variant
 
 private struct TextInputCard: View {
     let panelId: UUID
@@ -112,7 +113,6 @@ private struct TextInputCard: View {
 
     @State private var value: String = ""
     @State private var errorText: String?
-    @FocusState private var fieldFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -126,15 +126,19 @@ private struct TextInputCard: View {
                     .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.85))
             }
 
-            TextField(content.placeholder ?? "", text: $value)
-                .textFieldStyle(.roundedBorder)
-                .focused($fieldFocused)
-                .onSubmit { submit() }
+            IMESafeTextField(
+                text: $value,
+                placeholder: content.placeholder,
+                onSubmit: submit,
+                onCancel: cancel
+            )
+            .frame(minHeight: 22)
 
             if let errorText, !errorText.isEmpty {
                 Text(errorText)
                     .font(.system(size: 12))
                     .foregroundStyle(Color.red)
+                    .accessibilityIdentifier("PaneInteraction.textInput.error")
             }
 
             HStack(spacing: 8) {
@@ -163,13 +167,9 @@ private struct TextInputCard: View {
                         .strokeBorder(BrandColors.ruleSwiftUI, lineWidth: 1)
                 )
         )
+        .accessibilityIdentifier("PaneInteraction.textInput.card")
         .onAppear {
             value = content.defaultValue
-            fieldFocused = true
-        }
-        .onKeyPress(.escape) {
-            cancel()
-            return .handled
         }
     }
 
@@ -183,6 +183,97 @@ private struct TextInputCard: View {
 
     private func cancel() {
         runtime.resolveTextInput(panelId: panelId, result: .cancelled)
+    }
+}
+
+/// NSTextField-backed text input that respects IME composition. Needed because
+/// SwiftUI's `TextField` routes key events in a way that swallows marked-text
+/// composition state for CJK input methods — typing Japanese (Kotoeri) or
+/// Pinyin into the rename-tab overlay would otherwise lose the composition.
+///
+/// Pattern mirrors m9's `TextBoxInput.InputTextView` IME guard: skip binding
+/// sync and binding writes whenever `currentEditor()?.hasMarkedText()` is true.
+private struct IMESafeTextField: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String?
+    let onSubmit: () -> Void
+    let onCancel: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let tf = NSTextField(string: text)
+        tf.translatesAutoresizingMaskIntoConstraints = false
+        tf.placeholderString = placeholder ?? ""
+        tf.delegate = context.coordinator
+        tf.isBezeled = true
+        tf.bezelStyle = .roundedBezel
+        tf.isEditable = true
+        tf.isSelectable = true
+        tf.usesSingleLineMode = true
+        tf.lineBreakMode = .byTruncatingTail
+        tf.cell?.sendsActionOnEndEditing = false
+        tf.focusRingType = .default
+        // Grab first responder on next runloop so the hosting window has
+        // settled its responder chain (the AppKit overlay host has already
+        // become first responder just before this view appears).
+        DispatchQueue.main.async { [weak tf] in
+            guard let tf, let window = tf.window else { return }
+            window.makeFirstResponder(tf)
+            if let editor = tf.currentEditor() {
+                editor.selectedRange = NSRange(location: 0, length: (tf.stringValue as NSString).length)
+            }
+        }
+        return tf
+    }
+
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        context.coordinator.parent = self
+        nsView.placeholderString = placeholder ?? ""
+        // Skip committed-text sync during IME composition — the field editor
+        // holds uncommitted marked text that stringValue doesn't reflect.
+        // Overwriting stringValue here cancels the active composition.
+        if let editor = nsView.currentEditor() as? NSTextView, editor.hasMarkedText() {
+            return
+        }
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: IMESafeTextField
+        init(_ parent: IMESafeTextField) { self.parent = parent }
+
+        func controlTextDidChange(_ obj: Notification) {
+            guard let tf = obj.object as? NSTextField else { return }
+            if let editor = tf.currentEditor() as? NSTextView, editor.hasMarkedText() {
+                // Don't push uncommitted composition through to the binding.
+                return
+            }
+            parent.text = tf.stringValue
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            switch selector {
+            case #selector(NSResponder.insertNewline(_:)):
+                if textView.hasMarkedText() {
+                    // Let the IME commit the composition first; NSTextField
+                    // will re-send insertNewline on the next commit.
+                    return false
+                }
+                // Flush the field's committed value to the binding before
+                // invoking submit — resignFirstResponder otherwise lags.
+                parent.text = control.stringValue
+                parent.onSubmit()
+                return true
+            case #selector(NSResponder.cancelOperation(_:)):
+                parent.onCancel()
+                return true
+            default:
+                return false
+            }
+        }
     }
 }
 
