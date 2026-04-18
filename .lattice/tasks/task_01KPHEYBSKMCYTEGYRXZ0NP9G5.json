@@ -1,5 +1,5 @@
 {
-  "assigned_to": null,
+  "assigned_to": "agent:claude",
   "branch_links": [],
   "comment_count": 1,
   "complexity": null,
@@ -16,18 +16,18 @@
     }
   ],
   "id": "task_01KPHEYBSKMCYTEGYRXZ0NP9G5",
-  "last_event_id": "ev_01KPHF05H19C1SJ7285N114KEQ",
-  "last_status_changed_at": "2026-04-18T23:31:17Z",
+  "last_event_id": "ev_01KPHF0ED5ZZ1QN0XCYKX3CTGM",
+  "last_status_changed_at": "2026-04-18T23:32:25Z",
   "linked_files": [],
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "CMUX-13",
-  "status": "backlog",
+  "status": "review",
   "tags": null,
   "title": "Trident plan review: CMUX-9 theming plan",
   "type": "task",
-  "updated_at": "2026-04-18T23:32:16Z",
+  "updated_at": "2026-04-18T23:32:25Z",
   "urgency": null
 }
