@@ -18,7 +18,16 @@
 			A5001534 /* BrowserWindowPortal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001533 /* BrowserWindowPortal.swift */; };
 		A5001540 /* PortScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001541 /* PortScanner.swift */; };
 		A5001542 /* SurfaceMetadataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001543 /* SurfaceMetadataStore.swift */; };
+		D70A3BF0A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A3BF1A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift */; };
+		D70A4BF0A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */; };
+		D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */; };
+		D7006BF0A1B2C3D4E5F60718 /* MetadataPersistenceRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7006BF1A1B2C3D4E5F60718 /* MetadataPersistenceRoundTripTests.swift */; };
+		D7007BF0A1B2C3D4E5F60718 /* MetadataPersistencePrecedenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7007BF1A1B2C3D4E5F60718 /* MetadataPersistencePrecedenceTests.swift */; };
+		D7008BF0A1B2C3D4E5F60718 /* MetadataPersistenceUncoercibleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7008BF1A1B2C3D4E5F60718 /* MetadataPersistenceUncoercibleTests.swift */; };
+		D7009BF0A1B2C3D4E5F60718 /* MetadataStoreRevisionCounterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7009BF1A1B2C3D4E5F60718 /* MetadataStoreRevisionCounterTests.swift */; };
 		A5001544 /* AgentDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001545 /* AgentDetector.swift */; };
+		A5001700 /* TextBoxInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001701 /* TextBoxInput.swift */; };
+		A5001702 /* TextBoxInputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001703 /* TextBoxInputTests.swift */; };
 		A5008F11 /* SurfaceTitleBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5008F12 /* SurfaceTitleBarView.swift */; };
 		A5008F21 /* TitleFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5008F22 /* TitleFormatting.swift */; };
 			A5001006 /* GhosttyKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5001016 /* GhosttyKit.xcframework */; };
@@ -203,7 +212,16 @@
 			A5001533 /* BrowserWindowPortal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserWindowPortal.swift; sourceTree = "<group>"; };
 		A5001541 /* PortScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortScanner.swift; sourceTree = "<group>"; };
 		A5001543 /* SurfaceMetadataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceMetadataStore.swift; sourceTree = "<group>"; };
+		D70A3BF1A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataKeys.swift; sourceTree = "<group>"; };
+		D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataValidatorTests.swift; sourceTree = "<group>"; };
+		D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedMetadata.swift; sourceTree = "<group>"; };
+		D7006BF1A1B2C3D4E5F60718 /* MetadataPersistenceRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPersistenceRoundTripTests.swift; sourceTree = "<group>"; };
+		D7007BF1A1B2C3D4E5F60718 /* MetadataPersistencePrecedenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPersistencePrecedenceTests.swift; sourceTree = "<group>"; };
+		D7008BF1A1B2C3D4E5F60718 /* MetadataPersistenceUncoercibleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPersistenceUncoercibleTests.swift; sourceTree = "<group>"; };
+		D7009BF1A1B2C3D4E5F60718 /* MetadataStoreRevisionCounterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataStoreRevisionCounterTests.swift; sourceTree = "<group>"; };
 		A5001545 /* AgentDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDetector.swift; sourceTree = "<group>"; };
+		A5001701 /* TextBoxInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextBoxInput.swift; sourceTree = "<group>"; };
+		A5001703 /* TextBoxInputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextBoxInputTests.swift; sourceTree = "<group>"; };
 		A5008F12 /* SurfaceTitleBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceTitleBarView.swift; sourceTree = "<group>"; };
 		A5008F22 /* TitleFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleFormatting.swift; sourceTree = "<group>"; };
 			A5001016 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = GhosttyKit.xcframework; sourceTree = "<group>"; };
@@ -451,7 +469,10 @@
 				A5001019 /* TerminalController.swift */,
 				A5001541 /* PortScanner.swift */,
 				A5001543 /* SurfaceMetadataStore.swift */,
+				D70A3BF1A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift */,
+				D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */,
 				A5001545 /* AgentDetector.swift */,
+				A5001701 /* TextBoxInput.swift */,
 				A5008F12 /* SurfaceTitleBarView.swift */,
 				A5008F22 /* TitleFormatting.swift */,
 				A5001225 /* SocketControlSettings.swift */,
@@ -562,6 +583,7 @@
 					F5000001A1B2C3D4E5F60718 /* SessionPersistenceTests.swift */,
 					FA100001A1B2C3D4E5F60718 /* BrowserImportMappingTests.swift */,
 					F6000001A1B2C3D4E5F60718 /* AppDelegateShortcutRoutingTests.swift */,
+					A5001703 /* TextBoxInputTests.swift */,
 					F6100001A1B2C3D4E5F60718 /* WorkspaceRemoteConnectionTests.swift */,
 					F7000001A1B2C3D4E5F60718 /* WorkspaceContentViewVisibilityTests.swift */,
 					F8000001A1B2C3D4E5F60718 /* SocketControlPasswordStoreTests.swift */,
@@ -589,6 +611,11 @@
 					D7002BF1A1B2C3D4E5F60718 /* DescriptionSanitizerTests.swift */,
 					D7003BF1A1B2C3D4E5F60718 /* PanelIdentityRestoreTests.swift */,
 					D7004BF1A1B2C3D4E5F60718 /* WorkspaceIdentityRestoreTests.swift */,
+					D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */,
+					D7006BF1A1B2C3D4E5F60718 /* MetadataPersistenceRoundTripTests.swift */,
+					D7007BF1A1B2C3D4E5F60718 /* MetadataPersistencePrecedenceTests.swift */,
+					D7008BF1A1B2C3D4E5F60718 /* MetadataPersistenceUncoercibleTests.swift */,
+					D7009BF1A1B2C3D4E5F60718 /* MetadataStoreRevisionCounterTests.swift */,
 				);
 				path = cmuxTests;
 				sourceTree = "<group>";
@@ -760,7 +787,10 @@
 				A5001007 /* TerminalController.swift in Sources */,
 				A5001540 /* PortScanner.swift in Sources */,
 				A5001542 /* SurfaceMetadataStore.swift in Sources */,
+				D70A3BF0A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift in Sources */,
+				D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */,
 				A5001544 /* AgentDetector.swift in Sources */,
+			A5001700 /* TextBoxInput.swift in Sources */,
 				A5008F11 /* SurfaceTitleBarView.swift in Sources */,
 				A5008F21 /* TitleFormatting.swift in Sources */,
 				A5001226 /* SocketControlSettings.swift in Sources */,
@@ -838,6 +868,7 @@
 					F5000000A1B2C3D4E5F60718 /* SessionPersistenceTests.swift in Sources */,
 					FA100000A1B2C3D4E5F60718 /* BrowserImportMappingTests.swift in Sources */,
 					F6000000A1B2C3D4E5F60718 /* AppDelegateShortcutRoutingTests.swift in Sources */,
+					A5001702 /* TextBoxInputTests.swift in Sources */,
 					F6100000A1B2C3D4E5F60718 /* WorkspaceRemoteConnectionTests.swift in Sources */,
 					F7000000A1B2C3D4E5F60718 /* WorkspaceContentViewVisibilityTests.swift in Sources */,
 					F8000000A1B2C3D4E5F60718 /* SocketControlPasswordStoreTests.swift in Sources */,
@@ -865,6 +896,11 @@
 					D7002BF0A1B2C3D4E5F60718 /* DescriptionSanitizerTests.swift in Sources */,
 					D7003BF0A1B2C3D4E5F60718 /* PanelIdentityRestoreTests.swift in Sources */,
 					D7004BF0A1B2C3D4E5F60718 /* WorkspaceIdentityRestoreTests.swift in Sources */,
+					D70A4BF0A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift in Sources */,
+					D7006BF0A1B2C3D4E5F60718 /* MetadataPersistenceRoundTripTests.swift in Sources */,
+					D7007BF0A1B2C3D4E5F60718 /* MetadataPersistencePrecedenceTests.swift in Sources */,
+					D7008BF0A1B2C3D4E5F60718 /* MetadataPersistenceUncoercibleTests.swift in Sources */,
+					D7009BF0A1B2C3D4E5F60718 /* MetadataStoreRevisionCounterTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};

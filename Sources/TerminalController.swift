@@ -2089,6 +2089,12 @@ class TerminalController {
             return v2Result(id: id, self.v2WorkspaceRemoteStatus(params: params))
         case "workspace.remote.terminal_session_end":
             return v2Result(id: id, self.v2WorkspaceRemoteTerminalSessionEnd(params: params))
+        case "workspace.set_metadata":
+            return v2Result(id: id, self.v2WorkspaceSetMetadata(params: params))
+        case "workspace.get_metadata":
+            return v2Result(id: id, self.v2WorkspaceGetMetadata(params: params))
+        case "workspace.clear_metadata":
+            return v2Result(id: id, self.v2WorkspaceClearMetadata(params: params))
 
         // Settings
         case "settings.open":
@@ -2130,6 +2136,10 @@ class TerminalController {
             return v2Result(id: id, self.v2SurfaceHealth(params: params))
         case "debug.terminals":
             return v2Result(id: id, self.v2DebugTerminals(params: params))
+#if DEBUG
+        case "debug.session.save_and_load":
+            return v2Result(id: id, self.v2DebugSessionSaveAndLoad(params: params))
+#endif
         case "surface.send_text":
             return v2Result(id: id, self.v2SurfaceSendText(params: params))
         case "surface.send_key":
@@ -2483,6 +2493,9 @@ class TerminalController {
             "workspace.remote.disconnect",
             "workspace.remote.status",
             "workspace.remote.terminal_session_end",
+            "workspace.set_metadata",
+            "workspace.get_metadata",
+            "workspace.clear_metadata",
             "settings.open",
             "feedback.open",
             "feedback.submit",
@@ -4212,6 +4225,222 @@ class TerminalController {
         return result
     }
 
+    /// Resolve the Workspace referenced by `workspace_id`. Falls back to the
+    /// currently selected workspace on the caller's TabManager if no explicit
+    /// id is supplied. Returns nil when the workspace cannot be located.
+    ///
+    /// Performs a main-actor read to locate the Workspace instance; callers
+    /// should mutate `workspace.metadata` via `v2MainSync` since `Workspace`
+    /// is `@MainActor` (see `Workspace.swift` class declaration).
+    private func v2ResolveWorkspaceForMetadata(
+        params: [String: Any]
+    ) -> (tabManager: TabManager, workspaceId: UUID)? {
+        guard let tabManager = v2ResolveTabManager(params: params) else { return nil }
+        if let explicit = v2UUID(params, "workspace_id") {
+            return v2MainSync {
+                guard tabManager.tabs.contains(where: { $0.id == explicit }) else { return nil }
+                return (tabManager, explicit)
+            }
+        }
+        return v2MainSync {
+            guard let selected = tabManager.selectedTabId,
+                  tabManager.tabs.contains(where: { $0.id == selected }) else {
+                return nil
+            }
+            return (tabManager, selected)
+        }
+    }
+
+    private func v2WorkspaceSetMetadata(params: [String: Any]) -> V2CallResult {
+        // Parse + validate off-main per the socket command threading policy
+        // (CLAUDE.md "Socket command threading policy").
+        let rawMetadata = v2StringMap(params, "metadata")
+        let singleKey = v2String(params, "key")
+        let singleValueRaw = params["value"]
+
+        var writes: [String: String?] = [:]
+        if let rawMetadata {
+            for (k, v) in rawMetadata { writes[k] = v }
+        }
+        if let singleKey {
+            if singleValueRaw is NSNull {
+                writes[singleKey] = nil
+            } else if let s = singleValueRaw as? String {
+                writes[singleKey] = s
+            } else if singleValueRaw == nil {
+                return .err(code: "invalid_params", message: "Missing 'value' for key '\(singleKey)'", data: nil)
+            } else {
+                return .err(code: "invalid_params", message: "metadata value must be a string or null", data: nil)
+            }
+        }
+
+        if writes.isEmpty {
+            return .err(
+                code: "invalid_params",
+                message: "Provide 'metadata' object or 'key'/'value' pair",
+                data: nil
+            )
+        }
+
+        // Validate all keys and non-nil values off-main before taking the
+        // main-actor critical section.
+        for (k, maybeValue) in writes {
+            do {
+                if let value = maybeValue {
+                    try WorkspaceMetadataValidator.validate(key: k, value: value)
+                } else {
+                    try WorkspaceMetadataValidator.validateKey(k)
+                }
+            } catch let err as WorkspaceMetadataValidator.ValidationError {
+                return .err(code: err.code, message: err.message, data: err.detail)
+            } catch {
+                return .err(code: "internal_error", message: "\(error)", data: nil)
+            }
+        }
+
+        guard let resolved = v2ResolveWorkspaceForMetadata(params: params) else {
+            return .err(code: "not_found", message: "Workspace not found", data: nil)
+        }
+
+        var capacityError: WorkspaceMetadataValidator.CapacityError?
+        var resultMetadata: [String: String] = [:]
+        // Workspace is @MainActor; the mutation must run on the main actor.
+        // Precedent: workspace.rename handler (v2WorkspaceRename).
+        v2MainSync {
+            guard let ws = resolved.tabManager.tabs.first(where: { $0.id == resolved.workspaceId }) else {
+                return
+            }
+            var next = ws.metadata
+            for (k, maybeValue) in writes {
+                if let value = maybeValue {
+                    next[k] = value
+                } else {
+                    next.removeValue(forKey: k)
+                }
+            }
+            do {
+                try WorkspaceMetadataValidator.validateCapacity(after: next)
+            } catch let err as WorkspaceMetadataValidator.CapacityError {
+                capacityError = err
+                return
+            } catch {
+                // Unreachable: validateCapacity only throws CapacityError.
+                return
+            }
+            ws.metadata = next
+            resultMetadata = next
+        }
+
+        if let err = capacityError {
+            return .err(code: err.code, message: err.message, data: err.detail)
+        }
+
+        let windowId = v2ResolveWindowId(tabManager: resolved.tabManager)
+        return .ok([
+            "workspace_id": resolved.workspaceId.uuidString,
+            "workspace_ref": v2Ref(kind: .workspace, uuid: resolved.workspaceId),
+            "window_id": v2OrNull(windowId?.uuidString),
+            "window_ref": v2Ref(kind: .window, uuid: windowId),
+            "metadata": resultMetadata
+        ])
+    }
+
+    private func v2WorkspaceGetMetadata(params: [String: Any]) -> V2CallResult {
+        let requestedKey = v2String(params, "key")
+        let requestedKeys = v2StringArray(params, "keys")
+
+        guard let resolved = v2ResolveWorkspaceForMetadata(params: params) else {
+            return .err(code: "not_found", message: "Workspace not found", data: nil)
+        }
+
+        var full: [String: String] = [:]
+        v2MainSync {
+            guard let ws = resolved.tabManager.tabs.first(where: { $0.id == resolved.workspaceId }) else {
+                return
+            }
+            full = ws.metadata
+        }
+
+        var metadataOut: [String: String] = full
+        if let filterKeys = requestedKeys {
+            metadataOut = [:]
+            for k in filterKeys {
+                if let v = full[k] { metadataOut[k] = v }
+            }
+        } else if let single = requestedKey {
+            metadataOut = [:]
+            if let v = full[single] { metadataOut[single] = v }
+        }
+
+        let windowId = v2ResolveWindowId(tabManager: resolved.tabManager)
+        var payload: [String: Any] = [
+            "workspace_id": resolved.workspaceId.uuidString,
+            "workspace_ref": v2Ref(kind: .workspace, uuid: resolved.workspaceId),
+            "window_id": v2OrNull(windowId?.uuidString),
+            "window_ref": v2Ref(kind: .window, uuid: windowId),
+            "metadata": metadataOut
+        ]
+        if let single = requestedKey {
+            payload["key"] = single
+            payload["value"] = v2OrNull(metadataOut[single])
+        }
+        return .ok(payload)
+    }
+
+    private func v2WorkspaceClearMetadata(params: [String: Any]) -> V2CallResult {
+        let keys: [String]?
+        if params["keys"] == nil || params["keys"] is NSNull {
+            keys = nil
+        } else if let arr = v2StringArray(params, "keys") {
+            keys = arr
+        } else {
+            return .err(code: "invalid_keys_param", message: "keys must be an array of strings", data: nil)
+        }
+
+        // Validate key grammar off-main when a filter is provided; malformed
+        // keys could never have been written but reject them explicitly so
+        // callers see a consistent error shape.
+        if let keys {
+            for k in keys {
+                do {
+                    try WorkspaceMetadataValidator.validateKey(k)
+                } catch let err as WorkspaceMetadataValidator.ValidationError {
+                    return .err(code: err.code, message: err.message, data: err.detail)
+                } catch {
+                    return .err(code: "internal_error", message: "\(error)", data: nil)
+                }
+            }
+        }
+
+        guard let resolved = v2ResolveWorkspaceForMetadata(params: params) else {
+            return .err(code: "not_found", message: "Workspace not found", data: nil)
+        }
+
+        var resultMetadata: [String: String] = [:]
+        v2MainSync {
+            guard let ws = resolved.tabManager.tabs.first(where: { $0.id == resolved.workspaceId }) else {
+                return
+            }
+            if let keys {
+                var next = ws.metadata
+                for k in keys { next.removeValue(forKey: k) }
+                ws.metadata = next
+            } else {
+                ws.metadata = [:]
+            }
+            resultMetadata = ws.metadata
+        }
+
+        let windowId = v2ResolveWindowId(tabManager: resolved.tabManager)
+        return .ok([
+            "workspace_id": resolved.workspaceId.uuidString,
+            "workspace_ref": v2Ref(kind: .workspace, uuid: resolved.workspaceId),
+            "window_id": v2OrNull(windowId?.uuidString),
+            "window_ref": v2Ref(kind: .window, uuid: windowId),
+            "metadata": resultMetadata
+        ])
+    }
+
     private func v2WorkspaceAction(params: [String: Any]) -> V2CallResult {
         guard let tabManager = v2ResolveTabManager(params: params) else {
             return .err(code: "unavailable", message: "TabManager not available", data: nil)
@@ -5257,6 +5486,29 @@ class TerminalController {
         }
         return .ok(payload)
     }
+
+#if DEBUG
+    /// DEBUG-only: force an on-disk session snapshot round-trip through
+    /// `SurfaceMetadataStore` so `tests_v2/test_metadata_persistence.py`
+    /// can prove real disk persistence (not just in-memory encode/decode).
+    ///
+    /// Phase 1 conceptually had `debug.session.round_trip` but it was not
+    /// merged to main; Phase 2's persistence work is the first on-disk
+    /// round-trip to need this harness. Gated `#if DEBUG` — not part of
+    /// the supported socket API surface.
+    private func v2DebugSessionSaveAndLoad(params _: [String: Any]) -> V2CallResult {
+        var success = false
+        v2MainSync {
+            guard let app = AppDelegate.shared else { return }
+            success = app.debugForceMetadataSaveAndLoad()
+        }
+        if success {
+            return .ok(["ok": true])
+        }
+        return .err(code: "debug_save_and_load_failed",
+                    message: "debugForceMetadataSaveAndLoad returned false", data: nil)
+    }
+#endif
 
     private func v2DebugTerminals(params _: [String: Any]) -> V2CallResult {
         var payload: [String: Any]?

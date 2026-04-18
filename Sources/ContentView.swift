@@ -448,6 +448,10 @@ final class FileDropOverlayView: NSView {
     /// The WKWebView currently receiving forwarded drag events, so we can
     /// synthesize draggingExited/draggingEntered as the cursor moves.
     private weak var activeDragWebView: WKWebView?
+    /// [TextBox] InputTextView under the cursor during an active drag, if any.
+    /// Set by `updateDragTarget` during `draggingUpdated` so `performDragOperation`
+    /// can route the drop without re-hit-testing. Plan §4.9.
+    private weak var activeDragTextBox: InputTextView?
     private var lastHitTestLogSignature: String?
     private var lastDragRouteLogSignatureByPhase: [String: String] = [:]
 
@@ -617,6 +621,9 @@ final class FileDropOverlayView: NSView {
             prev.draggingExited(sender)
             activeDragWebView = nil
         }
+        // [TextBox] No per-step notification needed — InputTextView does not
+        // maintain cross-event drag state. Just drop our reference.
+        activeDragTextBox = nil
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
@@ -628,6 +635,9 @@ final class FileDropOverlayView: NSView {
         )
         let webView = activeDragWebView
         activeDragWebView = nil
+        // [TextBox] Capture the TextBox target before resetting it.
+        let textBox = activeDragTextBox
+        activeDragTextBox = nil
         let terminal = terminalUnderPoint(sender.draggingLocation)
         let hasTerminalTarget = terminal != nil
 #if DEBUG
@@ -642,6 +652,18 @@ final class FileDropOverlayView: NSView {
         guard shouldCapture else { return false }
         if let webView {
             return webView.performDragOperation(sender)
+        }
+        // [TextBox] TextBox wins over terminal when the cursor is over one
+        // (TextBox sits below the terminal view, so they do not overlap; this
+        // branch fires when the drop lands inside the bordered text field).
+        if let textBox {
+            let urls = (sender.draggingPasteboard.readObjects(
+                forClasses: [NSURL.self],
+                options: [.urlReadingFileURLsOnly: true]
+            ) as? [URL]) ?? []
+            guard !urls.isEmpty else { return false }
+            textBox.insertDroppedFilePaths(urls)
+            return true
         }
         guard let terminal else { return false }
         return terminal.performDragOperation(sender)
@@ -663,12 +685,22 @@ final class FileDropOverlayView: NSView {
         }
 
         if let webView {
+            // [TextBox] Browser beats TextBox when the browser pane owns the point.
+            activeDragTextBox = nil
             if activeDragWebView !== webView {
                 activeDragWebView = webView
                 return webView.draggingEntered(sender)
             }
             return webView.draggingUpdated(sender)
         }
+
+        // [TextBox] After browser has had its turn, check whether the cursor is
+        // over an InputTextView. Return `.copy` so macOS shows the green `+`
+        // badge — otherwise users see the reject cursor over a target that
+        // will actually accept the drop. Plan §4.9.
+        let textBox = shouldCapture ? textBoxUnderPoint(loc) : nil
+        activeDragTextBox = textBox
+        if textBox != nil { return .copy }
 
         let hasTerminalTarget = terminalUnderPoint(loc) != nil
 #if DEBUG
@@ -682,6 +714,23 @@ final class FileDropOverlayView: NSView {
 #endif
         guard shouldCapture, hasTerminalTarget else { return [] }
         return .copy
+    }
+
+    /// [TextBox] Hit-test the window for an `InputTextView` (TextBox field)
+    /// at the given window point. Mirrors `webViewUnderPoint` but walks the
+    /// hit view's ancestor chain for the custom NSTextView subclass.
+    private func textBoxUnderPoint(_ windowPoint: NSPoint) -> InputTextView? {
+        guard let window, let contentView = window.contentView else { return nil }
+        isHidden = true
+        defer { isHidden = false }
+        let point = contentView.convert(windowPoint, from: nil)
+        guard let hitView = contentView.hitTest(point) else { return nil }
+        var current: NSView? = hitView
+        while let view = current {
+            if let inputView = view as? InputTextView { return inputView }
+            current = view.superview
+        }
+        return nil
     }
 
     private func debugPasteboardTypes(_ types: [NSPasteboard.PasteboardType]?) -> String {

@@ -276,7 +276,10 @@ struct SessionBrowserPanelSnapshot: Codable, Sendable {
 }
 
 struct SessionMarkdownPanelSnapshot: Codable, Sendable {
-    var filePath: String
+    /// Absolute path to the markdown file, or nil for an unbound panel
+    /// (empty state — not yet bound to a file). Unbound panels are not
+    /// recreated on restore; see Workspace.createPanel(from:inPane:).
+    var filePath: String?
 }
 
 struct SessionPanelSnapshot: Codable, Sendable {
@@ -293,6 +296,15 @@ struct SessionPanelSnapshot: Codable, Sendable {
     var terminal: SessionTerminalPanelSnapshot?
     var browser: SessionBrowserPanelSnapshot?
     var markdown: SessionMarkdownPanelSnapshot?
+
+    /// Tier 1 Phase 2: persisted `SurfaceMetadataStore` values for this
+    /// surface. Optional for backcompat with pre-Phase-2 snapshots; older
+    /// builds ignore the field. Numbers round-trip as `Double`; see
+    /// `PersistedJSONValue`.
+    var metadata: [String: PersistedJSONValue]?
+    /// Parallel sidecar: per-key `(source, ts)` record preserving the
+    /// precedence chain across restarts. See `PersistedMetadataSource`.
+    var metadataSources: [String: PersistedMetadataSource]?
 }
 
 enum SessionSplitOrientation: String, Codable, Sendable {
@@ -380,6 +392,9 @@ struct SessionWorkspaceSnapshot: Codable, Sendable {
     var logEntries: [SessionLogEntrySnapshot]
     var progress: SessionProgressSnapshot?
     var gitBranch: SessionGitBranchSnapshot?
+    /// Operator-authored workspace metadata (e.g. description, icon).
+    /// Optional for backward compatibility with pre-metadata snapshots.
+    var metadata: [String: String]?
 }
 
 struct SessionTabManagerSnapshot: Codable, Sendable {

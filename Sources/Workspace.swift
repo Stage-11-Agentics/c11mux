@@ -195,6 +195,8 @@ extension Workspace {
             SessionGitBranchSnapshot(branch: branch.branch, isDirty: branch.isDirty)
         }
 
+        let metadataSnapshot: [String: String]? = metadata.isEmpty ? nil : metadata
+
         return SessionWorkspaceSnapshot(
             id: id,
             processTitle: processTitle,
@@ -208,7 +210,8 @@ extension Workspace {
             statusEntries: statusSnapshots,
             logEntries: logSnapshots,
             progress: progressSnapshot,
-            gitBranch: gitBranchSnapshot
+            gitBranch: gitBranchSnapshot,
+            metadata: metadataSnapshot
         )
     }
 
@@ -240,6 +243,11 @@ extension Workspace {
             )
         }
 
+        restoreSurfaceMetadataFromSnapshot(
+            panels: snapshot.panels,
+            oldToNewPanelIds: oldToNewPanelIds
+        )
+
         pruneSurfaceMetadata(validSurfaceIds: Set(panels.keys))
         applySessionDividerPositions(snapshotNode: snapshot.layout, liveNode: bonsplitController.treeSnapshot())
 
@@ -247,6 +255,7 @@ extension Workspace {
         setCustomTitle(snapshot.customTitle)
         setCustomColor(snapshot.customColor)
         isPinned = snapshot.isPinned
+        metadata = snapshot.metadata ?? [:]
 
         // Status entries and agent PIDs are ephemeral runtime state tied to running
         // processes (e.g. claude_code "Running"). Don't restore them across app
@@ -396,6 +405,36 @@ extension Workspace {
             markdownSnapshot = SessionMarkdownPanelSnapshot(filePath: markdownPanel.filePath)
         }
 
+        let persistedMetadata: [String: PersistedJSONValue]?
+        let persistedMetadataSources: [String: PersistedMetadataSource]?
+        if PersistedMetadataBridge.isPersistDisabled {
+            persistedMetadata = nil
+            persistedMetadataSources = nil
+        } else {
+            let snapshot = SurfaceMetadataStore.shared.getMetadata(
+                workspaceId: id,
+                surfaceId: panelId
+            )
+            if snapshot.metadata.isEmpty && snapshot.sources.isEmpty {
+                persistedMetadata = nil
+                persistedMetadataSources = nil
+            } else {
+                let bridgedValues = PersistedMetadataBridge.encodeValues(
+                    snapshot.metadata,
+                    surfaceIdForLog: panelId
+                )
+                let cappedValues = PersistedMetadataBridge.enforceSizeCap(
+                    bridgedValues,
+                    surfaceId: panelId
+                )
+                let bridgedSources = PersistedMetadataBridge.encodeSources(snapshot.sources)
+                // If enforceSizeCap dropped keys, drop their sidecars too.
+                let alignedSources = bridgedSources.filter { cappedValues.keys.contains($0.key) }
+                persistedMetadata = cappedValues.isEmpty ? nil : cappedValues
+                persistedMetadataSources = alignedSources.isEmpty ? nil : alignedSources
+            }
+        }
+
         return SessionPanelSnapshot(
             id: panelId,
             type: panel.panelType,
@@ -409,7 +448,9 @@ extension Workspace {
             ttyName: ttyName,
             terminal: terminalSnapshot,
             browser: browserSnapshot,
-            markdown: markdownSnapshot
+            markdown: markdownSnapshot,
+            metadata: persistedMetadata,
+            metadataSources: persistedMetadataSources
         )
     }
 
@@ -585,13 +626,12 @@ extension Workspace {
             applySessionPanelMetadata(snapshot, toPanelId: browserPanel.id)
             return browserPanel.id
         case .markdown:
-            guard let filePath = snapshot.markdown?.filePath,
-                  let markdownPanel = newMarkdownSurface(
-                    inPane: paneId,
-                    filePath: filePath,
-                    focus: false,
-                    panelId: restoredPanelId
-                  ) else {
+            guard let markdownPanel = newMarkdownSurface(
+                inPane: paneId,
+                filePath: snapshot.markdown?.filePath,
+                focus: false,
+                panelId: restoredPanelId
+            ) else {
                 return nil
             }
             applySessionPanelMetadata(snapshot, toPanelId: markdownPanel.id)
@@ -4842,6 +4882,12 @@ final class Workspace: Identifiable, ObservableObject {
     @Published var isPinned: Bool = false
     @Published var customColor: String?  // hex string, e.g. "#C0392B"
     @Published var currentDirectory: String
+
+    /// Operator-authored workspace metadata (e.g. "description", "icon").
+    /// Workspace-scoped; not to be confused with surface-scoped
+    /// `SurfaceMetadataStore`. Persisted across restart via
+    /// `SessionWorkspaceSnapshot.metadata`.
+    @Published var metadata: [String: String] = [:]
     private(set) var preferredBrowserProfileID: UUID?
 
     /// Ordinal for CMUX_PORT range assignment (monotonically increasing per app session)
@@ -5023,10 +5069,20 @@ final class Workspace: Identifiable, ObservableObject {
 
     private static func currentSplitButtonTooltips() -> BonsplitConfiguration.SplitButtonTooltips {
         BonsplitConfiguration.SplitButtonTooltips(
-            newTerminal: KeyboardShortcutSettings.Action.newSurface.tooltip("New Terminal"),
-            newBrowser: KeyboardShortcutSettings.Action.openBrowser.tooltip("New Browser"),
-            splitRight: KeyboardShortcutSettings.Action.splitRight.tooltip("Split Right"),
-            splitDown: KeyboardShortcutSettings.Action.splitDown.tooltip("Split Down")
+            newTerminal: KeyboardShortcutSettings.Action.newSurface.tooltip(
+                String(localized: "workspace.tooltip.newTerminal", defaultValue: "New Terminal")
+            ),
+            newBrowser: KeyboardShortcutSettings.Action.openBrowser.tooltip(
+                String(localized: "workspace.tooltip.newBrowser", defaultValue: "New Browser")
+            ),
+            newMarkdown: String(localized: "workspace.tooltip.newMarkdown", defaultValue: "New Markdown"),
+            splitRight: KeyboardShortcutSettings.Action.splitRight.tooltip(
+                String(localized: "workspace.tooltip.splitRight", defaultValue: "Split Right")
+            ),
+            splitDown: KeyboardShortcutSettings.Action.splitDown.tooltip(
+                String(localized: "workspace.tooltip.splitDown", defaultValue: "Split Down")
+            ),
+            newTab: String(localized: "workspace.tooltip.newTab", defaultValue: "New Tab")
         )
     }
 
@@ -5921,6 +5977,13 @@ final class Workspace: Identifiable, ObservableObject {
                 title: TitleFormatting.sidebarLabel(from: resolvedTitle),
                 hasCustomTitle: panelCustomTitles[panelId] != nil
             )
+            // [TextBox] Keep TerminalPanel.title in sync so TextBox key
+            // routing can detect running apps (Claude Code, Codex) via
+            // the title regex when `SurfaceMetadataStore.terminal_type`
+            // has not yet been classified. See plan §4.4 (title-sync hook).
+            if let terminalPanel = panel as? TerminalPanel {
+                terminalPanel.updateTitle(trimmed)
+            }
         }
 
         // If this is the only panel and no custom title, update workspace title
@@ -5935,6 +5998,137 @@ final class Workspace: Identifiable, ObservableObject {
         }
 
         return didMutate
+    }
+
+    // MARK: - [TextBox] TextBox Input toggle (plan §4.4)
+
+    /// Toggle the TextBox Input for this workspace's terminal panels.
+    ///
+    /// `scope` decides whether we operate on the focused panel only or
+    /// on every terminal panel in this workspace (§8 Q9 locked:
+    /// "current workspace"). Behavior within each panel depends on the
+    /// user's `TextBoxInputSettings.shortcutBehavior`:
+    ///
+    /// - `.toggleDisplay`: flip `panel.isTextBoxActive` (show ⇄ hide).
+    /// - `.toggleFocus`: keep the TextBox visible, swap first responder
+    ///   between the InputTextView and the terminal surface.
+    ///
+    /// Focus changes are dispatched with `DispatchQueue.main.async` to
+    /// avoid reentering first-responder machinery mid-event.
+    func toggleTextBoxMode(_ scope: TextBoxToggleTarget) {
+        let terminalPanels = panels.values.compactMap { $0 as? TerminalPanel }
+        guard !terminalPanels.isEmpty else { return }
+
+        let behavior = TextBoxInputSettings.shortcutBehavior()
+        let targets: [TerminalPanel]
+
+        switch scope {
+        case .all:
+            targets = terminalPanels
+        case .active:
+            if let focusedId = focusedPanelIdForTextBoxToggle(),
+               let panel = panels[focusedId] as? TerminalPanel {
+                targets = [panel]
+            } else {
+                targets = terminalPanels
+            }
+        }
+
+        switch behavior {
+        case .toggleDisplay:
+            let shouldShow = !targets.allSatisfy { $0.isTextBoxActive }
+            for panel in targets {
+                panel.isTextBoxActive = shouldShow
+            }
+            if shouldShow {
+                focusInputTextView(in: targets, retriesRemaining: 4)
+            }
+        case .toggleFocus:
+            // Keep the box visible; swap focus between TextBox and terminal.
+            let wasAllVisible = targets.allSatisfy { $0.isTextBoxActive }
+            for panel in targets where !panel.isTextBoxActive {
+                panel.isTextBoxActive = true
+            }
+            if !wasAllVisible {
+                // First press summoned the TextBox from hidden — focus it, don't
+                // swap back to the terminal (the InputTextView may not be mounted
+                // yet, so retry briefly until SwiftUI wires it up).
+                focusInputTextView(in: targets, retriesRemaining: 4)
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    if let active = self.firstResponderTextBox() {
+                        // Focus is in a TextBox — move it back to that panel's terminal.
+                        let panel = targets.first { $0.inputTextView === active }
+                            ?? terminalPanels.first { $0.inputTextView === active }
+                        panel?.surface.focusTerminalView()
+                    } else {
+                        // Focus is in the terminal (or elsewhere) — move it into the TextBox.
+                        guard let firstTarget = targets.first,
+                              let view = firstTarget.inputTextView else { return }
+                        view.window?.makeFirstResponder(view)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Move first responder into the first target panel's InputTextView, retrying
+    /// briefly if SwiftUI has not yet mounted the container. Used after showing
+    /// the TextBox from hidden, where `inputTextView` is nil until the next
+    /// render pass wires it up via `onInputTextViewCreated`.
+    private func focusInputTextView(in targets: [TerminalPanel], retriesRemaining: Int) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if self.firstResponderTextBox() != nil { return }
+            if let firstTarget = targets.first, let view = firstTarget.inputTextView {
+                view.window?.makeFirstResponder(view)
+                return
+            }
+            if retriesRemaining > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) { [weak self] in
+                    self?.focusInputTextView(in: targets, retriesRemaining: retriesRemaining - 1)
+                }
+            }
+        }
+    }
+
+    /// Returns the focused panel ID if it belongs to this workspace and
+    /// is a TerminalPanel. Resolved by walking the current main window's
+    /// first responder back to a GhosttyNSView, matching the pattern used
+    /// by `AppDelegate.focusedTerminalShortcutContext`.
+    private func focusedPanelIdForTextBoxToggle() -> UUID? {
+        let targetWindow = NSApp.keyWindow ?? NSApp.mainWindow
+        guard let responder = targetWindow?.firstResponder else { return nil }
+        // If the first responder is an InputTextView, walk its panel back via inputTextView.
+        if let inputView = responder as? InputTextView {
+            for (panelId, panel) in panels {
+                if let terminalPanel = panel as? TerminalPanel,
+                   terminalPanel.inputTextView === inputView {
+                    return panelId
+                }
+            }
+            return nil
+        }
+        // Otherwise try the terminal surface responder chain.
+        var node: NSResponder? = responder
+        while let current = node {
+            if let view = current as? NSView,
+               let surfaceView = view as? GhosttyNSView,
+               let surfaceId = surfaceView.terminalSurface?.id,
+               panels[surfaceId] is TerminalPanel {
+                return surfaceId
+            }
+            node = current.nextResponder
+        }
+        return nil
+    }
+
+    /// Returns the InputTextView currently holding first responder in
+    /// this workspace's key window, if any.
+    private func firstResponderTextBox() -> InputTextView? {
+        let window = NSApp.keyWindow ?? NSApp.mainWindow
+        return window?.firstResponder as? InputTextView
     }
 
     // MARK: - M7 title bar integration
@@ -6043,6 +6237,36 @@ final class Workspace: Identifiable, ObservableObject {
         payload["effective_collapsed"] = collapsed || (descriptionString?.isEmpty ?? true)
         payload["visible"] = titleBarVisible
         return payload
+    }
+
+    /// Tier 1 Phase 2: re-install persisted metadata from a session snapshot
+    /// after `restorePane` rebuilds the panel set. Silent — restore bypasses
+    /// the precedence chain (the snapshot IS the prior session's source of
+    /// truth). Runs before `pruneSurfaceMetadata` so anything not in the
+    /// current panel set gets cleaned up on the same tick.
+    ///
+    /// Respects `CMUX_DISABLE_METADATA_PERSIST=1` as a rollback safety net —
+    /// when set, the snapshot's metadata is ignored and surfaces start with
+    /// an empty store.
+    private func restoreSurfaceMetadataFromSnapshot(
+        panels snapshotPanels: [SessionPanelSnapshot],
+        oldToNewPanelIds: [UUID: UUID]
+    ) {
+        if PersistedMetadataBridge.isPersistDisabled { return }
+        for panelSnapshot in snapshotPanels {
+            guard let persistedValues = panelSnapshot.metadata else { continue }
+            let persistedSources = panelSnapshot.metadataSources ?? [:]
+            let newPanelId = oldToNewPanelIds[panelSnapshot.id] ?? panelSnapshot.id
+            guard panels[newPanelId] != nil else { continue }
+            let values = PersistedMetadataBridge.decodeValues(persistedValues)
+            let sources = PersistedMetadataBridge.decodeSources(persistedSources)
+            SurfaceMetadataStore.shared.restoreFromSnapshot(
+                workspaceId: id,
+                surfaceId: newPanelId,
+                values: values,
+                sources: sources
+            )
+        }
     }
 
     func pruneSurfaceMetadata(validSurfaceIds: Set<UUID>) {
@@ -7034,7 +7258,7 @@ final class Workspace: Identifiable, ObservableObject {
         from panelId: UUID,
         orientation: SplitOrientation,
         insertFirst: Bool = false,
-        filePath: String,
+        filePath: String? = nil,
         focus: Bool = true
     ) -> MarkdownPanel? {
         guard let sourceTabId = surfaceIdFromPanelId(panelId) else { return nil }
@@ -7095,7 +7319,7 @@ final class Workspace: Identifiable, ObservableObject {
     @discardableResult
     func newMarkdownSurface(
         inPane paneId: PaneID,
-        filePath: String,
+        filePath: String? = nil,
         focus: Bool? = nil,
         panelId: UUID? = nil
     ) -> MarkdownPanel? {
@@ -10058,7 +10282,28 @@ extension Workspace: BonsplitDelegate {
             _ = newTerminalSurface(inPane: pane)
         case "browser":
             _ = newBrowserSurface(inPane: pane)
+        case "markdown":
+            _ = newMarkdownSurface(inPane: pane)
+        case "newTab":
+            createNewTabOfFocusedKind(inPane: pane)
         default:
+            _ = newTerminalSurface(inPane: pane)
+        }
+    }
+
+    /// Handle the "+" toolbar button: create a new tab in the given pane of
+    /// the same kind as whatever surface is currently selected in that pane.
+    /// Falls back to terminal when the pane has no selection or no matching
+    /// panel type.
+    private func createNewTabOfFocusedKind(inPane pane: PaneID) {
+        let selectedPanelId = effectiveSelectedPanelId(inPane: pane)
+        let panel = selectedPanelId.flatMap { panels[$0] }
+        switch panel?.panelType {
+        case .browser:
+            _ = newBrowserSurface(inPane: pane)
+        case .markdown:
+            _ = newMarkdownSurface(inPane: pane)
+        case .terminal, .none:
             _ = newTerminalSurface(inPane: pane)
         }
     }

@@ -846,6 +846,10 @@ class GhosttyApp {
     private(set) var config: ghostty_config_t?
     private(set) var defaultBackgroundColor: NSColor = .windowBackgroundColor
     private(set) var defaultBackgroundOpacity: Double = 1.0
+    /// [TextBox] Foreground color derived from the active Ghostty theme.
+    /// Mirrors `defaultBackgroundColor`; consumed by `TextBoxInputContainer`
+    /// for text/border/insertion-point styling that matches the terminal.
+    private(set) var defaultForegroundColor: NSColor = .textColor
     private static func resolveBackgroundLogURL(
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> URL {
@@ -1678,6 +1682,19 @@ class GhosttyApp {
                 red: CGFloat(color.r) / 255,
                 green: CGFloat(color.g) / 255,
                 blue: CGFloat(color.b) / 255,
+                alpha: 1.0
+            )
+        }
+
+        // [TextBox] Pick up the theme foreground alongside the background so
+        // TextBoxInputContainer can mirror the terminal's text color.
+        var fgColor = ghostty_config_color_s()
+        let fgKey = "foreground"
+        if ghostty_config_get(config, &fgColor, fgKey, UInt(fgKey.lengthOfBytes(using: .utf8))) {
+            defaultForegroundColor = NSColor(
+                red: CGFloat(fgColor.r) / 255,
+                green: CGFloat(fgColor.g) / 255,
+                blue: CGFloat(fgColor.b) / 255,
                 alpha: 1.0
             )
         }
@@ -3508,6 +3525,78 @@ final class TerminalSurface: Identifiable, ObservableObject {
             return
         }
         writeTextData(data, to: surface)
+    }
+
+    // MARK: - [TextBox] TextBoxInput integration helpers
+    //
+    // The TextBoxInputContainer needs to move first-responder back to the
+    // terminal view, forward raw NSEvents, and send synthetic key events
+    // (Return, arrows, Tab, Backspace, Escape) when key routing decides
+    // the keystroke belongs to the terminal instead of the TextBox. These
+    // helpers are additive — they do not touch `forceRefresh` or any
+    // other typing-latency-sensitive hot path.
+
+    /// Move keyboard focus back to the terminal surface view.
+    func focusTerminalView() {
+        let view = surfaceView
+        guard let window = view.window else { return }
+        DispatchQueue.main.async {
+            window.makeFirstResponder(view)
+        }
+    }
+
+    /// Build a synthetic `NSEvent` for a named key and deliver it to the
+    /// terminal surface the same way AppKit would route a real keystroke.
+    func sendSyntheticKey(
+        characters: String,
+        keyCode: UInt16,
+        modifiers: NSEvent.ModifierFlags = []
+    ) {
+        let view = surfaceView
+        guard let window = view.window else { return }
+        guard let event = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: modifiers,
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber,
+            context: nil,
+            characters: characters,
+            charactersIgnoringModifiers: characters,
+            isARepeat: false,
+            keyCode: keyCode
+        ) else { return }
+        view.keyDown(with: event)
+    }
+
+    /// Named-key wrapper used by `TextBoxInputContainer` when routing
+    /// decides a keystroke belongs to the terminal (Rule 5/9) or when
+    /// submitting via bracket-paste (`TextBoxSubmit`).
+    func sendKey(_ key: TextBoxKeyRouting.TerminalKey) {
+        sendSyntheticKey(characters: key.characters, keyCode: key.keyCode)
+    }
+
+    /// Pass-through for a fully-formed NSEvent (Rule 2 `forwardControl`).
+    func forwardKeyEvent(_ event: NSEvent) {
+        surfaceView.keyDown(with: event)
+    }
+
+    /// Whether the user has scrolled up to review scrollback. Used by
+    /// `TextBoxInputContainer` to decide whether to restore scroll
+    /// position after the TextBox resizes (which triggers SIGWINCH).
+    var isScrolledUp: Bool {
+        hostedView.isUserScrolledAwayFromBottom
+    }
+
+    /// Current scrollbar offset (row index), if Ghostty has reported one.
+    var scrollbarOffset: UInt64? {
+        hostedView.currentScrollbarOffset
+    }
+
+    /// Scroll the terminal back to a saved row. Used to preserve scroll
+    /// position across TextBox height changes.
+    func scrollToRow(_ row: UInt64) {
+        _ = performBindingAction("scroll_to_row:\(row)")
     }
 
     func requestBackgroundSurfaceStartIfNeeded() {
@@ -6161,6 +6250,10 @@ final class GhosttySurfaceScrollView: NSView {
     /// When true, auto-scroll should be suspended to prevent the "doomscroll" bug
     /// where the terminal fights the user's scroll position.
     private var userScrolledAwayFromBottom = false
+    /// [TextBox] Read-only accessor used by `TerminalSurface.isScrolledUp`.
+    var isUserScrolledAwayFromBottom: Bool { userScrolledAwayFromBottom }
+    /// [TextBox] Read-only accessor used by `TerminalSurface.scrollbarOffset`.
+    var currentScrollbarOffset: UInt64? { surfaceView.scrollbar?.offset }
     /// Threshold in points from bottom to consider "at bottom" (allows for minor float drift)
     private static let scrollToBottomThreshold: CGFloat = 5.0
     private var isActive = true
@@ -7733,6 +7826,22 @@ final class GhosttySurfaceScrollView: NSView {
             }
             window.makeKeyAndOrderFront(nil)
         }
+        // [TextBox] Do not steal focus from an active TextBox. ensureFocus
+        // runs on tab switches, socket focus commands, and session restore.
+        // If the user has moved focus into a panel's TextBox we must respect
+        // that intent — the explicit Cmd+Option+B shortcut is the supported
+        // way to move focus back to the terminal. See plan §4.8 F11.
+        if window.firstResponder is InputTextView {
+#if DEBUG
+            dlog(
+                "focus.ensure.skip surface=\(surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil") " +
+                "reason=textBoxFocused"
+            )
+#endif
+            return
+        }
+        // Route through the focus choke-point so pane-interaction overlays
+        // suppress this ensureFocus path while a dialog is visible (m10 plan §4.7).
         let result = safeMakeTerminalFirstResponder(reason: "ensureFocus")
 #if DEBUG
         dlog(
@@ -7872,6 +7981,16 @@ final class GhosttySurfaceScrollView: NSView {
         if let fr = window.firstResponder, isSearchOverlayOrDescendant(fr) {
 #if DEBUG
             dlog("find.applyFirstResponder SKIP surface=\(surfaceShort) reason=searchOverlayFocused")
+#endif
+            return
+        }
+        // [TextBox] Same rule as ensureFocus: the automatic apply path
+        // (didBecomeKey, viewDidMoveToWindow, setActive, setVisibleInUI,
+        // etc.) must not reclaim focus while the user is composing in a
+        // TextBox. See plan §4.8 F11.
+        if window.firstResponder is InputTextView {
+#if DEBUG
+            dlog("find.applyFirstResponder SKIP surface=\(surfaceShort) reason=textBoxFocused")
 #endif
             return
         }
