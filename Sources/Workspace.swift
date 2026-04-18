@@ -4919,6 +4919,11 @@ final class Workspace: Identifiable, ObservableObject {
     var onClosedBrowserPanel: ((ClosedBrowserPanelRestoreSnapshot) -> Void)?
     weak var owningTabManager: TabManager?
 
+    /// Workspace-scoped presenter for pane-anchored interactions (close-confirm,
+    /// rename, custom-color, socket-triggered agent consent). Per-panel FIFO
+    /// queue + soft cap lives inside the runtime. Views observe `.active`.
+    let paneInteractionRuntime = PaneInteractionRuntime()
+
 
     // Closing tabs mutates split layout immediately; terminal views handle their own AppKit
     // layout/size synchronization.
@@ -7361,6 +7366,13 @@ final class Workspace: Identifiable, ObservableObject {
     /// Called before the workspace is removed from TabManager to ensure child
     /// processes receive SIGHUP even if ARC deallocation is delayed.
     func teardownAllPanels() {
+        // Drain every pending pane interaction with .dismissed FIRST so any
+        // in-flight presentConfirmClose / presentTextInput / socket pane.confirm
+        // continuation resumes before the panel state disappears. Skipping this
+        // leaks CheckedContinuations and blocks socket worker threads forever
+        // (synthesis-standard §1.1, synthesis-critical §1.3).
+        paneInteractionRuntime.clearAll()
+
         let panelEntries = Array(panels)
         for (panelId, panel) in panelEntries {
             panelSubscriptions.removeValue(forKey: panelId)
@@ -9000,17 +9012,65 @@ final class Workspace: Identifiable, ObservableObject {
     private func promptRenamePanel(tabId: TabID) {
         guard let panelId = panelIdFromSurfaceId(tabId),
               let panel = panels[panelId] else { return }
+        let currentTitle = panelCustomTitles[panelId] ?? panelTitles[panelId] ?? panel.displayTitle
+
+        if PaneInteractionFeatureFlag.isEnabled {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let value = await self.presentTextInput(
+                    panelId: panelId,
+                    title: String(
+                        localized: "dialog.renameTab.title",
+                        defaultValue: "Rename Tab"
+                    ),
+                    message: String(
+                        localized: "dialog.renameTab.message",
+                        defaultValue: "Enter a custom name for this tab."
+                    ),
+                    defaultValue: currentTitle,
+                    placeholder: String(
+                        localized: "dialog.renameTab.placeholder",
+                        defaultValue: "Tab name"
+                    ),
+                    confirmLabel: String(
+                        localized: "alert.renameWorkspace.rename",
+                        defaultValue: "Rename"
+                    ),
+                    validate: { _ in nil }
+                )
+                guard let value else { return }
+                // Acceptance-time revalidation: the panel may have closed while the
+                // card was visible between present and submit.
+                guard self.panels[panelId] != nil else { return }
+                self.setPanelCustomTitle(panelId: panelId, title: value)
+            }
+            return
+        }
 
         let alert = NSAlert()
-        alert.messageText = "Rename Tab"
-        alert.informativeText = "Enter a custom name for this tab."
-        let currentTitle = panelCustomTitles[panelId] ?? panelTitles[panelId] ?? panel.displayTitle
+        alert.messageText = String(
+            localized: "dialog.renameTab.title",
+            defaultValue: "Rename Tab"
+        )
+        alert.informativeText = String(
+            localized: "dialog.renameTab.message",
+            defaultValue: "Enter a custom name for this tab."
+        )
         let input = NSTextField(string: currentTitle)
-        input.placeholderString = "Tab name"
+        input.placeholderString = String(
+            localized: "dialog.renameTab.placeholder",
+            defaultValue: "Tab name"
+        )
         input.frame = NSRect(x: 0, y: 0, width: 240, height: 22)
         alert.accessoryView = input
-        alert.addButton(withTitle: "Rename")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(
+            localized: "alert.renameWorkspace.rename",
+            defaultValue: "Rename"
+        ))
+        alert.addButton(withTitle: String(
+            localized: "dialog.pane.confirm.cancel",
+            defaultValue: "Cancel"
+        ))
         let alertWindow = alert.window
         alertWindow.initialFirstResponder = input
         DispatchQueue.main.async {
@@ -9182,6 +9242,22 @@ extension Workspace: BonsplitDelegate {
 
     @MainActor
     private func confirmClosePanel(for tabId: TabID) async -> Bool {
+        // Route through the workspace-scoped pane-interaction runtime so the
+        // confirmation appears as an overlay anchored to the panel being closed,
+        // rather than a window-centered NSAlert (plan §3.4, §4.3). Falls back to
+        // the legacy NSAlert when the feature is disabled or no panel is
+        // resolvable (defensive; the tab was already deselected).
+        if PaneInteractionFeatureFlag.isEnabled,
+           let panelId = panelIdFromSurfaceId(tabId) {
+            return await presentConfirmClose(
+                panelId: panelId,
+                title: String(localized: "dialog.closeTab.title", defaultValue: "Close tab?"),
+                message: String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab."),
+                source: .local
+            )
+        }
+
+        // Legacy NSAlert path — kept as a rollback/fallback.
         let alert = NSAlert()
         alert.messageText = String(localized: "dialog.closeTab.title", defaultValue: "Close tab?")
         alert.informativeText = String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab.")
@@ -9199,7 +9275,6 @@ extension Workspace: BonsplitDelegate {
             cancelButton.keyEquivalent = "\u{1b}"
         }
 
-        // Prefer a sheet if we can find a window, otherwise fall back to modal.
         if let window = NSApp.keyWindow ?? NSApp.mainWindow {
             return await withCheckedContinuation { continuation in
                 alert.beginSheetModal(for: window) { response in
@@ -9209,6 +9284,90 @@ extension Workspace: BonsplitDelegate {
         }
 
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    /// Present a .confirm pane interaction on the given panel and await the
+    /// user's decision. Returns `true` only on explicit accept — .cancelled and
+    /// .dismissed both map to `false` so callers don't fire close actions on a
+    /// panel whose state may have drifted (§2 acceptance-time revalidation).
+    @MainActor
+    func presentConfirmClose(
+        panelId: UUID,
+        title: String,
+        message: String,
+        source: InteractionSource,
+        dedupeToken: String? = nil
+    ) async -> Bool {
+        await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            let content = ConfirmContent(
+                title: title,
+                message: message.isEmpty ? nil : message,
+                confirmLabel: String(localized: "dialog.pane.confirm.close", defaultValue: "Close"),
+                cancelLabel: String(localized: "dialog.pane.confirm.cancel", defaultValue: "Cancel"),
+                role: .destructive,
+                source: source,
+                completion: { result in
+                    cont.resume(returning: result == .confirmed)
+                }
+            )
+            paneInteractionRuntime.present(
+                panelId: panelId,
+                interaction: .confirm(content),
+                dedupeToken: dedupeToken
+            )
+        }
+    }
+
+    /// Present a `.textInput` pane interaction on the given panel and await the
+    /// user's submitted value. Returns `nil` if the user cancelled or the
+    /// interaction was dismissed (panel torn down, workspace closed, etc.) so
+    /// callers can no-op instead of applying stale input.
+    ///
+    /// `validate` is invoked on each submit attempt; returning a non-nil string
+    /// keeps the card visible with the given error below the field and does not
+    /// resolve the continuation. Return `nil` to accept the value.
+    @MainActor
+    func presentTextInput(
+        panelId: UUID,
+        title: String,
+        message: String?,
+        defaultValue: String,
+        placeholder: String?,
+        confirmLabel: String = String(
+            localized: "dialog.pane.textInput.submit",
+            defaultValue: "OK"
+        ),
+        cancelLabel: String = String(
+            localized: "dialog.pane.confirm.cancel",
+            defaultValue: "Cancel"
+        ),
+        validate: @escaping (String) -> String?,
+        source: InteractionSource = .local,
+        dedupeToken: String? = nil
+    ) async -> String? {
+        await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
+            let content = TextInputContent(
+                title: title,
+                message: message,
+                placeholder: placeholder,
+                defaultValue: defaultValue,
+                confirmLabel: confirmLabel,
+                cancelLabel: cancelLabel,
+                validate: validate,
+                source: source,
+                completion: { result in
+                    switch result {
+                    case .submitted(let value): cont.resume(returning: value)
+                    case .cancelled, .dismissed: cont.resume(returning: nil)
+                    }
+                }
+            )
+            paneInteractionRuntime.present(
+                panelId: panelId,
+                interaction: .textInput(content),
+                dedupeToken: dedupeToken
+            )
+        }
     }
 
     /// Apply the side-effects of selecting a tab (unfocus others, focus this panel, update state).
@@ -9705,6 +9864,12 @@ extension Workspace: BonsplitDelegate {
             panel?.close()
         }
 
+        // Resolve any pending pane interactions on this panel with .dismissed so
+        // callers waiting on a continuation don't leak. Must precede the panel
+        // entry removal so anything observing `panels[panelId]` during the drain
+        // still resolves against a consistent view.
+        paneInteractionRuntime.clear(panelId: panelId)
+
         panels.removeValue(forKey: panelId)
         untrackRemoteTerminalSurface(panelId)
         surfaceIdToPanelId.removeValue(forKey: tabId)
@@ -9858,6 +10023,11 @@ extension Workspace: BonsplitDelegate {
 
         if !closedPanelIds.isEmpty {
             for panelId in closedPanelIds {
+                // Dismiss any pending pane interactions on this panel before
+                // tearing it down so withCheckedContinuation callers resume
+                // with .dismissed. Matches the cleanup invariant in
+                // teardownAllPanels (synthesis-standard §1.1).
+                paneInteractionRuntime.clear(panelId: panelId)
                 panels[panelId]?.close()
                 panels.removeValue(forKey: panelId)
                 untrackRemoteTerminalSurface(panelId)

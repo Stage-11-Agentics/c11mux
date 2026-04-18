@@ -6142,6 +6142,10 @@ extension Notification.Name {
 
 private final class GhosttyScrollView: NSScrollView {
     weak var surfaceView: GhosttyNSView?
+    /// Back-reference to the owning surface scroll view so scrollWheel can
+    /// route first-responder changes through the focus choke-point instead
+    /// of making the terminal first responder behind the overlay's back.
+    weak var ownerSurfaceScrollView: GhosttySurfaceScrollView?
 
     // Keep keyboard routing on the terminal surface; this wrapper is viewport plumbing.
     override var acceptsFirstResponder: Bool { false }
@@ -6157,7 +6161,14 @@ private final class GhosttyScrollView: NSScrollView {
         // which causes pane-content drift instead of terminal scrollback movement.
         GhosttyNSView.focusLog("GhosttyScrollView.scrollWheel: surface scroll")
         if window?.firstResponder !== surfaceView {
-            window?.makeFirstResponder(surfaceView)
+            // Route through the single focus choke-point so pane-interaction
+            // overlays can suppress re-focus while visible (plan §4.7,
+            // synthesis-standard §1.2.7).
+            if let owner = ownerSurfaceScrollView {
+                _ = owner.safeMakeTerminalFirstResponder(reason: "scrollWheel")
+            } else {
+                window?.makeFirstResponder(surfaceView)
+            }
         }
         surfaceView.scrollWheel(with: event)
     }
@@ -6230,6 +6241,7 @@ final class GhosttySurfaceScrollView: NSView {
     private var deferredSearchOverlayMutationWorkItem: DispatchWorkItem?
     private var lastSearchOverlayStateID: ObjectIdentifier?
     private var searchOverlayMutationGeneration: UInt64 = 0
+    private var paneInteractionOverlay: PaneInteractionOverlayHost?
     private var observers: [NSObjectProtocol] = []
     private var windowObservers: [NSObjectProtocol] = []
     private var isLiveScrolling = false
@@ -6437,6 +6449,11 @@ final class GhosttySurfaceScrollView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.masksToBounds = true
+
+        // Back-reference so GhosttyScrollView.scrollWheel can route first-
+        // responder changes through the focus choke-point instead of
+        // bypassing pane-interaction overlay suppression.
+        scrollView.ownerSurfaceScrollView = self
 
         backgroundView.wantsLayer = true
         let initialTerminalBackground = GhosttyApp.shared.defaultBackgroundColor
@@ -7077,6 +7094,49 @@ final class GhosttySurfaceScrollView: NSView {
         }
     }
 
+    /// Attach (idempotently) the pane-interaction overlay for a given panel. The host lives
+    /// inside this portal-hosted AppKit view so it sits ABOVE the Ghostty surface (per
+    /// CLAUDE.md:143 — SwiftUI panel-level overlays fall behind the portal-hosted terminal).
+    /// The overlay observes runtime.$active itself and shows/hides automatically; we only
+    /// ever create it, never tear it down — a panel's runtime and id are stable for the
+    /// lifetime of its scroll view.
+    func attachPaneInteraction(runtime: PaneInteractionRuntime, panelId: UUID) {
+        if paneInteractionOverlay != nil { return }
+        let overlay = PaneInteractionOverlayHost(panelId: panelId, runtime: runtime)
+        overlay.frame = bounds
+        overlay.autoresizingMask = [.width, .height]
+        // Always position above everything else (search overlay included) — it's modal.
+        addSubview(overlay)
+        paneInteractionOverlay = overlay
+    }
+
+    /// True while a pane interaction is currently presented on this panel. Callers
+    /// that steer terminal first responder / Ghostty focus must honor this gate.
+    /// The PaneInteractionOverlayHost flips `isHidden` from its runtime.$active
+    /// subscription, so this reflects the authoritative presentation state.
+    var isPaneInteractionSuppressingFocus: Bool {
+        guard let overlay = paneInteractionOverlay else { return false }
+        return !overlay.isHidden
+    }
+
+    /// Single choke point for routing AppKit first responder to the terminal surface.
+    /// When a pane interaction is active on this panel, focus is suppressed — the
+    /// overlay owns keyboard input. All call sites that previously called
+    /// `window.makeFirstResponder(surfaceView)` directly must route through this
+    /// helper so the invariant is enforced at one gate (plan §4.7).
+    @discardableResult
+    func safeMakeTerminalFirstResponder(reason: String) -> Bool {
+        if isPaneInteractionSuppressingFocus {
+#if DEBUG
+            let surfaceShort = surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
+            dlog("focus.suppressed surface=\(surfaceShort) reason=\(reason)")
+#endif
+            return false
+        }
+        guard let window else { return false }
+        return window.makeFirstResponder(surfaceView)
+    }
+
     func setSearchOverlay(searchState: TerminalSurface.SearchState?) {
         if !Thread.isMainThread {
             DispatchQueue.main.async { [weak self] in
@@ -7529,7 +7589,7 @@ final class GhosttySurfaceScrollView: NSView {
             if let previous, previous !== self {
                 _ = previous.surfaceView.resignFirstResponder()
             }
-            let result = window.makeFirstResponder(self.surfaceView)
+            let result = self.safeMakeTerminalFirstResponder(reason: "moveFocus")
 #if DEBUG
             dlog(
                 "find.moveFocus.apply to=\(self.surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil") " +
@@ -7780,7 +7840,9 @@ final class GhosttySurfaceScrollView: NSView {
 #endif
             return
         }
-        let result = window.makeFirstResponder(surfaceView)
+        // Route through the focus choke-point so pane-interaction overlays
+        // suppress this ensureFocus path while a dialog is visible (m10 plan §4.7).
+        let result = safeMakeTerminalFirstResponder(reason: "ensureFocus")
 #if DEBUG
         dlog(
             "focus.ensure.apply surface=\(surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil") " +
@@ -7846,6 +7908,12 @@ final class GhosttySurfaceScrollView: NSView {
 
     private func reassertTerminalSurfaceFocus(reason: String) {
         guard let terminalSurface = surfaceView.terminalSurface else { return }
+        if isPaneInteractionSuppressingFocus {
+#if DEBUG
+            dlog("focus.surface.reassert.suppressed surface=\(terminalSurface.id.uuidString.prefix(5)) reason=\(reason)")
+#endif
+            return
+        }
 #if DEBUG
         dlog("focus.surface.reassert surface=\(terminalSurface.id.uuidString.prefix(5)) reason=\(reason)")
 #endif
@@ -7929,7 +7997,7 @@ final class GhosttySurfaceScrollView: NSView {
 #if DEBUG
         dlog("find.applyFirstResponder APPLY surface=\(surfaceShort) prevFirstResponder=\(String(describing: window.firstResponder))")
 #endif
-        window.makeFirstResponder(surfaceView)
+        _ = safeMakeTerminalFirstResponder(reason: "applyFirstResponder")
         if isSurfaceViewFirstResponder() {
             reassertTerminalSurfaceFocus(reason: "applyFirstResponder.afterMakeFirstResponder")
         }
@@ -7979,7 +8047,7 @@ final class GhosttySurfaceScrollView: NSView {
             )
 #endif
         case .terminal:
-            let result = window.makeFirstResponder(surfaceView)
+            let result = safeMakeTerminalFirstResponder(reason: "restoreSearchFocus.terminal")
 #if DEBUG
             dlog(
                 "find.restoreSearchFocus surface=\(surfaceShort) target=terminal " +
@@ -8884,6 +8952,11 @@ struct GhosttyTerminalView: NSViewRepresentable {
     var reattachToken: UInt64 = 0
     var onFocus: ((UUID) -> Void)? = nil
     var onTriggerFlash: (() -> Void)? = nil
+    /// Workspace-scoped runtime for the pane-interaction overlay (close-confirm,
+    /// rename, socket-triggered consent). `nil` is permitted — when nil, no overlay is
+    /// attached, which is the expected state for preview/test-only contexts.
+    var paneInteractionRuntime: PaneInteractionRuntime? = nil
+    var paneInteractionPanelId: UUID? = nil
 
     private final class HostContainerView: NSView {
         var onDidMoveToWindow: (() -> Void)?
@@ -9070,6 +9143,10 @@ struct GhosttyTerminalView: NSViewRepresentable {
             )
             hostedView.setNotificationRing(visible: showsUnreadNotificationRing)
             hostedView.setSearchOverlay(searchState: searchState)
+            if let runtime = paneInteractionRuntime,
+               let panelId = paneInteractionPanelId {
+                hostedView.attachPaneInteraction(runtime: runtime, panelId: panelId)
+            }
             hostedView.syncKeyStateIndicator(text: terminalSurface.currentKeyStateIndicatorText)
         }
         let portalExpectedSurfaceId = terminalSurface.id

@@ -70,6 +70,7 @@
 - [ ] **P0** Remove `close-workspace` with no args — require explicit workspace short ID or UUID, with clear error message if missing
 
 ## UI/UX Improvements
+- [ ] Workspace custom color is too subtle — currently only a thin rail/accent on the sidebar row. Make it more visible (wider bar, full row tint on selection, or a swatch chip next to the workspace name) so users actually see the color they picked.
 - [ ] Show loading indicator in terminal while it's loading
 - [ ] Add question mark icon to learn shortcuts
 - [ ] Notification popover: each button item should show outline outside when focused/hovered

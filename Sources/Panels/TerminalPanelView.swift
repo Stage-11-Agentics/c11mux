@@ -5,6 +5,7 @@ import AppKit
 /// View for rendering a terminal panel
 struct TerminalPanelView: View {
     @ObservedObject var panel: TerminalPanel
+    @ObservedObject var paneInteractionRuntime: PaneInteractionRuntime
     @AppStorage(NotificationPaneRingSettings.enabledKey)
     private var notificationPaneRingEnabled = NotificationPaneRingSettings.defaultEnabled
     // [TextBox] TextBox Input settings (plan §4.3)
@@ -50,8 +51,10 @@ struct TerminalPanelView: View {
     var body: some View {
         // Layering contract: terminal find UI is mounted in GhosttySurfaceScrollView (AppKit portal layer)
         // via `searchState`. Rendering `SurfaceSearchOverlay` in this SwiftUI container can hide it.
-        // The TextBox mounts BELOW the terminal view in a SwiftUI VStack — the search overlay stays in
-        // the AppKit portal layer (unchanged) and is unaffected by this wrapper.
+        // The pane-interaction overlay follows the same contract — mounted from the AppKit host
+        // inside GhosttySurfaceScrollView (see `attachPaneInteraction(runtime:panelId:)`).
+        // The TextBox mounts BELOW the terminal view in a SwiftUI VStack — the search overlay
+        // stays in the AppKit portal layer (unchanged) and is unaffected by this wrapper.
         VStack(spacing: 0) {
             GhosttyTerminalView(
                 terminalSurface: panel.surface,
@@ -65,7 +68,9 @@ struct TerminalPanelView: View {
                 searchState: panel.searchState,
                 reattachToken: panel.viewReattachToken,
                 onFocus: { _ in onFocus() },
-                onTriggerFlash: onTriggerFlash
+                onTriggerFlash: onTriggerFlash,
+                paneInteractionRuntime: paneInteractionRuntime,
+                paneInteractionPanelId: panel.id
             )
 
             if showTextBox {

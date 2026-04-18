@@ -5,6 +5,8 @@ All notable changes to c11mux (and, before the fork, cmux) are documented here.
 ## [Unreleased]
 
 ### Added
+- **M10: pane-scoped close confirmations.** Tab- and workspace-close confirmations now appear as a card anchored inside the specific panel they apply to, instead of a window-centered NSAlert. The scrim is bounded to that panel's rect, so other splits, tabs, and windows stay interactive while the dialog is visible. Enter / Cmd+D accept, Esc cancels, Tab cycles buttons. Destructive actions render in the system red with a gold focus ring.
+- **M10: `pane.confirm` socket command + `cmux pane-confirm` CLI.** Any local agent with socket access can request a panel-anchored confirmation on a specific panel UUID (`--panel <uuid> --title … [--message …] [--destructive] [--timeout <seconds>]`). Exit codes: 0=ok, 2=cancel, 3=dismissed, 1=error.
 - **M8: `cmux tree` overhaul.** New flags `--window`, `--workspace <id>`, `--all`, `--layout`, `--no-layout`, `--canvas-cols <N>`. Pane lines now carry `size=W%×H%`, `px=W×H`, and `split=…` badges. JSON output gains a `layout` sub-object on each pane (`percent`, `pixels`, `split_path`) and a `content_area` field on each workspace. Single-workspace text output renders an ASCII floor plan above the hierarchical tree by default.
 
 ### Changed

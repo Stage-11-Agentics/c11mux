@@ -974,3 +974,50 @@ final class TabManagerReopenClosedBrowserFocusTests: XCTestCase {
         wait(for: [expectation], timeout: 1.0)
     }
 }
+
+@MainActor
+final class TabManagerPaneInteractionScopeTests: XCTestCase {
+    /// Regression test for synthesis-critical §1.4 / synthesis-standard §1.4:
+    /// `hasActivePaneInteraction` used to return true if ANY workspace had a
+    /// live pane interaction. Combined with Cmd+D being selected-workspace-
+    /// scoped, a dialog on a background workspace would silently render every
+    /// keyboard shortcut in the active workspace inert. Must be scoped to
+    /// the selected workspace only.
+    func testHasActivePaneInteractionScopedToSelectedWorkspace() {
+        let manager = TabManager()
+        let first = manager.tabs[0]
+        let second = manager.addWorkspace()
+
+        manager.selectWorkspace(first)
+        XCTAssertEqual(manager.selectedTabId, first.id)
+        XCTAssertFalse(manager.hasActivePaneInteraction)
+
+        // Present a pane interaction on the UN-selected workspace.
+        guard let secondPanelId = second.focusedPanelId else {
+            XCTFail("second workspace must have a focused panel")
+            return
+        }
+        second.paneInteractionRuntime.present(
+            panelId: secondPanelId,
+            interaction: .confirm(ConfirmContent(
+                title: "Unseen", message: nil,
+                confirmLabel: "OK", cancelLabel: "Cancel",
+                role: .standard, source: .local,
+                completion: { _ in }
+            ))
+        )
+
+        XCTAssertFalse(
+            manager.hasActivePaneInteraction,
+            "Dialog on a non-selected workspace must NOT gate the selected workspace's shortcuts"
+        )
+
+        // Switch to the workspace that has the dialog — now the gate should engage.
+        manager.selectWorkspace(second)
+        XCTAssertTrue(manager.hasActivePaneInteraction)
+
+        // Clear and verify flip back to false.
+        second.paneInteractionRuntime.clear(panelId: secondPanelId)
+        XCTAssertFalse(manager.hasActivePaneInteraction)
+    }
+}

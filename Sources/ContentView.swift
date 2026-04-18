@@ -12013,11 +12013,81 @@ private struct TabItemView: View, Equatable {
     }
 
     private func promptCustomColor(targetIds: [UUID]) {
+        let seed = tab.customColor ?? WorkspaceTabColorSettings.customColors().first ?? ""
+
+        // Anchor on the first target workspace's focused panel. Plan §4.12.
+        // Falls back to NSAlert when no anchor is resolvable (rare: targets
+        // include only workspaces with no focused panel yet).
+        //
+        // Synthesis-standard §1.2: prefer the currently selected workspace
+        // when it is in the target set — presenting the overlay on a non-
+        // visible background workspace produces an invisible prompt. When
+        // the anchor isn't the selected workspace, fall back to NSAlert so
+        // the user actually sees the dialog.
+        let anchorWorkspace: Workspace? = targetIds.lazy.compactMap { id in
+            tabManager.tabs.first(where: { $0.id == id })
+        }.first(where: { $0.focusedPanelId != nil })
+        let anchorIsSelected = anchorWorkspace.map { $0.id == tabManager.selectedTabId } ?? false
+
+        if PaneInteractionFeatureFlag.isEnabled,
+           anchorIsSelected,
+           let workspace = anchorWorkspace,
+           let panelId = workspace.focusedPanelId {
+            Task { @MainActor in
+                let value = await workspace.presentTextInput(
+                    panelId: panelId,
+                    title: String(
+                        localized: "alert.customColor.title",
+                        defaultValue: "Custom Workspace Color"
+                    ),
+                    message: String(
+                        localized: "alert.customColor.message",
+                        defaultValue: "Enter a hex color in the format #RRGGBB."
+                    ),
+                    defaultValue: seed,
+                    placeholder: "#1565C0",
+                    confirmLabel: String(
+                        localized: "alert.customColor.apply",
+                        defaultValue: "Apply"
+                    ),
+                    cancelLabel: String(
+                        localized: "alert.customColor.cancel",
+                        defaultValue: "Cancel"
+                    ),
+                    validate: { candidate in
+                        // Mirror showInvalidColorAlert's two-message distinction:
+                        // empty vs invalid hex, both surfaced inline instead of
+                        // triggering a second alert (plan §4.12).
+                        if WorkspaceTabColorSettings.normalizedHex(candidate) != nil {
+                            return nil
+                        }
+                        let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed.isEmpty {
+                            return String(
+                                localized: "alert.invalidColor.emptyMessage",
+                                defaultValue: "Enter a hex color in the format #RRGGBB."
+                            )
+                        }
+                        return String(
+                            localized: "alert.invalidColor.invalidMessage",
+                            defaultValue: "\"\(trimmed)\" is not a valid hex color. Use #RRGGBB."
+                        )
+                    }
+                )
+                guard let value else { return }
+                // Acceptance-time revalidation: the candidate passed validation at
+                // submit time but state may have drifted; addCustomColor re-validates
+                // and returns nil on failure.
+                guard let normalized = WorkspaceTabColorSettings.addCustomColor(value) else { return }
+                applyTabColor(normalized, targetIds: targetIds)
+            }
+            return
+        }
+
         let alert = NSAlert()
         alert.messageText = String(localized: "alert.customColor.title", defaultValue: "Custom Workspace Color")
         alert.informativeText = String(localized: "alert.customColor.message", defaultValue: "Enter a hex color in the format #RRGGBB.")
 
-        let seed = tab.customColor ?? WorkspaceTabColorSettings.customColors().first ?? ""
         let input = NSTextField(string: seed)
         input.placeholderString = "#1565C0"
         input.frame = NSRect(x: 0, y: 0, width: 240, height: 22)
@@ -12056,10 +12126,63 @@ private struct TabItemView: View, Equatable {
     }
 
     private func promptRename() {
+        let currentTitle = tab.customTitle ?? tab.title
+
+        // Anchor the overlay on the workspace's focused panel so the card visually
+        // sits over the pane the user is renaming "from". If the workspace has
+        // no focused panel resolvable right now (edge case — empty workspace,
+        // detached state), fall back to the legacy NSAlert so the rename still
+        // works. Feature flag also routes to NSAlert when explicitly disabled.
+        //
+        // Synthesis-standard §1.2 / synthesis-critical side-effect: renaming
+        // via the sidebar context menu can target a non-selected workspace.
+        // Presenting the overlay on a background workspace produces an
+        // invisible prompt, so when `tab` isn't the selected workspace, fall
+        // back to the NSAlert path.
+        let isSelectedWorkspace = tabManager.selectedTabId == tab.id
+        if PaneInteractionFeatureFlag.isEnabled, isSelectedWorkspace, let panelId = tab.focusedPanelId {
+            let workspaceId = tab.id
+            let manager = tabManager
+            let workspace = tab
+            Task { @MainActor in
+                let value = await workspace.presentTextInput(
+                    panelId: panelId,
+                    title: String(
+                        localized: "alert.renameWorkspace.title",
+                        defaultValue: "Rename Workspace"
+                    ),
+                    message: String(
+                        localized: "alert.renameWorkspace.message",
+                        defaultValue: "Enter a custom name for this workspace."
+                    ),
+                    defaultValue: currentTitle,
+                    placeholder: String(
+                        localized: "alert.renameWorkspace.placeholder",
+                        defaultValue: "Workspace name"
+                    ),
+                    confirmLabel: String(
+                        localized: "alert.renameWorkspace.rename",
+                        defaultValue: "Rename"
+                    ),
+                    cancelLabel: String(
+                        localized: "alert.renameWorkspace.cancel",
+                        defaultValue: "Cancel"
+                    ),
+                    validate: { _ in nil }
+                )
+                guard let value else { return }
+                // Acceptance-time revalidation: the workspace may have been torn
+                // down between present and submit.
+                guard manager.tabs.contains(where: { $0.id == workspaceId }) else { return }
+                manager.setCustomTitle(tabId: workspaceId, title: value)
+            }
+            return
+        }
+
         let alert = NSAlert()
         alert.messageText = String(localized: "alert.renameWorkspace.title", defaultValue: "Rename Workspace")
         alert.informativeText = String(localized: "alert.renameWorkspace.message", defaultValue: "Enter a custom name for this workspace.")
-        let input = NSTextField(string: tab.customTitle ?? tab.title)
+        let input = NSTextField(string: currentTitle)
         input.placeholderString = String(localized: "alert.renameWorkspace.placeholder", defaultValue: "Workspace name")
         input.frame = NSRect(x: 0, y: 0, width: 240, height: 22)
         alert.accessoryView = input
