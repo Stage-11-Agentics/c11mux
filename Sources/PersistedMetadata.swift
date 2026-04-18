@@ -1,4 +1,7 @@
 import Foundation
+#if DEBUG
+import Bonsplit
+#endif
 
 /// Codable JSON value used to persist `SurfaceMetadataStore` contents across
 /// c11mux restarts. Numbers are stored as `Double`; consumers needing integer
