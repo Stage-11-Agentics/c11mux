@@ -6899,6 +6899,16 @@ class TerminalController {
         guard let title = v2String(params, "title"), !title.isEmpty else {
             return .err(code: "invalid_params", message: "Missing or empty title", data: nil)
         }
+        // Feature-flag rollback must cover the socket entry-point too. Without
+        // this, `CMUX_PANE_DIALOG_DISABLED=1` still lets pane interactions
+        // fire via `pane.confirm` — defeating the rollback path.
+        guard PaneInteractionFeatureFlag.isEnabled else {
+            return .err(
+                code: "unavailable",
+                message: "Pane interactions are disabled (CMUX_PANE_DIALOG_DISABLED=1).",
+                data: nil
+            )
+        }
         let message = (v2String(params, "message") ?? "")
         let roleStr = v2String(params, "role") ?? "standard"
         let role: ConfirmContent.ConfirmRole = (roleStr == "destructive") ? .destructive : .standard
