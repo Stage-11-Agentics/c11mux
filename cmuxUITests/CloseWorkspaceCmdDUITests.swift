@@ -608,6 +608,9 @@ final class CloseWorkspaceCmdDUITests: XCTestCase {
             predicate: NSPredicate { _, _ in
                 app.dialogs.containing(.staticText, identifier: "Close workspace?").firstMatch.exists ||
                 app.alerts.containing(.staticText, identifier: "Close workspace?").firstMatch.exists ||
+                // M10: pane-interaction overlay detection (accessibility identifier
+                // set in Sources/Panels/PaneInteractionCardView.swift).
+                app.otherElements["PaneInteraction.confirm.card"].firstMatch.exists ||
                 app.staticTexts["Close workspace?"].exists
             },
             object: NSObject()
@@ -629,6 +632,7 @@ final class CloseWorkspaceCmdDUITests: XCTestCase {
     private func isCloseTabAlertPresent(app: XCUIApplication) -> Bool {
         if app.dialogs.containing(.staticText, identifier: "Close tab?").firstMatch.exists { return true }
         if app.alerts.containing(.staticText, identifier: "Close tab?").firstMatch.exists { return true }
+        if app.otherElements["PaneInteraction.confirm.card"].firstMatch.exists { return true }
         return app.staticTexts["Close tab?"].exists
     }
 
@@ -643,6 +647,13 @@ final class CloseWorkspaceCmdDUITests: XCTestCase {
         let alert = app.alerts.containing(.staticText, identifier: "Close tab?").firstMatch
         if alert.exists {
             alert.buttons["Close"].firstMatch.click()
+            return
+        }
+
+        // M10: pane-interaction overlay path.
+        let card = app.otherElements["PaneInteraction.confirm.card"].firstMatch
+        if card.exists, card.buttons["Close"].exists {
+            card.buttons["Close"].firstMatch.click()
             return
         }
 

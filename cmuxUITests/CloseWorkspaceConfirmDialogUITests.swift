@@ -32,7 +32,14 @@ final class CloseWorkspaceConfirmDialogUITests: XCTestCase {
     private func isCloseWorkspaceAlertPresent(app: XCUIApplication) -> Bool {
         if closeWorkspaceDialog(app: app).exists { return true }
         if closeWorkspaceAlert(app: app).exists { return true }
+        // M10: pane-interaction overlay replaces the NSAlert when the feature
+        // flag is enabled. Detector must match either surface.
+        if paneInteractionConfirmCard(app: app).exists { return true }
         return app.staticTexts["Close workspace?"].exists
+    }
+
+    private func paneInteractionConfirmCard(app: XCUIApplication) -> XCUIElement {
+        app.otherElements["PaneInteraction.confirm.card"].firstMatch
     }
 
     private func waitForCloseWorkspaceAlert(app: XCUIApplication, timeout: TimeInterval) -> Bool {
@@ -54,6 +61,12 @@ final class CloseWorkspaceConfirmDialogUITests: XCTestCase {
         let alert = closeWorkspaceAlert(app: app)
         if alert.exists {
             alert.buttons["Cancel"].firstMatch.click()
+            return
+        }
+        // M10: pane-interaction overlay path — buttons live inside the card view.
+        let card = paneInteractionConfirmCard(app: app)
+        if card.exists, card.buttons["Cancel"].exists {
+            card.buttons["Cancel"].firstMatch.click()
             return
         }
         // Best-effort fallback: target the front-most dialog-like element to avoid Touch Bar collisions.
