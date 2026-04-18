@@ -70,6 +70,14 @@ cd cmuxd && zig build -Doptimize=ReleaseFast
 ./scripts/reloadp.sh
 ```
 
+**Apply Release changes without killing the running app.** `reloadp.sh` starts with `pkill -x cmux`, which tears down every c11mux pane and session — fatal if another agent is mid-task in a sibling pane, or if the current Claude Code session is itself hosted inside c11mux. To update the `.app` on disk without disturbing any running process, build only:
+
+```bash
+xcodebuild -project GhosttyTabs.xcodeproj -scheme cmux -configuration Release -destination 'platform=macOS' build
+```
+
+macOS lets you overwrite a running app's bundle — the already-loaded binary stays in memory, and the rebuilt `.app` is picked up on the next manual launch (⌘Q then relaunch). Use this when collaborating with other agents or when the user explicitly asks to avoid session churn.
+
 `reloads` = kill and launch the Release app as "cmux STAGING" (isolated from production cmux):
 
 ```bash
