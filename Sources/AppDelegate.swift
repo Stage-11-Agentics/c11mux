@@ -9060,15 +9060,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if paneInteractionActive {
             // Route Cmd+D through to the pane-interaction runtime — same contract as
             // the NSPanel close-confirmation path: accept the topmost dialog in the
-            // focused workspace. All other shortcuts are swallowed while the dialog
-            // is visible so keybindings don't fire through the overlay.
+            // focused workspace. All other app-level shortcuts are swallowed while
+            // the dialog is visible so keybindings don't fire through the overlay.
+            //
+            // The caller is an NSEvent local monitor (see installAppMonitor:
+            // true → return nil = consume, false → return event = pass through),
+            // so we return `true` in both the accepted-Cmd+D branch AND the
+            // default branch to ensure non-Cmd+D shortcuts are genuinely
+            // consumed rather than forwarded through the modal overlay
+            // (synthesis-critical §1.4, synthesis-standard §1.4).
             if matchShortcut(
                 event: event,
                 shortcut: StoredShortcut(key: "d", command: true, shift: false, option: false, control: false)
             ), tabManager?.acceptActivePaneInteractionInKeyWorkspace() == true {
                 return true
             }
-            return false
+            return true
         }
 
         if NSApp.modalWindow != nil || NSApp.keyWindow?.attachedSheet != nil {

@@ -693,11 +693,22 @@ class TabManager: ObservableObject {
     @Published private(set) var pendingBackgroundWorkspaceLoadIds: Set<UUID> = []
     @Published private(set) var debugPinnedWorkspaceLoadIds: Set<UUID> = []
 
-    /// Any workspace in this TabManager currently has a pane interaction presented.
+    /// True when the currently selected workspace has a pane interaction presented.
     /// Used by AppDelegate's shortcut dispatcher / modal-window gate (plan §4.8) to
     /// suppress key-equivalent handling while a pane-anchored dialog is on screen.
+    ///
+    /// Scoped to the selected workspace (not all tabs) so a dialog on a background
+    /// workspace doesn't silently make global shortcuts inert — matches
+    /// `acceptActivePaneInteractionInKeyWorkspace`'s scope. Annotated @MainActor
+    /// because it reads a @MainActor-isolated runtime (synthesis-critical §2.3,
+    /// synthesis-standard §1.4).
+    @MainActor
     var hasActivePaneInteraction: Bool {
-        tabs.contains { $0.paneInteractionRuntime.hasAnyActive }
+        guard let selectedTabId,
+              let workspace = tabs.first(where: { $0.id == selectedTabId }) else {
+            return false
+        }
+        return workspace.paneInteractionRuntime.hasAnyActive
     }
 
     /// Accept the topmost pane interaction in the currently selected workspace,
