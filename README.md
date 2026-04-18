@@ -80,6 +80,8 @@ The c11mux cask conflicts with the upstream `cmux` cask — Homebrew will ask yo
 
 tmux is the original (the name comes from 'Terminal MUltipleXer'). cmux is a great creation by [manaflow-ai](https://github.com/manaflow-ai/cmux) (open source), and c11mux is the [Stage 11](https://stage11.ai) fork of cmux.
 
+cmux itself is built on two external open-source projects worth naming: [Ghostty](https://ghostty.org/) — the developer-favorite GPU-accelerated terminal by [Mitchell Hashimoto](https://github.com/mitchellh), embedded via libghostty and responsible for every keystroke — and [Bonsplit](https://github.com/almonk/bonsplit) by [almonk](https://github.com/almonk), which provides the tab bar and split-pane chrome. Both carry through into c11mux and both deserve credit.
+
 This fork exists so Stage 11 can push agent-orchestration features past what exists today, and iterate on changes that may or may not land back in cmux.
 
 What changes in the fork: app display name (**c11mux**), bundle ID (`com.stage11.c11mux`), release artifacts, Homebrew tap, and the Sparkle auto-update feed. What stays identical to upstream: the `cmux` CLI binary name, every `CMUX_*` environment variable, socket paths and protocol, shell integration scripts, and every CLI subcommand — so existing scripts, dotfiles, and third-party tools keep working unchanged.
