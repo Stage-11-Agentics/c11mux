@@ -66,8 +66,10 @@ private struct ConfirmCard: View {
 
                 Button(action: cancel) {
                     Text(content.cancelLabel)
+                        .foregroundColor(BrandColors.whiteSwiftUI)
                         .frame(minWidth: 64)
                 }
+                .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
                 .focused($focused, equals: .cancel)
                 .focusRing(isActive: focused == .cancel)
@@ -77,6 +79,8 @@ private struct ConfirmCard: View {
                     Text(content.confirmLabel)
                         .frame(minWidth: 64)
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(content.role == .destructive ? .red : BrandColors.goldSwiftUI)
                 .keyboardShortcut(.defaultAction)
                 .focused($focused, equals: .confirm)
                 .focusRing(isActive: focused == .confirm)
@@ -92,6 +96,7 @@ private struct ConfirmCard: View {
                         .strokeBorder(BrandColors.ruleSwiftUI, lineWidth: 1)
                 )
         )
+        .environment(\.colorScheme, .dark)
         .accessibilityIdentifier("PaneInteraction.confirm.card")
         .onAppear { focused = .confirm }
         .onKeyPress(.escape) {
@@ -146,14 +151,18 @@ private struct TextInputCard: View {
 
                 Button(action: cancel) {
                     Text(content.cancelLabel)
+                        .foregroundColor(BrandColors.whiteSwiftUI)
                         .frame(minWidth: 64)
                 }
+                .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
 
                 Button(action: submit) {
                     Text(content.confirmLabel)
                         .frame(minWidth: 64)
                 }
+                .buttonStyle(.borderedProminent)
+                .tint(BrandColors.goldSwiftUI)
                 .keyboardShortcut(.defaultAction)
             }
         }
@@ -167,6 +176,7 @@ private struct TextInputCard: View {
                         .strokeBorder(BrandColors.ruleSwiftUI, lineWidth: 1)
                 )
         )
+        .environment(\.colorScheme, .dark)
         .accessibilityIdentifier("PaneInteraction.textInput.card")
         .onAppear {
             value = content.defaultValue
