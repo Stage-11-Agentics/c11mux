@@ -12007,10 +12007,56 @@ private struct TabItemView: View, Equatable {
     }
 
     private func promptRename() {
+        let currentTitle = tab.customTitle ?? tab.title
+
+        // Anchor the overlay on the workspace's focused panel so the card visually
+        // sits over the pane the user is renaming "from". If the workspace has
+        // no focused panel resolvable right now (edge case — empty workspace,
+        // detached state), fall back to the legacy NSAlert so the rename still
+        // works. Feature flag also routes to NSAlert when explicitly disabled.
+        if PaneInteractionFeatureFlag.isEnabled, let panelId = tab.focusedPanelId {
+            let workspaceId = tab.id
+            let manager = tabManager
+            let workspace = tab
+            Task { @MainActor in
+                let value = await workspace.presentTextInput(
+                    panelId: panelId,
+                    title: String(
+                        localized: "alert.renameWorkspace.title",
+                        defaultValue: "Rename Workspace"
+                    ),
+                    message: String(
+                        localized: "alert.renameWorkspace.message",
+                        defaultValue: "Enter a custom name for this workspace."
+                    ),
+                    defaultValue: currentTitle,
+                    placeholder: String(
+                        localized: "alert.renameWorkspace.placeholder",
+                        defaultValue: "Workspace name"
+                    ),
+                    confirmLabel: String(
+                        localized: "alert.renameWorkspace.rename",
+                        defaultValue: "Rename"
+                    ),
+                    cancelLabel: String(
+                        localized: "alert.renameWorkspace.cancel",
+                        defaultValue: "Cancel"
+                    ),
+                    validate: { _ in nil }
+                )
+                guard let value else { return }
+                // Acceptance-time revalidation: the workspace may have been torn
+                // down between present and submit.
+                guard manager.tabs.contains(where: { $0.id == workspaceId }) else { return }
+                manager.setCustomTitle(tabId: workspaceId, title: value)
+            }
+            return
+        }
+
         let alert = NSAlert()
         alert.messageText = String(localized: "alert.renameWorkspace.title", defaultValue: "Rename Workspace")
         alert.informativeText = String(localized: "alert.renameWorkspace.message", defaultValue: "Enter a custom name for this workspace.")
-        let input = NSTextField(string: tab.customTitle ?? tab.title)
+        let input = NSTextField(string: currentTitle)
         input.placeholderString = String(localized: "alert.renameWorkspace.placeholder", defaultValue: "Workspace name")
         input.frame = NSRect(x: 0, y: 0, width: 240, height: 22)
         alert.accessoryView = input
