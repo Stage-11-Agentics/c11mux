@@ -6890,7 +6890,12 @@ class TerminalController {
     ///   - title (string, required): card title
     ///   - message (string, optional): card informative text
     ///   - role (string, optional): "destructive" | "standard" (default: standard)
-    ///   - timeout (number, optional): max seconds to wait; omit for no timeout
+    ///   - timeout (number, optional): max seconds to wait; clamped to [0, 300].
+    ///     Omitting defaults to 300 seconds — the server-side ceiling prevents a
+    ///     malformed or malicious caller from blocking a socket worker with an
+    ///     indefinite wait. Caller-supplied values > 300s are silently clamped.
+    ///   - confirm_label (string, optional): override for the confirm button label
+    ///   - cancel_label (string, optional): override for the cancel button label
     ///
     /// Result: { "result": "ok" | "cancel" | "dismissed" }
     ///

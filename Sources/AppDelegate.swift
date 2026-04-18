@@ -9060,22 +9060,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if paneInteractionActive {
             // Route Cmd+D through to the pane-interaction runtime — same contract as
             // the NSPanel close-confirmation path: accept the topmost dialog in the
-            // focused workspace. All other app-level shortcuts are swallowed while
-            // the dialog is visible so keybindings don't fire through the overlay.
+            // focused workspace. All app-level *shortcuts* are swallowed while the
+            // dialog is visible so keybindings don't fire through the overlay.
             //
             // The caller is an NSEvent local monitor (see installAppMonitor:
-            // true → return nil = consume, false → return event = pass through),
-            // so we return `true` in both the accepted-Cmd+D branch AND the
-            // default branch to ensure non-Cmd+D shortcuts are genuinely
-            // consumed rather than forwarded through the modal overlay
-            // (synthesis-critical §1.4, synthesis-standard §1.4).
+            // true → return nil = consume, false → return event = pass through).
+            // We must return `true` only for events that are actual app-level
+            // shortcuts — i.e. have Command/Control/Option modifiers. Plain keyDown
+            // events (letters, digits, Return, Escape, arrows) must pass through so
+            // the NSTextField inside TextInputCard receives typing and the card's
+            // SwiftUI `.onKeyPress` handlers fire (synthesis-critical §1.4,
+            // synthesis-standard §1.4; post-fix-review-codex flagged the naive
+            // `return true` as consuming all keyDowns).
             if matchShortcut(
                 event: event,
                 shortcut: StoredShortcut(key: "d", command: true, shift: false, option: false, control: false)
             ), tabManager?.acceptActivePaneInteractionInKeyWorkspace() == true {
                 return true
             }
-            return true
+            let hasAppShortcutModifier = hasCommand || hasControl || hasOption
+            return hasAppShortcutModifier
         }
 
         if NSApp.modalWindow != nil || NSApp.keyWindow?.attachedSheet != nil {
