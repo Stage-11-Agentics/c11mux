@@ -36,6 +36,27 @@ final class TerminalPanel: Panel, ObservableObject {
     /// (hostedView.window == nil) until the user switches workspaces.
     @Published var viewReattachToken: UInt64 = 0
 
+    // MARK: - [TextBox] Per-panel TextBoxInput state
+    //
+    // Each terminal panel owns its own TextBox visibility flag, draft
+    // content buffer, and a weak reference to the live InputTextView so
+    // the workspace can swap focus between the TextBox and the terminal
+    // without walking the AppKit responder chain. The `@Published`
+    // flags let SwiftUI react to toggle changes; the input view is a
+    // non-published `weak` so view lifecycle does not churn observers.
+
+    /// Whether the TextBox is mounted for this panel. Seeded from the
+    /// global "Enable Mode" setting; workspace-level toggles update it.
+    @Published var isTextBoxActive: Bool = TextBoxInputSettings.isEnabled()
+
+    /// Draft text currently held in the TextBox. Preserved across tab
+    /// switches so users do not lose in-flight prompts.
+    @Published var textBoxContent: String = ""
+
+    /// Live InputTextView for this panel (when mounted). Used by
+    /// `Workspace.toggleTextBoxMode` to detect and move focus.
+    weak var inputTextView: InputTextView?
+
     private var cancellables = Set<AnyCancellable>()
 
     var displayTitle: String {

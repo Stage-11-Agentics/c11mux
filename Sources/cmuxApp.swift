@@ -2711,6 +2711,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 enum SettingsNavigationTarget: String {
     case browser
     case browserImport
+    case textBoxInput
     case keyboardShortcuts
 }
 
@@ -3899,6 +3900,12 @@ struct SettingsView: View {
     @AppStorage("sidebarTintHexLight") private var sidebarTintHexLight: String?
     @AppStorage("sidebarTintHexDark") private var sidebarTintHexDark: String?
     @AppStorage("sidebarTintOpacity") private var sidebarTintOpacity = SidebarTintDefaults.opacity
+
+    // [TextBox] TextBox Input settings (plan §4.7)
+    @AppStorage(TextBoxInputSettings.enabledKey) private var textBoxEnabled = TextBoxInputSettings.defaultEnabled
+    @AppStorage(TextBoxInputSettings.enterToSendKey) private var textBoxEnterToSend = TextBoxInputSettings.defaultEnterToSend
+    @AppStorage(TextBoxInputSettings.escapeBehaviorKey) private var textBoxEscapeBehavior = TextBoxInputSettings.defaultEscapeBehavior.rawValue
+    @AppStorage(TextBoxInputSettings.shortcutBehaviorKey) private var textBoxShortcutBehavior = TextBoxInputSettings.defaultShortcutBehavior.rawValue
 
     @ObservedObject private var notificationStore = TerminalNotificationStore.shared
     @State private var shortcutResetToken = UUID()
@@ -5320,6 +5327,63 @@ struct SettingsView: View {
                         }
                     }
 
+                    // [TextBox] TextBox Input settings (plan §4.7)
+                    SettingsSectionHeader(title: String(localized: "settings.section.textBoxInput", defaultValue: "TextBox Input"))
+                        .id(SettingsNavigationTarget.textBoxInput)
+                        .accessibilityIdentifier("SettingsTextBoxInputSection")
+                    SettingsCard {
+                        SettingsCardRow(
+                            String(localized: "settings.textBoxInput.enable", defaultValue: "Enable Mode"),
+                            subtitle: String(localized: "settings.textBoxInput.enable.subtitle", defaultValue: "Show a native text box below each terminal for composing multi-line input and AI prompts.")
+                        ) {
+                            Toggle("", isOn: $textBoxEnabled)
+                                .labelsHidden()
+                                .controlSize(.small)
+                                .accessibilityIdentifier("TextBoxEnableToggle")
+                        }
+
+                        SettingsCardDivider()
+
+                        SettingsPickerRow(
+                            String(localized: "settings.textBoxInput.enterToSend", defaultValue: "Send on Return"),
+                            subtitle: String(localized: "settings.textBoxInput.enterToSend.subtitle", defaultValue: "When on, Return submits and Shift+Return inserts a newline. When off, the keys are reversed."),
+                            controlWidth: pickerColumnWidth,
+                            selection: $textBoxEnterToSend
+                        ) {
+                            Text(String(localized: "settings.textBoxInput.enterToSend.on", defaultValue: "Return = Send")).tag(true)
+                            Text(String(localized: "settings.textBoxInput.enterToSend.off", defaultValue: "Return = Newline")).tag(false)
+                        }
+                        .textBoxSettingsDisabled(!textBoxEnabled)
+
+                        SettingsCardDivider()
+
+                        SettingsPickerRow(
+                            String(localized: "settings.textBoxInput.escape", defaultValue: "Escape Key"),
+                            subtitle: String(localized: "settings.textBoxInput.escape.subtitle", defaultValue: "What the Escape key does while focus is in the TextBox."),
+                            controlWidth: pickerColumnWidth,
+                            selection: $textBoxEscapeBehavior
+                        ) {
+                            ForEach(TextBoxEscapeBehavior.allCases) { option in
+                                Text(option.displayName).tag(option.rawValue)
+                            }
+                        }
+                        .textBoxSettingsDisabled(!textBoxEnabled)
+
+                        SettingsCardDivider()
+
+                        SettingsPickerRow(
+                            String(localized: "settings.textBoxInput.shortcutBehavior", defaultValue: "Shortcut Behavior"),
+                            subtitle: String(localized: "settings.textBoxInput.shortcutBehavior.subtitle", defaultValue: "What the Toggle TextBox Input shortcut does. Display toggles visibility; Focus keeps the box visible and swaps focus."),
+                            controlWidth: pickerColumnWidth,
+                            selection: $textBoxShortcutBehavior
+                        ) {
+                            ForEach(TextBoxShortcutBehavior.allCases) { option in
+                                Text(option.displayName).tag(option.rawValue)
+                            }
+                        }
+                        .textBoxSettingsDisabled(!textBoxEnabled)
+                    }
+
                     SettingsSectionHeader(title: String(localized: "settings.section.keyboardShortcuts", defaultValue: "Keyboard Shortcuts"))
                         .id(SettingsNavigationTarget.keyboardShortcuts)
                         .accessibilityIdentifier("SettingsKeyboardShortcutsSection")
@@ -5622,6 +5686,12 @@ struct SettingsView: View {
         socketPasswordStatusIsError = false
         refreshDetectedImportBrowsers()
         KeyboardShortcutSettings.resetAll()
+        // [TextBox] Also reset TextBox Input defaults when Reset All runs.
+        TextBoxInputSettings.resetAll()
+        textBoxEnabled = TextBoxInputSettings.defaultEnabled
+        textBoxEnterToSend = TextBoxInputSettings.defaultEnterToSend
+        textBoxEscapeBehavior = TextBoxInputSettings.defaultEscapeBehavior.rawValue
+        textBoxShortcutBehavior = TextBoxInputSettings.defaultShortcutBehavior.rawValue
         WorkspaceTabColorSettings.reset()
         reloadWorkspaceTabColorSettings()
         shortcutResetToken = UUID()
