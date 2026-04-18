@@ -340,6 +340,9 @@ struct SessionWorkspaceSnapshot: Codable, Sendable {
     var logEntries: [SessionLogEntrySnapshot]
     var progress: SessionProgressSnapshot?
     var gitBranch: SessionGitBranchSnapshot?
+    /// Operator-authored workspace metadata (e.g. description, icon).
+    /// Optional for backward compatibility with pre-metadata snapshots.
+    var metadata: [String: String]?
 }
 
 struct SessionTabManagerSnapshot: Codable, Sendable {

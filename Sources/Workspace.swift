@@ -195,6 +195,8 @@ extension Workspace {
             SessionGitBranchSnapshot(branch: branch.branch, isDirty: branch.isDirty)
         }
 
+        let metadataSnapshot: [String: String]? = metadata.isEmpty ? nil : metadata
+
         return SessionWorkspaceSnapshot(
             processTitle: processTitle,
             customTitle: customTitle,
@@ -207,7 +209,8 @@ extension Workspace {
             statusEntries: statusSnapshots,
             logEntries: logSnapshots,
             progress: progressSnapshot,
-            gitBranch: gitBranchSnapshot
+            gitBranch: gitBranchSnapshot,
+            metadata: metadataSnapshot
         )
     }
 
@@ -239,6 +242,7 @@ extension Workspace {
         setCustomTitle(snapshot.customTitle)
         setCustomColor(snapshot.customColor)
         isPinned = snapshot.isPinned
+        metadata = snapshot.metadata ?? [:]
 
         // Status entries and agent PIDs are ephemeral runtime state tied to running
         // processes (e.g. claude_code "Running"). Don't restore them across app
@@ -4823,6 +4827,12 @@ final class Workspace: Identifiable, ObservableObject {
     @Published var isPinned: Bool = false
     @Published var customColor: String?  // hex string, e.g. "#C0392B"
     @Published var currentDirectory: String
+
+    /// Operator-authored workspace metadata (e.g. "description", "icon").
+    /// Workspace-scoped; not to be confused with surface-scoped
+    /// `SurfaceMetadataStore`. Persisted across restart via
+    /// `SessionWorkspaceSnapshot.metadata`.
+    @Published var metadata: [String: String] = [:]
     private(set) var preferredBrowserProfileID: UUID?
 
     /// Ordinal for CMUX_PORT range assignment (monotonically increasing per app session)

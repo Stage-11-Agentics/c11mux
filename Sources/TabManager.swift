@@ -4891,6 +4891,14 @@ extension TabManager {
             hasher.combine(workspace.panels.count)
             hasher.combine(workspace.statusEntries.count)
             hasher.combine(workspace.metadataBlocks.count)
+            // Hash operator-authored workspace metadata by sorted keys so
+            // value-only edits still change the fingerprint. Without this,
+            // metadata edits could be deferred up to the forced-save window.
+            hasher.combine(workspace.metadata.count)
+            for key in workspace.metadata.keys.sorted() {
+                hasher.combine(key)
+                hasher.combine(workspace.metadata[key] ?? "")
+            }
             hasher.combine(workspace.logEntries.count)
             hasher.combine(workspace.panelDirectories.count)
             hasher.combine(workspace.panelTitles.count)
