@@ -296,6 +296,15 @@ struct SessionPanelSnapshot: Codable, Sendable {
     var terminal: SessionTerminalPanelSnapshot?
     var browser: SessionBrowserPanelSnapshot?
     var markdown: SessionMarkdownPanelSnapshot?
+
+    /// Tier 1 Phase 2: persisted `SurfaceMetadataStore` values for this
+    /// surface. Optional for backcompat with pre-Phase-2 snapshots; older
+    /// builds ignore the field. Numbers round-trip as `Double`; see
+    /// `PersistedJSONValue`.
+    var metadata: [String: PersistedJSONValue]?
+    /// Parallel sidecar: per-key `(source, ts)` record preserving the
+    /// precedence chain across restarts. See `PersistedMetadataSource`.
+    var metadataSources: [String: PersistedMetadataSource]?
 }
 
 enum SessionSplitOrientation: String, Codable, Sendable {
@@ -383,6 +392,9 @@ struct SessionWorkspaceSnapshot: Codable, Sendable {
     var logEntries: [SessionLogEntrySnapshot]
     var progress: SessionProgressSnapshot?
     var gitBranch: SessionGitBranchSnapshot?
+    /// Operator-authored workspace metadata (e.g. description, icon).
+    /// Optional for backward compatibility with pre-metadata snapshots.
+    var metadata: [String: String]?
 }
 
 struct SessionTabManagerSnapshot: Codable, Sendable {

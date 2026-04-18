@@ -2711,6 +2711,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 enum SettingsNavigationTarget: String {
     case browser
     case browserImport
+    case textBoxInput
     case keyboardShortcuts
 }
 
@@ -3899,6 +3900,11 @@ struct SettingsView: View {
     @AppStorage("sidebarTintHexLight") private var sidebarTintHexLight: String?
     @AppStorage("sidebarTintHexDark") private var sidebarTintHexDark: String?
     @AppStorage("sidebarTintOpacity") private var sidebarTintOpacity = SidebarTintDefaults.opacity
+
+    // [TextBox] TextBox Input settings (plan §4.7)
+    @AppStorage(TextBoxInputSettings.enterToSendKey) private var textBoxEnterToSend = TextBoxInputSettings.defaultEnterToSend
+    @AppStorage(TextBoxInputSettings.escapeBehaviorKey) private var textBoxEscapeBehavior = TextBoxInputSettings.defaultEscapeBehavior.rawValue
+    @AppStorage(TextBoxInputSettings.shortcutBehaviorKey) private var textBoxShortcutBehavior = TextBoxInputSettings.defaultShortcutBehavior.rawValue
 
     @ObservedObject private var notificationStore = TerminalNotificationStore.shared
     @State private var shortcutResetToken = UUID()
@@ -5320,6 +5326,52 @@ struct SettingsView: View {
                         }
                     }
 
+                    // [TextBox] TextBox Input settings (plan §4.7). Keys match
+                    // the upstream fork so Japanese translations carry over.
+                    SettingsSectionHeader(title: String(localized: "settings.section.textBoxInput", defaultValue: "TextBox Input"))
+                        .id(SettingsNavigationTarget.textBoxInput)
+                        .accessibilityIdentifier("SettingsTextBoxInputSection")
+                    SettingsCard {
+                        SettingsPickerRow(
+                            String(localized: "settings.textBoxInput.sendOnReturn", defaultValue: "Send on Return"),
+                            subtitle: String(localized: "settings.textBoxInput.sendOnReturn.subtitle", defaultValue: "Insert new line with Shift+Return"),
+                            controlWidth: pickerColumnWidth,
+                            selection: $textBoxEnterToSend
+                        ) {
+                            Text(String(localized: "settings.textBoxInput.sendOnReturn.on", defaultValue: "Return = Send")).tag(true)
+                            Text(String(localized: "settings.textBoxInput.sendOnReturn.off", defaultValue: "Return = Newline")).tag(false)
+                        }
+
+                        SettingsCardDivider()
+
+                        SettingsPickerRow(
+                            String(localized: "settings.textBoxInput.escapeBehavior", defaultValue: "Escape Key"),
+                            subtitle: String(localized: "settings.textBoxInput.escapeBehavior.subtitle", defaultValue: "Action when pressing Escape in the TextBox."),
+                            controlWidth: pickerColumnWidth,
+                            selection: $textBoxEscapeBehavior
+                        ) {
+                            ForEach(TextBoxEscapeBehavior.allCases) { option in
+                                Text(option.displayName).tag(option.rawValue)
+                            }
+                        }
+
+                        SettingsCardDivider()
+
+                        SettingsPickerRow(
+                            String(
+                                format: String(localized: "settings.textBoxInput.shortcutBehavior", defaultValue: "Keyboard Shortcut (%@)"),
+                                KeyboardShortcutSettings.shortcut(for: .toggleTextBoxInput).displayString
+                            ),
+                            subtitle: String(localized: "settings.textBoxInput.shortcutBehavior.subtitle", defaultValue: "Shortcut key can be changed in Keyboard Shortcuts settings."),
+                            controlWidth: pickerColumnWidth,
+                            selection: $textBoxShortcutBehavior
+                        ) {
+                            ForEach(TextBoxShortcutBehavior.allCases) { option in
+                                Text(option.displayName).tag(option.rawValue)
+                            }
+                        }
+                    }
+
                     SettingsSectionHeader(title: String(localized: "settings.section.keyboardShortcuts", defaultValue: "Keyboard Shortcuts"))
                         .id(SettingsNavigationTarget.keyboardShortcuts)
                         .accessibilityIdentifier("SettingsKeyboardShortcutsSection")
@@ -5622,6 +5674,11 @@ struct SettingsView: View {
         socketPasswordStatusIsError = false
         refreshDetectedImportBrowsers()
         KeyboardShortcutSettings.resetAll()
+        // [TextBox] Also reset TextBox Input defaults when Reset All runs.
+        TextBoxInputSettings.resetAll()
+        textBoxEnterToSend = TextBoxInputSettings.defaultEnterToSend
+        textBoxEscapeBehavior = TextBoxInputSettings.defaultEscapeBehavior.rawValue
+        textBoxShortcutBehavior = TextBoxInputSettings.defaultShortcutBehavior.rawValue
         WorkspaceTabColorSettings.reset()
         reloadWorkspaceTabColorSettings()
         shortcutResetToken = UUID()
