@@ -8963,33 +8963,52 @@ extension Workspace: BonsplitDelegate {
 
     @MainActor
     private func confirmClosePanel(for tabId: TabID) async -> Bool {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "dialog.closeTab.title", defaultValue: "Close tab?")
-        alert.informativeText = String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab.")
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: String(localized: "dialog.closeTab.close", defaultValue: "Close"))
-        alert.addButton(withTitle: String(localized: "dialog.closeTab.cancel", defaultValue: "Cancel"))
-
-        if let closeButton = alert.buttons.first {
-            closeButton.keyEquivalent = "\r"
-            closeButton.keyEquivalentModifierMask = []
-            alert.window.defaultButtonCell = closeButton.cell as? NSButtonCell
-            alert.window.initialFirstResponder = closeButton
+        // Route through the workspace-scoped pane-interaction runtime so the
+        // confirmation appears as an overlay anchored to the panel being closed,
+        // rather than a window-centered NSAlert (plan §3.4, §4.3).
+        guard let panelId = panelIdFromSurfaceId(tabId) else {
+            // No panel we can anchor on — treat as confirmed (parity with legacy
+            // NSAlert path which would still allow close after user interaction).
+            return true
         }
-        if let cancelButton = alert.buttons.dropFirst().first {
-            cancelButton.keyEquivalent = "\u{1b}"
-        }
+        return await presentConfirmClose(
+            panelId: panelId,
+            title: String(localized: "dialog.closeTab.title", defaultValue: "Close tab?"),
+            message: String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab."),
+            source: .local
+        )
+    }
 
-        // Prefer a sheet if we can find a window, otherwise fall back to modal.
-        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
-            return await withCheckedContinuation { continuation in
-                alert.beginSheetModal(for: window) { response in
-                    continuation.resume(returning: response == .alertFirstButtonReturn)
+    /// Present a .confirm pane interaction on the given panel and await the
+    /// user's decision. Returns `true` only on explicit accept — .cancelled and
+    /// .dismissed both map to `false` so callers don't fire close actions on a
+    /// panel whose state may have drifted (§2 acceptance-time revalidation).
+    @MainActor
+    func presentConfirmClose(
+        panelId: UUID,
+        title: String,
+        message: String,
+        source: InteractionSource,
+        dedupeToken: String? = nil
+    ) async -> Bool {
+        await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            let content = ConfirmContent(
+                title: title,
+                message: message.isEmpty ? nil : message,
+                confirmLabel: String(localized: "dialog.pane.confirm.close", defaultValue: "Close"),
+                cancelLabel: String(localized: "dialog.pane.confirm.cancel", defaultValue: "Cancel"),
+                role: .destructive,
+                source: source,
+                completion: { result in
+                    cont.resume(returning: result == .confirmed)
                 }
-            }
+            )
+            paneInteractionRuntime.present(
+                panelId: panelId,
+                interaction: .confirm(content),
+                dedupeToken: dedupeToken
+            )
         }
-
-        return alert.runModal() == .alertFirstButtonReturn
     }
 
     /// Apply the side-effects of selecting a tab (unfocus others, focus this panel, update state).

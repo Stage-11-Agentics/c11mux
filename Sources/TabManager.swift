@@ -2393,15 +2393,43 @@ class TabManager: ObservableObject {
 
     private func closeWorkspaceIfRunningProcess(_ workspace: Workspace, requiresConfirmation: Bool = true) {
         let willCloseWindow = tabs.count <= 1
-        if requiresConfirmation,
-           workspaceNeedsConfirmClose(workspace),
-           !confirmClose(
-               title: String(localized: "dialog.closeWorkspace.title", defaultValue: "Close workspace?"),
-               message: String(localized: "dialog.closeWorkspace.message", defaultValue: "This will close the workspace and all of its panels."),
-               acceptCmdD: willCloseWindow
-           ) {
-            return
+        if requiresConfirmation, workspaceNeedsConfirmClose(workspace) {
+            // Prefer the pane-anchored overlay — it lands on the workspace's focused
+            // panel (typically the running-process terminal that triggered the prompt).
+            // Fall back to the legacy NSAlert when no panel is resolvable (e.g. race
+            // during workspace teardown), which preserves the existing
+            // CloseWorkspaceCmdDUITests contract (plan §3.4, §4.4).
+            if let panelId = workspace.focusedPanelId {
+                Task { @MainActor [weak self, weak workspace] in
+                    guard let self, let workspace else { return }
+                    let accepted = await workspace.presentConfirmClose(
+                        panelId: panelId,
+                        title: String(localized: "dialog.closeWorkspace.title", defaultValue: "Close workspace?"),
+                        message: String(localized: "dialog.closeWorkspace.message", defaultValue: "This will close the workspace and all of its panels."),
+                        source: .local
+                    )
+                    guard accepted else { return }
+                    // Acceptance-time revalidation — workspace may have closed or
+                    // been destroyed while the overlay was visible.
+                    guard self.tabs.contains(where: { $0.id == workspace.id }) else { return }
+                    self.finishCloseWorkspace(workspace)
+                }
+                return
+            }
+
+            // NSAlert fallback — no focused panel to anchor on.
+            let accepted = confirmClose(
+                title: String(localized: "dialog.closeWorkspace.title", defaultValue: "Close workspace?"),
+                message: String(localized: "dialog.closeWorkspace.message", defaultValue: "This will close the workspace and all of its panels."),
+                acceptCmdD: willCloseWindow
+            )
+            guard accepted else { return }
         }
+        finishCloseWorkspace(workspace)
+    }
+
+    @MainActor
+    private func finishCloseWorkspace(_ workspace: Workspace) {
         if tabs.count <= 1 {
             // Last workspace in this window: close the window (Cmd+Shift+W behavior).
             if let window {
@@ -2477,15 +2505,41 @@ class TabManager: ObservableObject {
         guard let tab = tabs.first(where: { $0.id == tabId }) else { return }
         guard tab.panels[surfaceId] != nil else { return }
 
-        if let terminalPanel = tab.terminalPanel(for: surfaceId),
-           tab.panelNeedsConfirmClose(panelId: surfaceId, fallbackNeedsConfirmClose: terminalPanel.needsConfirmClose()) {
-            guard confirmClose(
-                title: String(localized: "dialog.closeTab.title", defaultValue: "Close tab?"),
-                message: String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab."),
-                acceptCmdD: false
-            ) else { return }
+        let needsConfirm = tab.terminalPanel(for: surfaceId).map { terminalPanel in
+            tab.panelNeedsConfirmClose(
+                panelId: surfaceId,
+                fallbackNeedsConfirmClose: terminalPanel.needsConfirmClose()
+            )
+        } ?? false
+
+        guard needsConfirm else {
+            performCloseRuntimeSurface(tab: tab, surfaceId: surfaceId)
+            return
         }
 
+        // Route the confirmation through the pane-interaction runtime so the
+        // card anchors on the surface being closed. Ghostty can fire this
+        // callback twice during a close race — dedupeToken collapses that.
+        Task { @MainActor [weak self] in
+            let accepted = await tab.presentConfirmClose(
+                panelId: surfaceId,
+                title: String(localized: "dialog.closeTab.title", defaultValue: "Close tab?"),
+                message: String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab."),
+                source: .local,
+                dedupeToken: "ghostty.close_surface_cb.\(surfaceId.uuidString)"
+            )
+            guard accepted, let self else { return }
+            // Acceptance-time revalidation: the user can take arbitrarily long
+            // to accept. If the tab or panel was torn down in the meantime,
+            // skip the close silently (plan §2).
+            guard let currentTab = self.tabs.first(where: { $0.id == tabId }),
+                  currentTab.panels[surfaceId] != nil else { return }
+            self.performCloseRuntimeSurface(tab: currentTab, surfaceId: surfaceId)
+        }
+    }
+
+    @MainActor
+    private func performCloseRuntimeSurface(tab: Workspace, surfaceId: UUID) {
         _ = tab.closePanel(surfaceId, force: true)
         AppDelegate.shared?.notificationStore?.clearNotifications(forTabId: tab.id, surfaceId: surfaceId)
     }
