@@ -256,22 +256,10 @@ final class TextBoxKeyRoutingTests: XCTestCase {
     }
 
     // MARK: Rule 9 — Empty-state navigation forwarding
-
-    func testArrowUpForwardedWhenEmpty() {
-        let action = route(.command(#selector(NSResponder.moveUp(_:)), shifted: false), isEmpty: true)
-        guard case .forwardKey(.arrowUp) = action else {
-            XCTFail("Expected .forwardKey(.arrowUp), got \(action)")
-            return
-        }
-    }
-
-    func testArrowDownForwardedWhenEmpty() {
-        let action = route(.command(#selector(NSResponder.moveDown(_:)), shifted: false), isEmpty: true)
-        guard case .forwardKey(.arrowDown) = action else {
-            XCTFail("Expected .forwardKey(.arrowDown), got \(action)")
-            return
-        }
-    }
+    //
+    // Option B: arrow keys are never forwarded to the terminal. They always
+    // drive NSTextView cursor movement (.textInput), whether the TextBox is
+    // empty or not. Only Tab and Backspace still forward in the empty state.
 
     func testTabForwardedWhenEmpty() {
         let action = route(.command(#selector(NSResponder.insertTab(_:)), shifted: false), isEmpty: true)
@@ -285,6 +273,46 @@ final class TextBoxKeyRoutingTests: XCTestCase {
         let action = route(.command(#selector(NSResponder.deleteBackward(_:)), shifted: false), isEmpty: true)
         guard case .forwardKey(.backspace) = action else {
             XCTFail("Expected .forwardKey(.backspace), got \(action)")
+            return
+        }
+    }
+
+    func testTabNotForwardedWhenNotEmpty() {
+        let action = route(.command(#selector(NSResponder.insertTab(_:)), shifted: false), isEmpty: false)
+        guard case .textInput = action else {
+            XCTFail("Expected .textInput when not empty, got \(action)")
+            return
+        }
+    }
+
+    func testArrowUpStaysInTextBoxWhenEmpty() {
+        let action = route(.command(#selector(NSResponder.moveUp(_:)), shifted: false), isEmpty: true)
+        guard case .textInput = action else {
+            XCTFail("Expected .textInput (arrows never forward — Option B), got \(action)")
+            return
+        }
+    }
+
+    func testArrowDownStaysInTextBoxWhenEmpty() {
+        let action = route(.command(#selector(NSResponder.moveDown(_:)), shifted: false), isEmpty: true)
+        guard case .textInput = action else {
+            XCTFail("Expected .textInput (arrows never forward — Option B), got \(action)")
+            return
+        }
+    }
+
+    func testArrowLeftStaysInTextBoxWhenEmpty() {
+        let action = route(.command(#selector(NSResponder.moveLeft(_:)), shifted: false), isEmpty: true)
+        guard case .textInput = action else {
+            XCTFail("Expected .textInput (arrows never forward — Option B), got \(action)")
+            return
+        }
+    }
+
+    func testArrowRightStaysInTextBoxWhenEmpty() {
+        let action = route(.command(#selector(NSResponder.moveRight(_:)), shifted: false), isEmpty: true)
+        guard case .textInput = action else {
+            XCTFail("Expected .textInput (arrows never forward — Option B), got \(action)")
             return
         }
     }

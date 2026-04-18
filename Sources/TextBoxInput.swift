@@ -44,7 +44,9 @@ See the rule table above that enum for the full specification.
 - Rule 5: "?" key — forwarded as raw event (empty, Claude Code/Codex, keep focus)
 - Rule 6/7: Return/Shift+Return — submit or newline (setting-dependent)
 - Rule 8: Escape — focus terminal or send ESC (setting-dependent)
-- Rule 9: ↑ ↓ ← → Tab Backspace — forwarded to terminal when empty (keep focus)
+- Rule 9: Tab, Backspace — forwarded to terminal when empty (keep focus).
+  Arrow keys are *not* forwarded; they always drive NSTextView cursor
+  movement, even when the TextBox is empty (Option B decision).
 - Rule 10: Fallback — default TextBox text input
 
 ### F6. Theme Sync
@@ -147,10 +149,10 @@ panel (the only toggle — there is no global "Enable Mode" setting).
 - [ ] T6.9  "@" in empty TextBox + Codex → forwarded, focus moves to terminal
 - [ ] T6.10 "?" in empty TextBox + Claude Code → forwarded as key event, focus stays
 - [ ] T6.11 "?" in non-empty TextBox → typed as text
-- [ ] T6.12 Arrow Up/Down in empty TextBox → shell history navigation
+- [ ] T6.12 Arrow Up/Down in empty TextBox → cursor stays in TextBox (Option B: no shell-history forwarding)
 - [ ] T6.13 Tab in empty TextBox → tab completion in terminal
 - [ ] T6.14 Backspace in empty TextBox → forwarded to terminal
-- [ ] T6.15 Arrow keys in non-empty TextBox → cursor movement within TextBox
+- [ ] T6.15 Arrow keys in non-empty TextBox → cursor movement within TextBox (same as empty; no forwarding)
 
 ### T7. Submit & Escape (F5, Rules 6–8)
 - [ ] T7.1  Return submits text (enterToSend=on)
@@ -515,12 +517,10 @@ enum TextBoxKeyRouting {
         .codex:      ["?"],
     ]
 
-    /// Rule 7: Selectors forwarded to terminal when TextBox is empty.
+    /// Rule 9: Selectors forwarded to terminal when TextBox is empty.
+    /// Arrow keys intentionally stay in the TextBox (Option B) so they always
+    /// drive NSTextView cursor movement, never shell history navigation.
     private static let emptyStateSelectors: [Selector: TerminalKey] = [
-        #selector(NSResponder.moveUp(_:)):         .arrowUp,
-        #selector(NSResponder.moveDown(_:)):       .arrowDown,
-        #selector(NSResponder.moveLeft(_:)):       .arrowLeft,
-        #selector(NSResponder.moveRight(_:)):      .arrowRight,
         #selector(NSResponder.insertTab(_:)):      .tab,
         #selector(NSResponder.deleteBackward(_:)): .backspace,
     ]
