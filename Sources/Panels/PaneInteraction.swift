@@ -171,7 +171,13 @@ public final class PaneInteractionRuntime: ObservableObject {
     public func present(panelId: UUID, interaction: PaneInteraction, dedupeToken: String? = nil) {
         if let token = dedupeToken {
             var tokens = seenTokens[panelId, default: []]
-            guard !tokens.contains(token) else { return }
+            if tokens.contains(token) {
+                // Duplicate: surface .dismissed to the incoming caller so its
+                // continuation resolves instead of hanging. The in-flight
+                // interaction is not disturbed.
+                dismissEvicted(interaction)
+                return
+            }
             tokens.insert(token)
             seenTokens[panelId] = tokens
         }
@@ -191,12 +197,16 @@ public final class PaneInteractionRuntime: ObservableObject {
 
     public func resolveConfirm(panelId: UUID, result: ConfirmResult) {
         guard case .confirm(let c)? = active[panelId] else { return }
+        // Null active BEFORE firing completion so a reentrant resolve call
+        // on the same panel can't find the same interaction and double-resume.
+        active[panelId] = nil
         c.completion(result)
         advance(panelId: panelId)
     }
 
     public func resolveTextInput(panelId: UUID, result: TextInputResult) {
         guard case .textInput(let t)? = active[panelId] else { return }
+        active[panelId] = nil
         t.completion(result)
         advance(panelId: panelId)
     }
@@ -204,11 +214,34 @@ public final class PaneInteractionRuntime: ObservableObject {
     /// Generic cancel path (Esc/Cancel) that works across variants.
     public func cancelActive(panelId: UUID) {
         guard let interaction = active[panelId] else { return }
+        active[panelId] = nil
         switch interaction {
         case .confirm(let c): c.completion(.cancelled)
         case .textInput(let t): t.completion(.cancelled)
         }
         advance(panelId: panelId)
+    }
+
+    /// Cancel a specific interaction by id. Searches active and queued slots;
+    /// if the target is active, fires `.dismissed` on its completion and
+    /// promotes the next queued interaction. If queued, removes it from the
+    /// queue and fires `.dismissed` on its completion. Returns true on hit.
+    @discardableResult
+    public func cancelInteraction(panelId: UUID, interactionId: UUID) -> Bool {
+        if let current = active[panelId], current.id == interactionId {
+            active[panelId] = nil
+            dismissEvicted(current)
+            advance(panelId: panelId)
+            return true
+        }
+        if var queue = queues[panelId],
+           let idx = queue.firstIndex(where: { $0.id == interactionId }) {
+            let removed = queue.remove(at: idx)
+            queues[panelId] = queue.isEmpty ? nil : queue
+            dismissEvicted(removed)
+            return true
+        }
+        return false
     }
 
     /// Typed accept for the currently active interaction on a panel. Used by Cmd+D
@@ -220,23 +253,33 @@ public final class PaneInteractionRuntime: ObservableObject {
         guard let interaction = active[panelId] else { return false }
         switch interaction {
         case .confirm(let c):
+            active[panelId] = nil
             c.completion(.confirmed)
         case .textInput(let t):
             let value = textInputValue ?? t.defaultValue
             if t.validate(value) != nil { return false }
+            active[panelId] = nil
             t.completion(.submitted(value))
         }
         advance(panelId: panelId)
         return true
     }
 
+    /// Expects `active[panelId]` to have already been set to nil by the caller
+    /// (see `resolveConfirm`/`resolveTextInput`/`cancelActive`/`acceptActive`).
+    /// Promotes the next queued interaction, or resets per-panel bookkeeping
+    /// (including `seenTokens`) if the panel is fully idle.
     private func advance(panelId: UUID) {
         if var queue = queues[panelId], !queue.isEmpty {
             active[panelId] = queue.removeFirst()
-            queues[panelId] = queue
+            queues[panelId] = queue.isEmpty ? nil : queue
         } else {
-            active[panelId] = nil
             queues[panelId] = nil
+            // Fully idle: let the next independent `present` with a previously
+            // seen dedupe token proceed (otherwise a stable per-panel token
+            // like `close_surface_cb.<id>` would silently suppress every
+            // subsequent close attempt for the life of the panel).
+            seenTokens[panelId] = nil
         }
     }
 
@@ -246,15 +289,19 @@ public final class PaneInteractionRuntime: ObservableObject {
 
     /// Panel/workspace teardown: resolve every pending (active + queued) with `.dismissed`.
     public func clear(panelId: UUID) {
-        if let interaction = active[panelId] {
-            dismissEvicted(interaction)
-        }
+        // Snapshot then null state BEFORE firing completions so any reentrant
+        // resolve/clear call sees a clean slate.
+        let snapshotActive = active[panelId]
+        let snapshotQueue = queues[panelId] ?? []
         active[panelId] = nil
-        if let queue = queues[panelId] {
-            for interaction in queue { dismissEvicted(interaction) }
-        }
         queues[panelId] = nil
         seenTokens[panelId] = nil
+        if let interaction = snapshotActive {
+            dismissEvicted(interaction)
+        }
+        for interaction in snapshotQueue {
+            dismissEvicted(interaction)
+        }
     }
 
     /// Clear every panel. Called from workspace teardown.

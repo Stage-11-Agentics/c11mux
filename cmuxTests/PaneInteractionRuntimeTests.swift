@@ -119,7 +119,10 @@ final class PaneInteractionRuntimeTests: XCTestCase {
 
     // MARK: - Dedupe token
 
-    func testDedupeTokenSuppressesDuplicatePresent() {
+    func testDedupedPresentResolvesDuplicateWithDismissed() {
+        // A duplicate present (same dedupe token) must not drop the caller's
+        // continuation silently. The second caller's completion fires with
+        // .dismissed immediately; the in-flight interaction continues.
         let runtime = PaneInteractionRuntime()
         let panelId = UUID()
         var first: ConfirmResult?
@@ -132,11 +135,42 @@ final class PaneInteractionRuntimeTests: XCTestCase {
                         interaction: .confirm(makeConfirm { second = $0 }),
                         dedupeToken: "close_surface_cb.x")
 
-        runtime.resolveConfirm(panelId: panelId, result: .confirmed)
+        // Duplicate caller resolved immediately with .dismissed; first is still active.
+        XCTAssertEqual(second, .dismissed)
+        XCTAssertNil(first, "First present must remain active")
+        XCTAssertTrue(runtime.hasActive(panelId: panelId))
 
+        runtime.resolveConfirm(panelId: panelId, result: .confirmed)
         XCTAssertEqual(first, .confirmed)
-        XCTAssertNil(second, "Duplicate token must drop the second present entirely")
         XCTAssertFalse(runtime.hasActive(panelId: panelId))
+    }
+
+    func testSeenTokensResetAfterPanelBecomesIdle() {
+        // Stable per-panel tokens (e.g. `close_surface_cb.<id>`) must not
+        // permanently suppress future attempts once the panel is idle.
+        let runtime = PaneInteractionRuntime()
+        let panelId = UUID()
+        var first: ConfirmResult?
+        var second: ConfirmResult?
+
+        runtime.present(panelId: panelId,
+                        interaction: .confirm(makeConfirm { first = $0 }),
+                        dedupeToken: "close_surface_cb.x")
+        runtime.resolveConfirm(panelId: panelId, result: .cancelled)
+        XCTAssertEqual(first, .cancelled)
+        XCTAssertFalse(runtime.hasActive(panelId: panelId))
+
+        // Same token, panel is idle → should NOT be deduped.
+        runtime.present(panelId: panelId,
+                        interaction: .confirm(makeConfirm { second = $0 }),
+                        dedupeToken: "close_surface_cb.x")
+
+        XCTAssertTrue(runtime.hasActive(panelId: panelId),
+                      "Panel becoming idle must reset seenTokens so a re-used token presents normally")
+        XCTAssertNil(second, "Second present is active, not resolved yet")
+
+        runtime.resolveConfirm(panelId: panelId, result: .confirmed)
+        XCTAssertEqual(second, .confirmed)
     }
 
     func testDedupeTokenAllowsDifferentTokens() {
