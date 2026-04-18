@@ -75560,6 +75560,40 @@
         }
       }
     },
+    "workspace.tooltip.newMarkdown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Markdown"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規マークダウン"
+          }
+        }
+      }
+    },
+    "workspace.tooltip.newTab": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Tab"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新規タブ"
+          }
+        }
+      }
+    },
     "workspace.tooltip.newBrowser": {
       "extractionState": "manual",
       "localizations": {
@@ -76059,6 +76093,125 @@
           "stringUnit": {
             "state": "translated",
             "value": "ファイルを利用できません"
+          }
+        }
+      }
+    },
+    "markdown.empty.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open a markdown file"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マークダウンファイルを開く"
+          }
+        }
+      }
+    },
+    "markdown.empty.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop a .md file here, or click Open."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ".md ファイルをドロップするか、「開く」をクリックしてください。"
+          }
+        }
+      }
+    },
+    "markdown.empty.openButton": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Markdown File…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マークダウンファイルを開く…"
+          }
+        }
+      }
+    },
+    "markdown.empty.openPrompt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開く"
+          }
+        }
+      }
+    },
+    "markdown.empty.openMessage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a markdown file to open."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開くマークダウンファイルを選択してください。"
+          }
+        }
+      }
+    },
+    "markdown.empty.spikePropaganda": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plans, docs, receipts — the Spike runs on markdown. Drop in, one workspace."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "計画・ドキュメント・履歴 — Spike はマークダウンで動く。すべてを一つのワークスペースへ。"
+          }
+        }
+      }
+    },
+    "markdown.untitled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Untitled"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無題"
           }
         }
       }
