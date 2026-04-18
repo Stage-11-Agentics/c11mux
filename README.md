@@ -1,6 +1,6 @@
 <h1 align="center">c11mux</h1>
 <p align="center">
-c11mux is tooling for advanced hyper engineers.
+c11mux is tooling for advanced hyperengineers.
 </p>
 
 
@@ -27,7 +27,7 @@ c11mux is tooling for advanced hyper engineers.
 
 ## What this is
 
-c11mux is tooling for hyper engineers.
+c11mux is tooling for hyperengineers.
 
 We enable highly complex assemblages of terminals, browsers, and markdown surfaces — agentically spawned, agentically managed, all composed into a single workspace under a single operator. Every pane is addressable. Every surface is scriptable. Agents spawn the structures they need, and they dissolve them when the work is done.
 
@@ -88,7 +88,7 @@ What changes in the fork: app display name (**c11mux**), bundle ID (`com.stage11
 
 ## About Stage 11
 
-Stage 11 Agentics builds infrastructure for the advanced hyper engineer: we build [spike](https://stage11.ai/spike.html) infrastructure. Among our projects: [Lattice](https://github.com/Stage-11-Agentics/Lattice), the coordination system that keeps the spike legible across sessions.
+Stage 11 Agentics builds infrastructure for the advanced hyperengineer: we build [spike](https://stage11.ai/spike.html) infrastructure. Among our projects: [Lattice](https://github.com/Stage-11-Agentics/Lattice), the coordination system that keeps the spike legible across sessions.
 
 More at [stage11.ai](https://stage11.ai).
 

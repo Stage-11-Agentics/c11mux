@@ -35,12 +35,17 @@
 - [x] Add optional `--snapshot-after` / `snapshot_after` action feedback to include a fresh post-action browser snapshot.
 - [x] Switch CLI `--json` default ID output to refs-first (UUIDs only via `--id-format uuids|both`) and add regression coverage.
 - [x] Expand end-user skill docs with deep-linkable cmux-browser references/templates plus a new core `skills/cmux/` topology skill.
+- [ ] Extend optional JSON attributes (currently surface-only) to panes and windows — full parity so any topology node can carry structured metadata
+
+## CI
+- [ ] **P0** Fix CI — legacy from upstream has never run green on this repo; audit workflows, cull/retarget ones that don't apply, and get a successful run on `main`
 
 ## Command Palette
 - [ ] Add cmd+shift+p palette with all commands
 
 ## Feature Requests
 - [ ] Warm pool of Claude Code instances mapped to a keyboard shortcut
+- [ ] Nameable panes (in addition to surfaces) — let users assign a name/label to a pane itself so multi-surface panes can carry identity independent of their contained surfaces. Planned as two tickets: **CMUX-11** (metadata mechanism — `docs/c11mux-pane-naming-plan.md`) and **CMUX-12** (title bar chrome & theming — `docs/c11mux-pane-title-bar-plan.md`, depends on CMUX-11)
 
 ## Claude Code Integration
 - [ ] Add "Install Claude Code integration" menu item in menubar
