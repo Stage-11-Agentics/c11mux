@@ -5963,6 +5963,13 @@ final class Workspace: Identifiable, ObservableObject {
                 title: TitleFormatting.sidebarLabel(from: resolvedTitle),
                 hasCustomTitle: panelCustomTitles[panelId] != nil
             )
+            // [TextBox] Keep TerminalPanel.title in sync so TextBox key
+            // routing can detect running apps (Claude Code, Codex) via
+            // the title regex when `SurfaceMetadataStore.terminal_type`
+            // has not yet been classified. See plan §4.4 (title-sync hook).
+            if let terminalPanel = panel as? TerminalPanel {
+                terminalPanel.updateTitle(trimmed)
+            }
         }
 
         // If this is the only panel and no custom title, update workspace title
@@ -5977,6 +5984,137 @@ final class Workspace: Identifiable, ObservableObject {
         }
 
         return didMutate
+    }
+
+    // MARK: - [TextBox] TextBox Input toggle (plan §4.4)
+
+    /// Toggle the TextBox Input for this workspace's terminal panels.
+    ///
+    /// `scope` decides whether we operate on the focused panel only or
+    /// on every terminal panel in this workspace (§8 Q9 locked:
+    /// "current workspace"). Behavior within each panel depends on the
+    /// user's `TextBoxInputSettings.shortcutBehavior`:
+    ///
+    /// - `.toggleDisplay`: flip `panel.isTextBoxActive` (show ⇄ hide).
+    /// - `.toggleFocus`: keep the TextBox visible, swap first responder
+    ///   between the InputTextView and the terminal surface.
+    ///
+    /// Focus changes are dispatched with `DispatchQueue.main.async` to
+    /// avoid reentering first-responder machinery mid-event.
+    func toggleTextBoxMode(_ scope: TextBoxToggleTarget) {
+        let terminalPanels = panels.values.compactMap { $0 as? TerminalPanel }
+        guard !terminalPanels.isEmpty else { return }
+
+        let behavior = TextBoxInputSettings.shortcutBehavior()
+        let targets: [TerminalPanel]
+
+        switch scope {
+        case .all:
+            targets = terminalPanels
+        case .active:
+            if let focusedId = focusedPanelIdForTextBoxToggle(),
+               let panel = panels[focusedId] as? TerminalPanel {
+                targets = [panel]
+            } else {
+                targets = terminalPanels
+            }
+        }
+
+        switch behavior {
+        case .toggleDisplay:
+            let shouldShow = !targets.allSatisfy { $0.isTextBoxActive }
+            for panel in targets {
+                panel.isTextBoxActive = shouldShow
+            }
+            if shouldShow {
+                focusInputTextView(in: targets, retriesRemaining: 4)
+            }
+        case .toggleFocus:
+            // Keep the box visible; swap focus between TextBox and terminal.
+            let wasAllVisible = targets.allSatisfy { $0.isTextBoxActive }
+            for panel in targets where !panel.isTextBoxActive {
+                panel.isTextBoxActive = true
+            }
+            if !wasAllVisible {
+                // First press summoned the TextBox from hidden — focus it, don't
+                // swap back to the terminal (the InputTextView may not be mounted
+                // yet, so retry briefly until SwiftUI wires it up).
+                focusInputTextView(in: targets, retriesRemaining: 4)
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    if let active = self.firstResponderTextBox() {
+                        // Focus is in a TextBox — move it back to that panel's terminal.
+                        let panel = targets.first { $0.inputTextView === active }
+                            ?? terminalPanels.first { $0.inputTextView === active }
+                        panel?.surface.focusTerminalView()
+                    } else {
+                        // Focus is in the terminal (or elsewhere) — move it into the TextBox.
+                        guard let firstTarget = targets.first,
+                              let view = firstTarget.inputTextView else { return }
+                        view.window?.makeFirstResponder(view)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Move first responder into the first target panel's InputTextView, retrying
+    /// briefly if SwiftUI has not yet mounted the container. Used after showing
+    /// the TextBox from hidden, where `inputTextView` is nil until the next
+    /// render pass wires it up via `onInputTextViewCreated`.
+    private func focusInputTextView(in targets: [TerminalPanel], retriesRemaining: Int) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if self.firstResponderTextBox() != nil { return }
+            if let firstTarget = targets.first, let view = firstTarget.inputTextView {
+                view.window?.makeFirstResponder(view)
+                return
+            }
+            if retriesRemaining > 0 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) { [weak self] in
+                    self?.focusInputTextView(in: targets, retriesRemaining: retriesRemaining - 1)
+                }
+            }
+        }
+    }
+
+    /// Returns the focused panel ID if it belongs to this workspace and
+    /// is a TerminalPanel. Resolved by walking the current main window's
+    /// first responder back to a GhosttyNSView, matching the pattern used
+    /// by `AppDelegate.focusedTerminalShortcutContext`.
+    private func focusedPanelIdForTextBoxToggle() -> UUID? {
+        let targetWindow = NSApp.keyWindow ?? NSApp.mainWindow
+        guard let responder = targetWindow?.firstResponder else { return nil }
+        // If the first responder is an InputTextView, walk its panel back via inputTextView.
+        if let inputView = responder as? InputTextView {
+            for (panelId, panel) in panels {
+                if let terminalPanel = panel as? TerminalPanel,
+                   terminalPanel.inputTextView === inputView {
+                    return panelId
+                }
+            }
+            return nil
+        }
+        // Otherwise try the terminal surface responder chain.
+        var node: NSResponder? = responder
+        while let current = node {
+            if let view = current as? NSView,
+               let surfaceView = view as? GhosttyNSView,
+               let surfaceId = surfaceView.terminalSurface?.id,
+               panels[surfaceId] is TerminalPanel {
+                return surfaceId
+            }
+            node = current.nextResponder
+        }
+        return nil
+    }
+
+    /// Returns the InputTextView currently holding first responder in
+    /// this workspace's key window, if any.
+    private func firstResponderTextBox() -> InputTextView? {
+        let window = NSApp.keyWindow ?? NSApp.mainWindow
+        return window?.firstResponder as? InputTextView
     }
 
     // MARK: - M7 title bar integration

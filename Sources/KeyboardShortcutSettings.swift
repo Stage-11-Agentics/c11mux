@@ -45,6 +45,9 @@ enum KeyboardShortcutSettings {
         case toggleBrowserDeveloperTools
         case showBrowserJavaScriptConsole
 
+        // Input
+        case toggleTextBoxInput
+
         var id: String { rawValue }
 
         var label: String {
@@ -79,6 +82,7 @@ enum KeyboardShortcutSettings {
             case .openBrowser: return String(localized: "shortcut.openBrowser.label", defaultValue: "Open Browser")
             case .toggleBrowserDeveloperTools: return String(localized: "shortcut.toggleBrowserDevTools.label", defaultValue: "Toggle Browser Developer Tools")
             case .showBrowserJavaScriptConsole: return String(localized: "shortcut.showBrowserJSConsole.label", defaultValue: "Show Browser JavaScript Console")
+            case .toggleTextBoxInput: return String(localized: "shortcut.toggleTextBoxInput.label", defaultValue: "Toggle TextBox Input")
             }
         }
 
@@ -114,6 +118,7 @@ enum KeyboardShortcutSettings {
             case .openBrowser: return "shortcut.openBrowser"
             case .toggleBrowserDeveloperTools: return "shortcut.toggleBrowserDeveloperTools"
             case .showBrowserJavaScriptConsole: return "shortcut.showBrowserJavaScriptConsole"
+            case .toggleTextBoxInput: return "shortcut.toggleTextBoxInput"
             }
         }
 
@@ -181,6 +186,12 @@ enum KeyboardShortcutSettings {
             case .showBrowserJavaScriptConsole:
                 // Safari default: Show JavaScript Console.
                 return StoredShortcut(key: "c", command: true, shift: false, option: true, control: false)
+            case .toggleTextBoxInput:
+                // Cmd+Option+T is already bound in AppDelegate to close-other-tabs
+                // (see AppDelegateShortcutRoutingTests); the upstream fork author's
+                // own source comment calls out Cmd+Option+B as the conflict-free
+                // choice. See plan §4.5.
+                return StoredShortcut(key: "b", command: true, shift: false, option: true, control: false)
             }
         }
 
