@@ -23,6 +23,10 @@ final class PaneInteractionOverlayHost: NSView {
     let runtime: PaneInteractionRuntime
     private var hostingView: NSHostingView<PaneInteractionCardView>?
     private var cancellable: AnyCancellable?
+    /// Responder to restore when the overlay hides. Captured on show so the
+    /// terminal / browser view that had focus before the dialog regains it
+    /// without requiring a manual click (synthesis-critical §2.10).
+    private weak var priorFirstResponder: NSResponder?
 
     init(panelId: UUID, runtime: PaneInteractionRuntime) {
         self.panelId = panelId
@@ -86,14 +90,34 @@ final class PaneInteractionOverlayHost: NSView {
                 addSubview(hv)
                 hostingView = hv
             }
+            let wasHidden = isHidden
             isHidden = false
             if let window {
+                // Capture the prior first responder on first show so we can
+                // restore it when the overlay hides. Don't overwrite on
+                // subsequent `apply` calls (queue advance) — we want the
+                // responder from before the FIRST card appeared.
+                if wasHidden, priorFirstResponder == nil,
+                   let prior = window.firstResponder, prior !== self {
+                    priorFirstResponder = prior
+                }
                 window.makeFirstResponder(self)
             }
         } else {
             isHidden = true
             hostingView?.removeFromSuperview()
             hostingView = nil
+            // Restore whoever had focus before we took it. If the responder
+            // has since been torn down (panel close during dialog), fall
+            // back to nil so the window's next-responder chain can resolve.
+            if let window {
+                if let prior = priorFirstResponder, prior.acceptsFirstResponder {
+                    window.makeFirstResponder(prior)
+                } else {
+                    window.makeFirstResponder(nil)
+                }
+            }
+            priorFirstResponder = nil
         }
     }
 

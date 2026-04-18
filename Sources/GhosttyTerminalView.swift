@@ -6053,6 +6053,10 @@ extension Notification.Name {
 
 private final class GhosttyScrollView: NSScrollView {
     weak var surfaceView: GhosttyNSView?
+    /// Back-reference to the owning surface scroll view so scrollWheel can
+    /// route first-responder changes through the focus choke-point instead
+    /// of making the terminal first responder behind the overlay's back.
+    weak var ownerSurfaceScrollView: GhosttySurfaceScrollView?
 
     // Keep keyboard routing on the terminal surface; this wrapper is viewport plumbing.
     override var acceptsFirstResponder: Bool { false }
@@ -6068,7 +6072,14 @@ private final class GhosttyScrollView: NSScrollView {
         // which causes pane-content drift instead of terminal scrollback movement.
         GhosttyNSView.focusLog("GhosttyScrollView.scrollWheel: surface scroll")
         if window?.firstResponder !== surfaceView {
-            window?.makeFirstResponder(surfaceView)
+            // Route through the single focus choke-point so pane-interaction
+            // overlays can suppress re-focus while visible (plan §4.7,
+            // synthesis-standard §1.2.7).
+            if let owner = ownerSurfaceScrollView {
+                _ = owner.safeMakeTerminalFirstResponder(reason: "scrollWheel")
+            } else {
+                window?.makeFirstResponder(surfaceView)
+            }
         }
         surfaceView.scrollWheel(with: event)
     }
@@ -6345,6 +6356,11 @@ final class GhosttySurfaceScrollView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.masksToBounds = true
+
+        // Back-reference so GhosttyScrollView.scrollWheel can route first-
+        // responder changes through the focus choke-point instead of
+        // bypassing pane-interaction overlay suppression.
+        scrollView.ownerSurfaceScrollView = self
 
         backgroundView.wantsLayer = true
         let initialTerminalBackground = GhosttyApp.shared.defaultBackgroundColor

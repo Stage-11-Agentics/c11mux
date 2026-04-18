@@ -11969,11 +11969,19 @@ private struct TabItemView: View, Equatable {
         // Anchor on the first target workspace's focused panel. Plan §4.12.
         // Falls back to NSAlert when no anchor is resolvable (rare: targets
         // include only workspaces with no focused panel yet).
+        //
+        // Synthesis-standard §1.2: prefer the currently selected workspace
+        // when it is in the target set — presenting the overlay on a non-
+        // visible background workspace produces an invisible prompt. When
+        // the anchor isn't the selected workspace, fall back to NSAlert so
+        // the user actually sees the dialog.
         let anchorWorkspace: Workspace? = targetIds.lazy.compactMap { id in
             tabManager.tabs.first(where: { $0.id == id })
         }.first(where: { $0.focusedPanelId != nil })
+        let anchorIsSelected = anchorWorkspace.map { $0.id == tabManager.selectedTabId } ?? false
 
         if PaneInteractionFeatureFlag.isEnabled,
+           anchorIsSelected,
            let workspace = anchorWorkspace,
            let panelId = workspace.focusedPanelId {
             Task { @MainActor in
@@ -12076,7 +12084,14 @@ private struct TabItemView: View, Equatable {
         // no focused panel resolvable right now (edge case — empty workspace,
         // detached state), fall back to the legacy NSAlert so the rename still
         // works. Feature flag also routes to NSAlert when explicitly disabled.
-        if PaneInteractionFeatureFlag.isEnabled, let panelId = tab.focusedPanelId {
+        //
+        // Synthesis-standard §1.2 / synthesis-critical side-effect: renaming
+        // via the sidebar context menu can target a non-selected workspace.
+        // Presenting the overlay on a background workspace produces an
+        // invisible prompt, so when `tab` isn't the selected workspace, fall
+        // back to the NSAlert path.
+        let isSelectedWorkspace = tabManager.selectedTabId == tab.id
+        if PaneInteractionFeatureFlag.isEnabled, isSelectedWorkspace, let panelId = tab.focusedPanelId {
             let workspaceId = tab.id
             let manager = tabManager
             let workspace = tab
