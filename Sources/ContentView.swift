@@ -11964,11 +11964,73 @@ private struct TabItemView: View, Equatable {
     }
 
     private func promptCustomColor(targetIds: [UUID]) {
+        let seed = tab.customColor ?? WorkspaceTabColorSettings.customColors().first ?? ""
+
+        // Anchor on the first target workspace's focused panel. Plan §4.12.
+        // Falls back to NSAlert when no anchor is resolvable (rare: targets
+        // include only workspaces with no focused panel yet).
+        let anchorWorkspace: Workspace? = targetIds.lazy.compactMap { id in
+            tabManager.tabs.first(where: { $0.id == id })
+        }.first(where: { $0.focusedPanelId != nil })
+
+        if PaneInteractionFeatureFlag.isEnabled,
+           let workspace = anchorWorkspace,
+           let panelId = workspace.focusedPanelId {
+            Task { @MainActor in
+                let value = await workspace.presentTextInput(
+                    panelId: panelId,
+                    title: String(
+                        localized: "alert.customColor.title",
+                        defaultValue: "Custom Workspace Color"
+                    ),
+                    message: String(
+                        localized: "alert.customColor.message",
+                        defaultValue: "Enter a hex color in the format #RRGGBB."
+                    ),
+                    defaultValue: seed,
+                    placeholder: "#1565C0",
+                    confirmLabel: String(
+                        localized: "alert.customColor.apply",
+                        defaultValue: "Apply"
+                    ),
+                    cancelLabel: String(
+                        localized: "alert.customColor.cancel",
+                        defaultValue: "Cancel"
+                    ),
+                    validate: { candidate in
+                        // Mirror showInvalidColorAlert's two-message distinction:
+                        // empty vs invalid hex, both surfaced inline instead of
+                        // triggering a second alert (plan §4.12).
+                        if WorkspaceTabColorSettings.normalizedHex(candidate) != nil {
+                            return nil
+                        }
+                        let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed.isEmpty {
+                            return String(
+                                localized: "alert.invalidColor.emptyMessage",
+                                defaultValue: "Enter a hex color in the format #RRGGBB."
+                            )
+                        }
+                        return String(
+                            localized: "alert.invalidColor.invalidMessage",
+                            defaultValue: "\"\(trimmed)\" is not a valid hex color. Use #RRGGBB."
+                        )
+                    }
+                )
+                guard let value else { return }
+                // Acceptance-time revalidation: the candidate passed validation at
+                // submit time but state may have drifted; addCustomColor re-validates
+                // and returns nil on failure.
+                guard let normalized = WorkspaceTabColorSettings.addCustomColor(value) else { return }
+                applyTabColor(normalized, targetIds: targetIds)
+            }
+            return
+        }
+
         let alert = NSAlert()
         alert.messageText = String(localized: "alert.customColor.title", defaultValue: "Custom Workspace Color")
         alert.informativeText = String(localized: "alert.customColor.message", defaultValue: "Enter a hex color in the format #RRGGBB.")
 
-        let seed = tab.customColor ?? WorkspaceTabColorSettings.customColors().first ?? ""
         let input = NSTextField(string: seed)
         input.placeholderString = "#1565C0"
         input.frame = NSRect(x: 0, y: 0, width: 240, height: 22)
