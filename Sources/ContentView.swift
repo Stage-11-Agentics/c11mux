@@ -10704,7 +10704,8 @@ private struct TabItemView: View, Equatable {
         case .leftRail:
             return 0
         case .solidFill:
-            return isActive ? 1.0 : 0
+            guard isActive else { return 0 }
+            return hasActiveCustomColorFill ? 1.5 : 1.0
         }
     }
 
@@ -10714,12 +10715,20 @@ private struct TabItemView: View, Equatable {
         case .leftRail:
             return .clear
         case .solidFill:
-            return BrandColors.goldSwiftUI
+            return hasActiveCustomColorFill ? BrandColors.blackSwiftUI : BrandColors.goldSwiftUI
         }
     }
 
+    // When a workspace has a custom color and is selected in .solidFill mode,
+    // the fill stays the workspace color (subconsciously reinforcing which
+    // workspace you're in) and emphasis comes from a black outline instead of
+    // swapping the fill to black.
+    private var hasActiveCustomColorFill: Bool {
+        isActive && activeTabIndicatorStyle == .solidFill && resolvedCustomTabColor != nil
+    }
+
     private var usesInvertedActiveForeground: Bool {
-        isActive && activeTabIndicatorStyle == .solidFill
+        isActive && activeTabIndicatorStyle == .solidFill && !hasActiveCustomColorFill
     }
 
     private var activePrimaryTextColor: Color {
@@ -10915,7 +10924,12 @@ private struct TabItemView: View, Equatable {
                             .fill(activeUnreadBadgeFillColor)
                         Text("\(unreadCount)")
                             .font(.system(size: 9, weight: .semibold))
-                            .foregroundColor(usesInvertedActiveForeground ? BrandColors.blackSwiftUI : .white)
+                            // Badge fill is always gold (`activeUnreadBadgeFillColor`).
+                            // Use black on the gold circle whenever the tab is the
+                            // active selection in .solidFill — including custom-color
+                            // workspaces, where the broader text palette stays primary
+                            // but black-on-gold remains the only legible badge choice.
+                            .foregroundColor(isActive && activeTabIndicatorStyle == .solidFill ? BrandColors.blackSwiftUI : .white)
                     }
                     .frame(width: 16, height: 16)
                 }
@@ -11460,7 +11474,10 @@ private struct TabItemView: View, Equatable {
             if isMultiSelected { return cmuxAccentColor().opacity(0.25) }
             return Color.clear
         case .solidFill:
-            if isActive { return Color(nsColor: sidebarSelectedWorkspaceBackgroundNSColor(for: colorScheme)) }
+            if isActive {
+                if let custom = resolvedCustomTabColor { return custom }
+                return Color(nsColor: sidebarSelectedWorkspaceBackgroundNSColor(for: colorScheme))
+            }
             if let custom = resolvedCustomTabColor {
                 if isMultiSelected { return custom.opacity(0.35) }
                 return custom.opacity(0.7)
