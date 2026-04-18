@@ -1,3 +1,5 @@
+> **Note — this README is the upstream cmux version and does not reflect the c11mux fork.** For current Stage 11 fork content, see the [English README](README.md). Translations will be refreshed as c11mux's fork copy stabilizes.
+
 > この翻訳は Claude によって生成されました。改善の提案がある場合は、PR を作成してください。
 
 <h1 align="center">cmux</h1>
@@ -10,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> | 日本語 | <a href="README.zh-CN.md">简体中文</a> | <a href="README.zh-TW.md">繁體中文</a> | <a href="README.ko.md">한국어</a> | <a href="README.de.md">Deutsch</a> | <a href="README.es.md">Español</a> | <a href="README.fr.md">Français</a> | <a href="README.it.md">Italiano</a> | <a href="README.da.md">Dansk</a> | <a href="README.pl.md">Polski</a> | <a href="README.ru.md">Русский</a> | <a href="README.bs.md">Bosanski</a> | <a href="README.ar.md">العربية</a> | <a href="README.no.md">Norsk</a> | <a href="README.pt-BR.md">Português (Brasil)</a> | <a href="README.th.md">ไทย</a> | <a href="README.tr.md">Türkçe</a> | <a href="README.km.md">ភាសាខ្មែរ</a>
+  <a href="README.md">English</a> | 日本語
 </p>
 
 <p align="center">
