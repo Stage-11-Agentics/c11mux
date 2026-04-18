@@ -59009,40 +59009,6 @@
         }
       }
     },
-    "settings.textBoxInput.enableMode": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Enable Mode"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テキストボックスを有効化"
-          }
-        }
-      }
-    },
-    "settings.textBoxInput.enableMode.subtitle": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Add a text box for terminal input. Supports standard editing, IME, and clipboard shortcuts."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ターミナル入力のためのテキストボックスを追加します。標準的な編集、IME、クリップボードのショートカットに対応しています。"
-          }
-        }
-      }
-    },
     "settings.textBoxInput.escapeBehavior": {
       "extractionState": "manual",
       "localizations": {

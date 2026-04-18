@@ -88,7 +88,9 @@ inputTextView reference. Switching tabs preserves TextBox state.
 
 ## Settings (Settings > TextBox Input)
 
-- **Enable Mode**: Toggle TextBox on/off (default: off)
+TextBox is on by default for every terminal pane; Cmd+Option+B toggles
+visibility per panel.
+
 - **Send on Return**: On = Return sends / Shift+Enter inserts newline,
   Off = Enter inserts newline / Shift+Enter sends (default: on)
 - **Escape Key**: Send ESC Key or Focus Terminal (default: Send ESC Key)
@@ -98,10 +100,9 @@ inputTextView reference. Switching tabs preserves TextBox state.
 ## Test Plan
 
 ### T1. Settings
-- [ ] T1.1  Default values: enabled=false, enterToSend=true, escape=sendEscape, shortcut=toggleFocus
+- [ ] T1.1  Default values: enterToSend=true, escape=sendEscape, shortcut=toggleFocus
 - [ ] T1.2  Toggle each setting and verify it persists across app restart
 - [ ] T1.3  Reset All restores all settings to defaults
-- [ ] T1.4  Settings rows are dimmed/disabled when Enable Mode is off
 
 ### T2. Basic Text Editing (F1)
 - [ ] T2.1  Type text and verify it appears in the TextBox
@@ -177,7 +178,7 @@ inputTextView reference. Switching tabs preserves TextBox state.
 - [ ] T9.4  Cmd+Opt+B moves focus to terminal when TextBox focused (toggleFocus mode)
 - [ ] T9.5  Toggle applies to all tabs simultaneously
 - [ ] T9.6  Custom shortcut key works after changing in Settings
-- [ ] T9.7  Enabling "Enable Mode" setting forces TextBox visible
+- [ ] T9.7  New terminal panes have TextBox visible by default
 
 ### T10. Drag & Drop (F8)
 - [ ] T10.1  Drop single file → shell-escaped path inserted
@@ -212,7 +213,7 @@ inputTextView reference. Switching tabs preserves TextBox state.
 ### T14. Per-panel State (F14)
 - [ ] T14.1  Switching tabs preserves TextBox content
 - [ ] T14.2  Toggle applies to all tabs simultaneously (global, not per-tab)
-- [ ] T14.3  New tab inherits global Enable Mode setting
+- [ ] T14.3  New tab starts with TextBox visible (isTextBoxActive=true)
 - [ ] T14.4  Split panes each have their own TextBox
 
 ### T15. Placeholder & Send Button (F9, F10)
@@ -607,22 +608,16 @@ enum TextBoxKeyEvent {
 
 /// Settings for TextBox Input Mode
 enum TextBoxInputSettings {
-    static let enabledKey = "textBoxEnabled"
     static let enterToSendKey = "textBoxEnterToSend"
     static let escapeBehaviorKey = "textBoxEscapeBehavior"
     static let shortcutBehaviorKey = "textBoxShortcutBehavior"
 
-    static let defaultEnabled = false // [TextBox] Off by default; users opt in via Settings
     static let defaultEnterToSend = true
     static let defaultEscapeBehavior = TextBoxEscapeBehavior.sendEscape
     static let defaultShortcutBehavior = TextBoxShortcutBehavior.toggleFocus
 
-    /// Opacity applied to settings rows when TextBox is disabled.
-    static let disabledSettingsOpacity: Double = 0.5
-
     /// Reset all TextBox settings to defaults via UserDefaults.
     static func resetAll() {
-        UserDefaults.standard.removeObject(forKey: enabledKey)
         UserDefaults.standard.removeObject(forKey: enterToSendKey)
         UserDefaults.standard.removeObject(forKey: escapeBehaviorKey)
         UserDefaults.standard.removeObject(forKey: shortcutBehaviorKey)
@@ -632,10 +627,6 @@ enum TextBoxInputSettings {
         UserDefaults.standard.object(forKey: key) == nil
             ? defaultValue
             : UserDefaults.standard.bool(forKey: key)
-    }
-
-    static func isEnabled() -> Bool {
-        bool(forKey: enabledKey, default: defaultEnabled)
     }
 
     static func isEnterToSend() -> Bool {
@@ -1281,13 +1272,3 @@ final class InputTextView: NSTextView {
     }
 }
 
-// MARK: - Settings View Modifier
-
-extension View {
-    /// Dims and disables a settings row when TextBox is not enabled.
-    func textBoxSettingsDisabled(_ isDisabled: Bool) -> some View {
-        self
-            .disabled(isDisabled)
-            .opacity(isDisabled ? TextBoxInputSettings.disabledSettingsOpacity : 1.0)
-    }
-}

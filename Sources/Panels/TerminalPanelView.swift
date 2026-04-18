@@ -8,8 +8,6 @@ struct TerminalPanelView: View {
     @AppStorage(NotificationPaneRingSettings.enabledKey)
     private var notificationPaneRingEnabled = NotificationPaneRingSettings.defaultEnabled
     // [TextBox] TextBox Input settings (plan §4.3)
-    @AppStorage(TextBoxInputSettings.enabledKey)
-    private var textBoxEnabled = TextBoxInputSettings.defaultEnabled
     @AppStorage(TextBoxInputSettings.enterToSendKey)
     private var textBoxEnterToSend = TextBoxInputSettings.defaultEnterToSend
     @AppStorage(TextBoxInputSettings.shortcutBehaviorKey)
@@ -24,9 +22,9 @@ struct TerminalPanelView: View {
     let onTriggerFlash: () -> Void
 
     /// Whether the TextBox should be mounted for this panel right now.
-    /// Global setting AND per-panel flag both must be on.
+    /// Per-panel toggle is the only gate; Cmd+Option+B flips it.
     private var showTextBox: Bool {
-        textBoxEnabled && panel.isTextBoxActive
+        panel.isTextBoxActive
     }
 
     /// Resolve the terminal type from SurfaceMetadataStore (set by
@@ -85,14 +83,6 @@ struct TerminalPanelView: View {
                         panel?.inputTextView = view
                     }
                 )
-            }
-        }
-        // [TextBox] When the user flips "Enable Mode" on, force the panel's
-        // runtime flag to match so the TextBox appears immediately without
-        // needing the user to press Cmd+Option+B first.
-        .onChange(of: textBoxEnabled) { newValue in
-            if newValue {
-                panel.isTextBoxActive = true
             }
         }
         // Keep the NSViewRepresentable identity stable across bonsplit structural updates.

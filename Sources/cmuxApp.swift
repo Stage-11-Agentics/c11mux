@@ -3902,7 +3902,6 @@ struct SettingsView: View {
     @AppStorage("sidebarTintOpacity") private var sidebarTintOpacity = SidebarTintDefaults.opacity
 
     // [TextBox] TextBox Input settings (plan §4.7)
-    @AppStorage(TextBoxInputSettings.enabledKey) private var textBoxEnabled = TextBoxInputSettings.defaultEnabled
     @AppStorage(TextBoxInputSettings.enterToSendKey) private var textBoxEnterToSend = TextBoxInputSettings.defaultEnterToSend
     @AppStorage(TextBoxInputSettings.escapeBehaviorKey) private var textBoxEscapeBehavior = TextBoxInputSettings.defaultEscapeBehavior.rawValue
     @AppStorage(TextBoxInputSettings.shortcutBehaviorKey) private var textBoxShortcutBehavior = TextBoxInputSettings.defaultShortcutBehavior.rawValue
@@ -5333,18 +5332,6 @@ struct SettingsView: View {
                         .id(SettingsNavigationTarget.textBoxInput)
                         .accessibilityIdentifier("SettingsTextBoxInputSection")
                     SettingsCard {
-                        SettingsCardRow(
-                            String(localized: "settings.textBoxInput.enableMode", defaultValue: "Enable Mode"),
-                            subtitle: String(localized: "settings.textBoxInput.enableMode.subtitle", defaultValue: "Add a text box for terminal input. Supports standard editing, IME, and clipboard shortcuts.")
-                        ) {
-                            Toggle("", isOn: $textBoxEnabled)
-                                .labelsHidden()
-                                .controlSize(.small)
-                                .accessibilityIdentifier("TextBoxEnableToggle")
-                        }
-
-                        SettingsCardDivider()
-
                         SettingsPickerRow(
                             String(localized: "settings.textBoxInput.sendOnReturn", defaultValue: "Send on Return"),
                             subtitle: String(localized: "settings.textBoxInput.sendOnReturn.subtitle", defaultValue: "Insert new line with Shift+Return"),
@@ -5354,7 +5341,6 @@ struct SettingsView: View {
                             Text(String(localized: "settings.textBoxInput.sendOnReturn.on", defaultValue: "Return = Send")).tag(true)
                             Text(String(localized: "settings.textBoxInput.sendOnReturn.off", defaultValue: "Return = Newline")).tag(false)
                         }
-                        .textBoxSettingsDisabled(!textBoxEnabled)
 
                         SettingsCardDivider()
 
@@ -5368,7 +5354,6 @@ struct SettingsView: View {
                                 Text(option.displayName).tag(option.rawValue)
                             }
                         }
-                        .textBoxSettingsDisabled(!textBoxEnabled)
 
                         SettingsCardDivider()
 
@@ -5385,7 +5370,6 @@ struct SettingsView: View {
                                 Text(option.displayName).tag(option.rawValue)
                             }
                         }
-                        .textBoxSettingsDisabled(!textBoxEnabled)
                     }
 
                     SettingsSectionHeader(title: String(localized: "settings.section.keyboardShortcuts", defaultValue: "Keyboard Shortcuts"))
@@ -5692,7 +5676,6 @@ struct SettingsView: View {
         KeyboardShortcutSettings.resetAll()
         // [TextBox] Also reset TextBox Input defaults when Reset All runs.
         TextBoxInputSettings.resetAll()
-        textBoxEnabled = TextBoxInputSettings.defaultEnabled
         textBoxEnterToSend = TextBoxInputSettings.defaultEnterToSend
         textBoxEscapeBehavior = TextBoxInputSettings.defaultEscapeBehavior.rawValue
         textBoxShortcutBehavior = TextBoxInputSettings.defaultShortcutBehavior.rawValue

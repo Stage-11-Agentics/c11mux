@@ -21,17 +21,8 @@ final class TextBoxInputSettingsTests: XCTestCase {
         super.tearDown()
     }
 
-    func testDefaultEnabledIsFalse() {
-        XCTAssertFalse(TextBoxInputSettings.isEnabled())
-    }
-
     func testDefaultEnterToSendIsTrue() {
         XCTAssertTrue(TextBoxInputSettings.isEnterToSend())
-    }
-
-    func testSetEnabledTrue() {
-        UserDefaults.standard.set(true, forKey: TextBoxInputSettings.enabledKey)
-        XCTAssertTrue(TextBoxInputSettings.isEnabled())
     }
 
     func testSetEnterToSendFalse() {
