@@ -70,3 +70,178 @@ struct PersistedMetadataSource: Codable, Sendable, Equatable {
     /// Seconds since 1970, matching `SurfaceMetadataStore.SourceRecord.ts`.
     var ts: TimeInterval
 }
+
+// MARK: - Persist-direction bridge ([String: Any] → persisted)
+
+enum PersistedMetadataBridge {
+    /// Coerce a live metadata blob into its persisted representation.
+    /// Values that cannot be represented as JSON are dropped with a debug
+    /// log; the rest of the blob survives. Never throws — snapshot writes
+    /// must be side-effect-free with respect to persistence failures.
+    static func encodeValues(
+        _ values: [String: Any],
+        surfaceIdForLog: UUID? = nil
+    ) -> [String: PersistedJSONValue] {
+        var result: [String: PersistedJSONValue] = [:]
+        for (key, value) in values {
+            if let persisted = encode(value: value, key: key, surfaceIdForLog: surfaceIdForLog) {
+                result[key] = persisted
+            }
+        }
+        return result
+    }
+
+    /// Convert sidecar entries as returned by
+    /// `SurfaceMetadataStore.getMetadata().sources` (`[String: [String: Any]]`
+    /// via `SourceRecord.toJSON()`) into persisted form.
+    static func encodeSources(
+        _ sources: [String: [String: Any]]
+    ) -> [String: PersistedMetadataSource] {
+        var result: [String: PersistedMetadataSource] = [:]
+        for (key, record) in sources {
+            guard let source = record["source"] as? String else { continue }
+            let ts = (record["ts"] as? Double) ?? 0.0
+            result[key] = PersistedMetadataSource(source: source, ts: ts)
+        }
+        return result
+    }
+
+    // MARK: - Restore-direction bridge (persisted → [String: Any])
+
+    static func decodeValues(_ persisted: [String: PersistedJSONValue]) -> [String: Any] {
+        var result: [String: Any] = [:]
+        for (key, value) in persisted {
+            result[key] = decode(value: value)
+        }
+        return result
+    }
+
+    /// Convert persisted sidecar into live `SourceRecord`s. Unknown source
+    /// raw values are downgraded to `.heuristic` with a debug log — this
+    /// matches the precedence contract (an unreadable origin can never
+    /// outrank a new `.explicit` write).
+    static func decodeSources(
+        _ persisted: [String: PersistedMetadataSource]
+    ) -> [String: SurfaceMetadataStore.SourceRecord] {
+        var result: [String: SurfaceMetadataStore.SourceRecord] = [:]
+        for (key, ps) in persisted {
+            let source: MetadataSource
+            if let known = MetadataSource(rawValue: ps.source) {
+                source = known
+            } else {
+                #if DEBUG
+                dlog("metadata.restore.unknownSource key=\(key) raw=\(ps.source) fallback=heuristic")
+                #endif
+                source = .heuristic
+            }
+            result[key] = SurfaceMetadataStore.SourceRecord(source: source, ts: ps.ts)
+        }
+        return result
+    }
+
+    // MARK: - Internals
+
+    private static func encode(
+        value: Any,
+        key: String,
+        surfaceIdForLog: UUID?
+    ) -> PersistedJSONValue? {
+        if value is NSNull {
+            return .null
+        }
+
+        // Bool must be checked before NSNumber. Swift's `as? Bool` matches
+        // NSNumber(value: 0) and NSNumber(value: 1) as well as actual bools,
+        // so a naive Bool-first check would misencode plain numbers. CFBoolean
+        // is the concrete bridged type JSONSerialization emits for JSON
+        // `true`/`false`, and native Swift `Bool` bridges to it at the CF
+        // level; both share `CFBooleanGetTypeID()`.
+        let cfTypeID = CFGetTypeID(value as CFTypeRef)
+        if cfTypeID == CFBooleanGetTypeID() {
+            if let b = value as? Bool {
+                return .bool(b)
+            }
+        }
+
+        if let n = value as? NSNumber {
+            let d = n.doubleValue
+            guard d.isFinite else {
+                #if DEBUG
+                dlog("metadata.persist.drop key=\(key) reason=non_finite value=\(d)")
+                #endif
+                return nil
+            }
+            return .number(d)
+        }
+
+        // Native Swift numeric types (not bridged via NSNumber — rare, but
+        // possible if a caller writes a Swift `Int` directly into the
+        // `[String: Any]` dictionary without letting ObjC bridging happen).
+        if let i = value as? Int    { return .number(Double(i)) }
+        if let d = value as? Double {
+            guard d.isFinite else {
+                #if DEBUG
+                dlog("metadata.persist.drop key=\(key) reason=non_finite value=\(d)")
+                #endif
+                return nil
+            }
+            return .number(d)
+        }
+        if let f = value as? Float {
+            let d = Double(f)
+            guard d.isFinite else {
+                #if DEBUG
+                dlog("metadata.persist.drop key=\(key) reason=non_finite value=\(d)")
+                #endif
+                return nil
+            }
+            return .number(d)
+        }
+
+        if let s = value as? String {
+            return .string(s)
+        }
+
+        if let arr = value as? [Any] {
+            var out: [PersistedJSONValue] = []
+            out.reserveCapacity(arr.count)
+            for (idx, element) in arr.enumerated() {
+                if let p = encode(value: element, key: "\(key)[\(idx)]", surfaceIdForLog: surfaceIdForLog) {
+                    out.append(p)
+                } else {
+                    // An element dropped: keep the array but preserve length
+                    // by substituting null, since JSON arrays are position-
+                    // sensitive (consumer code may index into them).
+                    out.append(.null)
+                }
+            }
+            return .array(out)
+        }
+
+        if let obj = value as? [String: Any] {
+            return .object(encodeValues(obj, surfaceIdForLog: surfaceIdForLog))
+        }
+
+        #if DEBUG
+        dlog("metadata.persist.drop key=\(key) type=\(String(describing: type(of: value)))")
+        #endif
+        return nil
+    }
+
+    private static func decode(value: PersistedJSONValue) -> Any {
+        switch value {
+        case .null:
+            return NSNull()
+        case .bool(let b):
+            return b
+        case .number(let d):
+            return d
+        case .string(let s):
+            return s
+        case .array(let a):
+            return a.map(decode(value:))
+        case .object(let o):
+            return decodeValues(o)
+        }
+    }
+}
