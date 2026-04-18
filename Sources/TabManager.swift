@@ -2429,10 +2429,11 @@ class TabManager: ObservableObject {
         if requiresConfirmation, workspaceNeedsConfirmClose(workspace) {
             // Prefer the pane-anchored overlay — it lands on the workspace's focused
             // panel (typically the running-process terminal that triggered the prompt).
-            // Fall back to the legacy NSAlert when no panel is resolvable (e.g. race
-            // during workspace teardown), which preserves the existing
-            // CloseWorkspaceCmdDUITests contract (plan §3.4, §4.4).
-            if let panelId = workspace.focusedPanelId {
+            // Fall back to the legacy NSAlert when the feature is disabled OR no panel
+            // is resolvable (e.g. race during workspace teardown), which preserves the
+            // existing CloseWorkspaceCmdDUITests contract (plan §3.4, §4.4).
+            if PaneInteractionFeatureFlag.isEnabled,
+               let panelId = workspace.focusedPanelId {
                 Task { @MainActor [weak self, weak workspace] in
                     guard let self, let workspace else { return }
                     let accepted = await workspace.presentConfirmClose(
@@ -2546,6 +2547,17 @@ class TabManager: ObservableObject {
         } ?? false
 
         guard needsConfirm else {
+            performCloseRuntimeSurface(tab: tab, surfaceId: surfaceId)
+            return
+        }
+
+        guard PaneInteractionFeatureFlag.isEnabled else {
+            // Legacy NSAlert path — kept as a rollback/fallback.
+            guard confirmClose(
+                title: String(localized: "dialog.closeTab.title", defaultValue: "Close tab?"),
+                message: String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab."),
+                acceptCmdD: false
+            ) else { return }
             performCloseRuntimeSurface(tab: tab, surfaceId: surfaceId)
             return
         }

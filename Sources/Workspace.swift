@@ -8965,18 +8965,46 @@ extension Workspace: BonsplitDelegate {
     private func confirmClosePanel(for tabId: TabID) async -> Bool {
         // Route through the workspace-scoped pane-interaction runtime so the
         // confirmation appears as an overlay anchored to the panel being closed,
-        // rather than a window-centered NSAlert (plan §3.4, §4.3).
-        guard let panelId = panelIdFromSurfaceId(tabId) else {
-            // No panel we can anchor on — treat as confirmed (parity with legacy
-            // NSAlert path which would still allow close after user interaction).
-            return true
+        // rather than a window-centered NSAlert (plan §3.4, §4.3). Falls back to
+        // the legacy NSAlert when the feature is disabled or no panel is
+        // resolvable (defensive; the tab was already deselected).
+        if PaneInteractionFeatureFlag.isEnabled,
+           let panelId = panelIdFromSurfaceId(tabId) {
+            return await presentConfirmClose(
+                panelId: panelId,
+                title: String(localized: "dialog.closeTab.title", defaultValue: "Close tab?"),
+                message: String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab."),
+                source: .local
+            )
         }
-        return await presentConfirmClose(
-            panelId: panelId,
-            title: String(localized: "dialog.closeTab.title", defaultValue: "Close tab?"),
-            message: String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab."),
-            source: .local
-        )
+
+        // Legacy NSAlert path — kept as a rollback/fallback.
+        let alert = NSAlert()
+        alert.messageText = String(localized: "dialog.closeTab.title", defaultValue: "Close tab?")
+        alert.informativeText = String(localized: "dialog.closeTab.message", defaultValue: "This will close the current tab.")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: String(localized: "dialog.closeTab.close", defaultValue: "Close"))
+        alert.addButton(withTitle: String(localized: "dialog.closeTab.cancel", defaultValue: "Cancel"))
+
+        if let closeButton = alert.buttons.first {
+            closeButton.keyEquivalent = "\r"
+            closeButton.keyEquivalentModifierMask = []
+            alert.window.defaultButtonCell = closeButton.cell as? NSButtonCell
+            alert.window.initialFirstResponder = closeButton
+        }
+        if let cancelButton = alert.buttons.dropFirst().first {
+            cancelButton.keyEquivalent = "\u{1b}"
+        }
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            return await withCheckedContinuation { continuation in
+                alert.beginSheetModal(for: window) { response in
+                    continuation.resume(returning: response == .alertFirstButtonReturn)
+                }
+            }
+        }
+
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     /// Present a .confirm pane interaction on the given panel and await the

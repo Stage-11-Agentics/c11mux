@@ -126,6 +126,31 @@ public enum InteractionSource {
     case socket(clientId: String)
 }
 
+/// Feature-flag gate for the pane-interaction primitive. When disabled, all
+/// routes fall back to the pre-M10 NSAlert path. Default is enabled.
+///
+/// Rollback story (plan §3.7):
+/// - UserDefaults key `cmux.paneDialog.enabled` — set false to disable.
+/// - Environment variable `CMUX_PANE_DIALOG_DISABLED=1` — overrides UserDefaults
+///   to off. Set for UI tests / CI runs that predate the overlay detectors.
+public enum PaneInteractionFeatureFlag {
+    public static let userDefaultsKey = "cmux.paneDialog.enabled"
+    public static let disableEnvVar = "CMUX_PANE_DIALOG_DISABLED"
+
+    public static var isEnabled: Bool {
+        if let raw = ProcessInfo.processInfo.environment[disableEnvVar],
+           let value = Int(raw), value != 0 {
+            return false
+        }
+        // UserDefaults default is true — key-missing means enabled.
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: userDefaultsKey) == nil {
+            return true
+        }
+        return defaults.bool(forKey: userDefaultsKey)
+    }
+}
+
 /// Per-workspace presenter. Each `Workspace` owns one runtime; this sidesteps the
 /// "every `Panel` conformer needs a new property" problem.
 ///
