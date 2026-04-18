@@ -614,7 +614,7 @@ enum TextBoxInputSettings {
 
     static let defaultEnterToSend = true
     static let defaultEscapeBehavior = TextBoxEscapeBehavior.sendEscape
-    static let defaultShortcutBehavior = TextBoxShortcutBehavior.toggleFocus
+    static let defaultShortcutBehavior = TextBoxShortcutBehavior.toggleDisplay
 
     /// Reset all TextBox settings to defaults via UserDefaults.
     static func resetAll() {
