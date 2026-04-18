@@ -399,6 +399,68 @@ final class PaneInteractionRuntimeTests: XCTestCase {
         XCTAssertFalse(runtime.acceptActive(panelId: UUID()))
     }
 
+    // MARK: - v2PaneConfirm timeout race (Blocker #1)
+
+    func testV2PaneConfirmTimeoutRaceHonorsLateCompletion() {
+        // Blocker #1: `semaphore.wait(timeout:)` returns `.timedOut`, but in the
+        // microseconds between that return and the timeout branch's cancel
+        // side-effect running on main, the user clicks Confirm. The completion
+        // fires on main, sets `holder.value = .confirmed`, and signals the
+        // semaphore (no-op — already timed out). The socket thread used to
+        // hard-code `"dismissed"` in the timeout branch, discarding the real
+        // user answer even though the side-effect tied to `.confirmed` already
+        // ran. Agent-facing protocol bug.
+        //
+        // This test pins the invariant by threading a mutable outcome through
+        // the resolver: `onTimeout` flips it to `.confirmed` (simulating the
+        // late completion), and the response must reflect `"ok"`, not
+        // `"dismissed"`.
+        var outcome: ConfirmResult = .dismissed
+        let result = TerminalController.v2PaneConfirmResolveOutcomeForTesting(
+            wait: { .timedOut },
+            onTimeout: {
+                // Completion fired in the race window between wait-return
+                // and cancel-run; holder was populated.
+                outcome = .confirmed
+            },
+            readOutcome: { outcome }
+        )
+        XCTAssertEqual(result, "ok",
+                       "Timeout branch must honor a late-firing completion's outcome, "
+                       + "not hard-code \"dismissed\".")
+    }
+
+    func testV2PaneConfirmTimeoutNonRacyReturnsDismissed() {
+        // Non-racy timeout: genuine deadline, no completion races in.
+        // `onTimeout` runs cancelInteraction which fires .dismissed on
+        // the completion, populating the holder with .dismissed. The
+        // response is "dismissed" — unchanged from pre-fix behavior.
+        var outcome: ConfirmResult = .dismissed
+        let result = TerminalController.v2PaneConfirmResolveOutcomeForTesting(
+            wait: { .timedOut },
+            onTimeout: {
+                // cancelInteraction fires .dismissed; holder is already at
+                // the default. Represent this by leaving outcome alone.
+                outcome = .dismissed
+            },
+            readOutcome: { outcome }
+        )
+        XCTAssertEqual(result, "dismissed")
+    }
+
+    func testV2PaneConfirmSuccessBranchDoesNotFireTimeout() {
+        // Signal arrived before deadline: wait returns `.success`, onTimeout
+        // must not run, and the outcome is whatever the completion wrote.
+        var timeoutFired = false
+        let result = TerminalController.v2PaneConfirmResolveOutcomeForTesting(
+            wait: { .success },
+            onTimeout: { timeoutFired = true },
+            readOutcome: { .cancelled }
+        )
+        XCTAssertFalse(timeoutFired)
+        XCTAssertEqual(result, "cancel")
+    }
+
     // MARK: - Reentrant present (Blocker #2 — advance-before-fire invariant)
 
     func testResolveConfirmReentrantPresentPreservesQueueHead() {
