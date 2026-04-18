@@ -4880,6 +4880,11 @@ extension TabManager {
         var hasher = Hasher()
         hasher.combine(selectedTabId)
         hasher.combine(tabs.count)
+        // Tier 1 Phase 2: fold in the monotonic per-process revision counter
+        // from SurfaceMetadataStore so metadata-only changes (which never
+        // touch workspace/panel counts or titles) still flip the fingerprint
+        // and trigger an autosave at the next 8s tick.
+        hasher.combine(SurfaceMetadataStore.shared.currentRevision())
 
         for workspace in tabs.prefix(SessionPersistencePolicy.maxWorkspacesPerWindow) {
             hasher.combine(workspace.id)
@@ -4891,6 +4896,14 @@ extension TabManager {
             hasher.combine(workspace.panels.count)
             hasher.combine(workspace.statusEntries.count)
             hasher.combine(workspace.metadataBlocks.count)
+            // Hash operator-authored workspace metadata by sorted keys so
+            // value-only edits still change the fingerprint. Without this,
+            // metadata edits could be deferred up to the forced-save window.
+            hasher.combine(workspace.metadata.count)
+            for key in workspace.metadata.keys.sorted() {
+                hasher.combine(key)
+                hasher.combine(workspace.metadata[key] ?? "")
+            }
             hasher.combine(workspace.logEntries.count)
             hasher.combine(workspace.panelDirectories.count)
             hasher.combine(workspace.panelTitles.count)

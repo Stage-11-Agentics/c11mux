@@ -164,6 +164,32 @@ Status pills, progress bars, and log entries in the workspace sidebar.
 
 Log levels: `info`, `progress`, `success`, `warning`, `error`
 
+### Surface Metadata Persistence (Tier 1 Phase 2)
+
+Surface metadata written via `surface.set_metadata` and its heuristic/
+OSC/declare counterparts persists across c11mux restarts. On restore,
+values are reinstalled into `SurfaceMetadataStore` with their original
+source and timestamp, preserving the `explicit > declare > osc >
+heuristic` precedence chain. A `.heuristic` value from the snapshot
+survives at `.heuristic` even if the newly-initialized surface wrote
+something at `.declare` first — the snapshot wins.
+
+Coercibility: values that cannot be represented as JSON (custom
+classes, `Date`, `URL`, `NaN`/`+Inf`/`-Inf`) are dropped on persist
+with a DEBUG-only log line and never crash the snapshot write; the
+rest of the blob survives. Numbers round-trip as double-precision
+floats — callers needing integer fidelity should convert explicitly
+after reading.
+
+**Rollback:** set `CMUX_DISABLE_METADATA_PERSIST=1` in the app's launch
+environment (e.g. `launchctl setenv CMUX_DISABLE_METADATA_PERSIST 1`
+then relaunch, or export it in the parent shell that launches the
+`.app`). When set, snapshot writes emit `null` for both `metadata`
+and `metadataSources` and restore ignores any persisted values. The
+variable is **app-launch-scope only** — setting it on a `cmux` CLI
+invocation has no effect, because the CLI is a separate process from
+the running app.
+
 ## Environment Variables
 
 | Variable | Description |
@@ -173,6 +199,7 @@ Log levels: `info`, `progress`, `success`, `warning`, `error`
 | `CMUX_SOCKET_MODE` | Override access mode (`cmuxOnly`, `allowAll`, `off`) |
 | `CMUX_WORKSPACE_ID` | Auto-set: current workspace ID |
 | `CMUX_SURFACE_ID` | Auto-set: current surface ID |
+| `CMUX_DISABLE_METADATA_PERSIST` | App-launch-scope rollback: `1` skips persist on write and ignores on restore. See Surface Metadata Persistence above. |
 | `TERM_PROGRAM` | Set to `ghostty` |
 | `TERM` | Set to `xterm-ghostty` |
 
