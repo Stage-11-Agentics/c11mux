@@ -72,6 +72,32 @@ final class PaneInteractionOverlayHost: NSView {
     override func mouseUp(with event: NSEvent) { /* swallow */ }
     override func rightMouseDown(with event: NSEvent) { /* swallow */ }
 
+    // Arrow / Tab / Return routing for `.confirm` cards. SwiftUI `onKeyPress`
+    // inside the hosted card never fires because this NSView owns first
+    // responder (the card has no focused SwiftUI anchor). Esc + Space still
+    // flow through `.keyboardShortcut` on the buttons via AppKit's command
+    // chain, so only the keys without shortcut bindings need handling here.
+    //
+    // keyCode values: left=123, right=124, tab=48, return=36, numpad enter=76.
+    override func keyDown(with event: NSEvent) {
+        guard !isHidden, case .confirm? = runtime.active[panelId] else {
+            super.keyDown(with: event)
+            return
+        }
+        switch Int(event.keyCode) {
+        case 123:
+            runtime.moveConfirmSelection(panelId: panelId, direction: .left)
+        case 124:
+            runtime.moveConfirmSelection(panelId: panelId, direction: .right)
+        case 48:
+            runtime.moveConfirmSelection(panelId: panelId, direction: .toggle)
+        case 36, 76:
+            runtime.acceptSelectedConfirm(panelId: panelId)
+        default:
+            super.keyDown(with: event)
+        }
+    }
+
     // MARK: - Content
 
     private func apply(interaction: PaneInteraction?) {

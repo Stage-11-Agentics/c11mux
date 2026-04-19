@@ -113,6 +113,20 @@ public enum ConfirmResult: Equatable {
     case dismissed
 }
 
+/// Which button is currently highlighted in a `.confirm` card. Moved by
+/// arrow/tab keys routed through `PaneInteractionOverlayHost.keyDown` (AppKit
+/// host path) or SwiftUI `onKeyPress` (overlay paths with no AppKit host).
+public enum ConfirmSelectionField: Hashable {
+    case cancel
+    case confirm
+}
+
+public enum ConfirmMoveDirection {
+    case left
+    case right
+    case toggle
+}
+
 public enum TextInputResult: Equatable {
     case submitted(String)
     case cancelled
@@ -179,6 +193,10 @@ public final class PaneInteractionRuntime: ObservableObject {
     /// `TextInputCard` so `acceptActive` (Cmd+D) can submit the edited value
     /// instead of the default (synthesis-critical §1.1).
     @Published public private(set) var pendingTextInputValues: [UUID: String] = [:]
+    /// Which button is highlighted per panel for an active `.confirm` card.
+    /// Driven by arrow / tab keys; Return resolves the selected option.
+    /// Reset to `.confirm` on `present` / queue advance / clear.
+    @Published public private(set) var confirmSelection: [UUID: ConfirmSelectionField] = [:]
 
     public static let perPanelQueueSoftCap = 4
 
@@ -204,6 +222,7 @@ public final class PaneInteractionRuntime: ObservableObject {
 #endif
         if active[panelId] == nil {
             active[panelId] = interaction
+            if case .confirm = interaction { confirmSelection[panelId] = .confirm }
         } else {
             var queue = queues[panelId, default: []]
             queue.append(interaction)
@@ -309,12 +328,42 @@ public final class PaneInteractionRuntime: ObservableObject {
 
     private func advance(panelId: UUID) {
         if var queue = queues[panelId], !queue.isEmpty {
-            active[panelId] = queue.removeFirst()
+            let next = queue.removeFirst()
+            active[panelId] = next
             queues[panelId] = queue
+            if case .confirm = next {
+                confirmSelection[panelId] = .confirm
+            } else {
+                confirmSelection[panelId] = nil
+            }
         } else {
             active[panelId] = nil
             queues[panelId] = nil
+            confirmSelection[panelId] = nil
         }
+    }
+
+    /// Move the highlighted button for the active `.confirm` card. No-op if the
+    /// active interaction isn't a `.confirm` variant.
+    public func moveConfirmSelection(panelId: UUID, direction: ConfirmMoveDirection) {
+        guard case .confirm? = active[panelId] else { return }
+        let current = confirmSelection[panelId] ?? .confirm
+        let next: ConfirmSelectionField
+        switch direction {
+        case .left: next = .cancel
+        case .right: next = .confirm
+        case .toggle: next = (current == .confirm) ? .cancel : .confirm
+        }
+        confirmSelection[panelId] = next
+    }
+
+    /// Resolve the active `.confirm` using whichever button is currently
+    /// highlighted. Used by Return key routing.
+    public func acceptSelectedConfirm(panelId: UUID) {
+        guard case .confirm(let c)? = active[panelId] else { return }
+        let selection = confirmSelection[panelId] ?? .confirm
+        let result: ConfirmResult = (selection == .cancel) ? .cancelled : .confirmed
+        resolveConfirm(panelId: panelId, result: result, ifInteractionId: c.id)
     }
 
     public func hasActive(panelId: UUID) -> Bool { active[panelId] != nil }
@@ -335,6 +384,7 @@ public final class PaneInteractionRuntime: ObservableObject {
             }
         }
         queues[panelId] = nil
+        confirmSelection[panelId] = nil
         // Clear every token-bookkeeping entry for interactions on this panel.
         if let byToken = tokenToInteractionIds[panelId] {
             for (_, ids) in byToken {

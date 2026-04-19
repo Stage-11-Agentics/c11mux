@@ -46,8 +46,9 @@ private struct ConfirmCard: View {
     let content: ConfirmContent
     @ObservedObject var runtime: PaneInteractionRuntime
 
-    private enum Field: Hashable { case cancel, confirm }
-    @FocusState private var focused: Field?
+    private var selected: ConfirmSelectionField {
+        runtime.confirmSelection[panelId] ?? .confirm
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -71,8 +72,8 @@ private struct ConfirmCard: View {
                 }
                 .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
-                .focused($focused, equals: .cancel)
-                .focusRing(isActive: focused == .cancel)
+                .selectionBox(isActive: selected == .cancel)
+                .accessibilityAddTraits(selected == .cancel ? .isSelected : [])
 
                 Button(role: content.role == .destructive ? .destructive : nil,
                        action: confirm) {
@@ -81,9 +82,8 @@ private struct ConfirmCard: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(content.role == .destructive ? .red : BrandColors.goldSwiftUI)
-                .keyboardShortcut(.defaultAction)
-                .focused($focused, equals: .confirm)
-                .focusRing(isActive: focused == .confirm)
+                .selectionBox(isActive: selected == .confirm)
+                .accessibilityAddTraits(selected == .confirm ? .isSelected : [])
             }
         }
         .padding(24)
@@ -98,11 +98,6 @@ private struct ConfirmCard: View {
         )
         .environment(\.colorScheme, .dark)
         .accessibilityIdentifier("PaneInteraction.confirm.card")
-        .onAppear { focused = .confirm }
-        .onKeyPress(.escape) {
-            cancel()
-            return .handled
-        }
     }
 
     private func confirm() {
@@ -323,12 +318,17 @@ private struct IMESafeTextField: NSViewRepresentable {
 // MARK: - Helpers
 
 private extension View {
+    /// White rectangular outline around the currently-selected button. Arrow
+    /// keys (left/right) and Tab move the selection; Return invokes it. Plain
+    /// `@State` drives this overlay rather than `@FocusState` because the
+    /// `PaneInteractionOverlayHost` holds AppKit first responder — SwiftUI
+    /// focus inside the card is shadowed, so it can't be trusted to render.
     @ViewBuilder
-    func focusRing(isActive: Bool) -> some View {
+    func selectionBox(isActive: Bool) -> some View {
         overlay(
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .stroke(BrandColors.goldSwiftUI, lineWidth: isActive ? 2 : 0)
-                .padding(-2)
+                .strokeBorder(Color.white, lineWidth: isActive ? 2 : 0)
+                .padding(-3)
                 .animation(.easeInOut(duration: 0.12), value: isActive)
         )
     }
