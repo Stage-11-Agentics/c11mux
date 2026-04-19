@@ -1714,9 +1714,10 @@ struct CMUXCLI {
             let (wsArg, rem0) = parseOption(commandArgs, name: "--workspace")
             let (panelArg, rem1) = parseOption(rem0, name: "--panel")
             let (sfArg, rem2) = parseOption(rem1, name: "--surface")
+            let (titleArg, rem3) = parseOption(rem2, name: "--title")
             let workspaceArg = wsArg ?? (windowId == nil ? ProcessInfo.processInfo.environment["CMUX_WORKSPACE_ID"] : nil)
             let surfaceRaw = sfArg ?? panelArg ?? (wsArg == nil && windowId == nil ? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"] : nil)
-            guard let direction = rem2.first else {
+            guard let direction = rem3.first else {
                 throw CLIError(message: "new-split requires a direction")
             }
             var params: [String: Any] = ["direction": direction]
@@ -1724,6 +1725,7 @@ struct CMUXCLI {
             if let wsId { params["workspace_id"] = wsId }
             let sfId = try normalizeSurfaceHandle(surfaceRaw, client: client, workspaceHandle: wsId)
             if let sfId { params["surface_id"] = sfId }
+            if let titleArg, !titleArg.isEmpty { params["title"] = titleArg }
             let payload = try client.sendV2(method: "surface.split", params: params)
             printV2Payload(payload, jsonOutput: jsonOutput, idFormat: idFormat, fallbackText: v2OKSummary(payload, idFormat: idFormat))
 
@@ -1800,12 +1802,14 @@ struct CMUXCLI {
             let direction = optionValue(commandArgs, name: "--direction") ?? "right"
             let url = optionValue(commandArgs, name: "--url")
             let file = optionValue(commandArgs, name: "--file")
+            let title = optionValue(commandArgs, name: "--title")
             var params: [String: Any] = ["direction": direction]
             let wsId = try normalizeWorkspaceHandle(workspaceArg, client: client)
             if let wsId { params["workspace_id"] = wsId }
             if let type { params["type"] = type }
             if let url { params["url"] = url }
             if let file { params["file"] = file }
+            if let title, !title.isEmpty { params["title"] = title }
             let payload = try client.sendV2(method: "pane.create", params: params)
             printV2Payload(payload, jsonOutput: jsonOutput, idFormat: idFormat, fallbackText: v2OKSummary(payload, idFormat: idFormat, kinds: ["surface", "pane", "workspace"]))
 
@@ -6676,10 +6680,12 @@ struct CMUXCLI {
               --workspace <id|ref>   Target workspace (default: $CMUX_WORKSPACE_ID)
               --surface <id|ref>     Surface to split from (default: $CMUX_SURFACE_ID)
               --panel <id|ref>       Alias for --surface
+              --title <text>         Seed the new pane's title metadata atomically with creation
 
             Example:
               cmux new-split right
               cmux new-split down --workspace workspace:1
+              cmux new-split right --title "Parent :: Code Review"
             """
         case "list-panes":
             return """
@@ -6776,11 +6782,13 @@ struct CMUXCLI {
               --workspace <id|ref>                Target workspace (default: $CMUX_WORKSPACE_ID)
               --url <url>                         URL for browser panes
               --file <path>                       File path for markdown panes
+              --title <text>                      Seed the new pane's title metadata atomically with creation
 
             Example:
               cmux new-pane
               cmux new-pane --type browser --direction down --url https://example.com
               cmux new-pane --type markdown --file ~/docs/README.md
+              cmux new-pane --title "Parent :: Code Review"
             """
         case "new-surface":
             return """
@@ -7409,13 +7417,14 @@ struct CMUXCLI {
             """
         case "set-metadata":
             return """
-            Usage: cmux set-metadata [--surface <id|ref>] [--workspace <id|ref>]
+            Usage: cmux set-metadata [--surface <id|ref> | --pane <id|ref>] [--workspace <id|ref>]
                                      (--json '{...}' | --key <K> --value <V> [--type string|number|bool|json])
                                      [--mode merge|replace] [--source explicit|declare|osc|heuristic]
                                      [--json]
 
-            Set one or more metadata keys on a surface via surface.set_metadata.
-            Defaults: mode=merge, source=explicit.
+            Set one or more metadata keys on a surface (surface.set_metadata) or
+            pane (pane.set_metadata). Defaults: mode=merge, source=explicit.
+            --surface and --pane are mutually exclusive.
 
             Flags:
               --json '{...}'           Full JSON object of keys/values
@@ -7424,51 +7433,59 @@ struct CMUXCLI {
               --mode <merge|replace>   Merge (default) or full replace (source=explicit only)
               --source <src>           Write source (default: explicit)
               --surface <id|ref>       Target surface (default: $CMUX_SURFACE_ID / focused)
+              --pane <id|ref>          Target pane (routes to pane.set_metadata)
               --workspace <id|ref>     Target workspace (default: $CMUX_WORKSPACE_ID)
 
             Examples:
               cmux set-metadata --key title --value "My Surface"
               cmux set-metadata --json '{"title":"x","role":"review"}'
               cmux set-metadata --key progress --value 0.5 --type number
+              cmux set-metadata --pane pane:2 --key title --value "Pane :: Child"
             """
         case "get-metadata":
             return """
-            Usage: cmux get-metadata [--surface <id|ref>] [--workspace <id|ref>]
+            Usage: cmux get-metadata [--surface <id|ref> | --pane <id|ref>] [--workspace <id|ref>]
                                      [--key <K> ...] [--sources] [--json]
 
-            Read metadata (and optional per-key sidecar) for a surface via
-            surface.get_metadata. Repeat --key to filter to specific keys.
+            Read metadata (and optional per-key sidecar) for a surface
+            (surface.get_metadata) or pane (pane.get_metadata). Repeat --key to
+            filter. --surface and --pane are mutually exclusive.
 
             Flags:
               --key <K>                Restrict to one key (repeatable)
               --sources                Include metadata_sources sidecar
               --surface <id|ref>       Target surface (default: $CMUX_SURFACE_ID / focused)
+              --pane <id|ref>          Target pane (routes to pane.get_metadata)
               --workspace <id|ref>     Target workspace (default: $CMUX_WORKSPACE_ID)
               --json                   Emit raw JSON result
 
             Examples:
               cmux get-metadata
               cmux get-metadata --key terminal_type --sources
+              cmux get-metadata --pane pane:2
             """
         case "clear-metadata":
             return """
-            Usage: cmux clear-metadata [--surface <id|ref>] [--workspace <id|ref>]
+            Usage: cmux clear-metadata [--surface <id|ref> | --pane <id|ref>] [--workspace <id|ref>]
                                        [--key <K> ...] [--source explicit|declare|osc|heuristic]
                                        [--json]
 
-            Clear keys from a surface's metadata via surface.clear_metadata. With no
-            --key flags, clears the entire blob (requires source=explicit).
+            Clear keys from a surface (surface.clear_metadata) or pane
+            (pane.clear_metadata). With no --key flags, clears the entire blob
+            (requires source=explicit). --surface and --pane are mutually exclusive.
 
             Flags:
               --key <K>                Key to clear (repeatable)
               --source <src>           Precedence source (default: explicit)
               --surface <id|ref>       Target surface (default: $CMUX_SURFACE_ID / focused)
+              --pane <id|ref>          Target pane (routes to pane.clear_metadata)
               --workspace <id|ref>     Target workspace (default: $CMUX_WORKSPACE_ID)
               --json                   Emit raw JSON result
 
             Examples:
               cmux clear-metadata --key terminal_type
               cmux clear-metadata --surface surface:2
+              cmux clear-metadata --pane pane:2 --key title
             """
         case "set-workspace-metadata":
             return """
@@ -8535,6 +8552,49 @@ struct CMUXCLI {
         return (workspaceId, surfaceId)
     }
 
+    /// Result of resolving a metadata command's target when either a pane or
+    /// a surface may be specified. `--surface` and `--pane` are mutually
+    /// exclusive; default (neither) routes to the caller's current surface
+    /// per existing behavior.
+    private enum MetadataCommandTarget {
+        case surface(workspaceId: String?, surfaceId: String?)
+        case pane(workspaceId: String?, paneId: String)
+    }
+
+    private func resolveMetadataCommandTarget(
+        commandArgs: [String],
+        client: SocketClient,
+        windowOverride: String?
+    ) throws -> MetadataCommandTarget {
+        let surfaceRaw = optionValue(commandArgs, name: "--surface")
+            ?? optionValue(commandArgs, name: "--panel")
+        let paneRaw = optionValue(commandArgs, name: "--pane")
+
+        if surfaceRaw != nil, paneRaw != nil {
+            throw CLIError(message: "usage: --surface and --pane are mutually exclusive")
+        }
+
+        if let paneRaw {
+            let workspaceRaw = workspaceFromArgsOrEnv(commandArgs, windowOverride: windowOverride)
+            let workspaceId = try normalizeWorkspaceHandle(workspaceRaw, client: client)
+            guard let paneId = try normalizePaneHandle(
+                paneRaw,
+                client: client,
+                workspaceHandle: workspaceId
+            ) else {
+                throw CLIError(message: "Invalid pane handle: \(paneRaw)")
+            }
+            return .pane(workspaceId: workspaceId, paneId: paneId)
+        }
+
+        let (workspaceId, surfaceId) = try resolveMetadataTarget(
+            commandArgs: commandArgs,
+            client: client,
+            windowOverride: windowOverride
+        )
+        return .surface(workspaceId: workspaceId, surfaceId: surfaceId)
+    }
+
     /// `cmux set-agent` — M1 sugar over `surface.set_metadata { source: declare, mode: merge }`.
     private func runSetAgentCommand(
         commandArgs: [String],
@@ -8634,7 +8694,7 @@ struct CMUXCLI {
 
         let mode = (optionValue(commandArgs, name: "--mode") ?? "merge").lowercased()
         let source = (optionValue(commandArgs, name: "--source") ?? "explicit").lowercased()
-        let (workspaceId, surfaceId) = try resolveMetadataTarget(
+        let target = try resolveMetadataCommandTarget(
             commandArgs: commandArgs,
             client: client,
             windowOverride: windowOverride
@@ -8644,14 +8704,24 @@ struct CMUXCLI {
             "mode": mode,
             "source": source
         ]
-        if let workspaceId { params["workspace_id"] = workspaceId }
-        if let surfaceId { params["surface_id"] = surfaceId }
+        let method: String
+        switch target {
+        case .surface(let workspaceId, let surfaceId):
+            if let workspaceId { params["workspace_id"] = workspaceId }
+            if let surfaceId { params["surface_id"] = surfaceId }
+            method = "surface.set_metadata"
+        case .pane(let workspaceId, let paneId):
+            if let workspaceId { params["workspace_id"] = workspaceId }
+            params["pane_id"] = paneId
+            method = "pane.set_metadata"
+        }
 
-        let payload = try client.sendV2(method: "surface.set_metadata", params: params)
+        let payload = try client.sendV2(method: method, params: params)
         printMetadataResult(payload, jsonOutput: jsonOutput, idFormat: idFormat)
     }
 
-    /// `cmux get-metadata` — M2 sugar over `surface.get_metadata`.
+    /// `cmux get-metadata` — M2 sugar over `surface.get_metadata` (or
+    /// `pane.get_metadata` when `--pane` is supplied).
     private func runGetMetadataCommand(
         commandArgs: [String],
         client: SocketClient,
@@ -8662,7 +8732,7 @@ struct CMUXCLI {
         let includeSources = hasFlag(commandArgs, name: "--sources")
             || hasFlag(commandArgs, name: "--include-sources")
         let keys = collectRepeatedOption(commandArgs, name: "--key")
-        let (workspaceId, surfaceId) = try resolveMetadataTarget(
+        let target = try resolveMetadataCommandTarget(
             commandArgs: commandArgs,
             client: client,
             windowOverride: windowOverride
@@ -8670,10 +8740,19 @@ struct CMUXCLI {
         var params: [String: Any] = [:]
         if !keys.isEmpty { params["keys"] = keys }
         if includeSources { params["include_sources"] = true }
-        if let workspaceId { params["workspace_id"] = workspaceId }
-        if let surfaceId { params["surface_id"] = surfaceId }
+        let method: String
+        switch target {
+        case .surface(let workspaceId, let surfaceId):
+            if let workspaceId { params["workspace_id"] = workspaceId }
+            if let surfaceId { params["surface_id"] = surfaceId }
+            method = "surface.get_metadata"
+        case .pane(let workspaceId, let paneId):
+            if let workspaceId { params["workspace_id"] = workspaceId }
+            params["pane_id"] = paneId
+            method = "pane.get_metadata"
+        }
 
-        let payload = try client.sendV2(method: "surface.get_metadata", params: params)
+        let payload = try client.sendV2(method: method, params: params)
         if jsonOutput {
             print(jsonString(formatIDs(payload, mode: idFormat)))
             return
@@ -8698,7 +8777,8 @@ struct CMUXCLI {
         }
     }
 
-    /// `cmux clear-metadata` — M2 sugar over `surface.clear_metadata`.
+    /// `cmux clear-metadata` — M2 sugar over `surface.clear_metadata` (or
+    /// `pane.clear_metadata` when `--pane` is supplied).
     private func runClearMetadataCommand(
         commandArgs: [String],
         client: SocketClient,
@@ -8708,17 +8788,26 @@ struct CMUXCLI {
     ) throws {
         let keys = collectRepeatedOption(commandArgs, name: "--key")
         let source = (optionValue(commandArgs, name: "--source") ?? "explicit").lowercased()
-        let (workspaceId, surfaceId) = try resolveMetadataTarget(
+        let target = try resolveMetadataCommandTarget(
             commandArgs: commandArgs,
             client: client,
             windowOverride: windowOverride
         )
         var params: [String: Any] = ["source": source]
         if !keys.isEmpty { params["keys"] = keys }
-        if let workspaceId { params["workspace_id"] = workspaceId }
-        if let surfaceId { params["surface_id"] = surfaceId }
+        let method: String
+        switch target {
+        case .surface(let workspaceId, let surfaceId):
+            if let workspaceId { params["workspace_id"] = workspaceId }
+            if let surfaceId { params["surface_id"] = surfaceId }
+            method = "surface.clear_metadata"
+        case .pane(let workspaceId, let paneId):
+            if let workspaceId { params["workspace_id"] = workspaceId }
+            params["pane_id"] = paneId
+            method = "pane.clear_metadata"
+        }
 
-        let payload = try client.sendV2(method: "surface.clear_metadata", params: params)
+        let payload = try client.sendV2(method: method, params: params)
         printMetadataResult(payload, jsonOutput: jsonOutput, idFormat: idFormat)
     }
 
@@ -12682,12 +12771,12 @@ struct CMUXCLI {
           new-workspace [--cwd <path>] [--command <text>]
           ssh <destination> [--name <title>] [--port <n>] [--identity <path>] [--ssh-option <opt>] [-- <remote-command-args>]
           remote-daemon-status [--os <darwin|linux>] [--arch <arm64|amd64>]
-          new-split <left|right|up|down> [--workspace <id|ref>] [--surface <id|ref>] [--panel <id|ref>]
+          new-split <left|right|up|down> [--workspace <id|ref>] [--surface <id|ref>] [--panel <id|ref>] [--title <text>]
           list-panes [--workspace <id|ref>]
           list-pane-surfaces [--workspace <id|ref>] [--pane <id|ref>]
           tree [--all] [--workspace <id|ref|index>]
           focus-pane --pane <id|ref> [--workspace <id|ref>]
-          new-pane [--type <terminal|browser|markdown>] [--direction <left|right|up|down>] [--workspace <id|ref>] [--url <url>] [--file <path>]
+          new-pane [--type <terminal|browser|markdown>] [--direction <left|right|up|down>] [--workspace <id|ref>] [--url <url>] [--file <path>] [--title <text>]
           new-surface [--type <terminal|browser|markdown>] [--pane <id|ref>] [--workspace <id|ref>] [--url <url>] [--file <path>]
           close-surface [--surface <id|ref>] [--workspace <id|ref>]
           move-surface --surface <id|ref|index> [--pane <id|ref|index>] [--workspace <id|ref|index>] [--window <id|ref|index>] [--before <id|ref|index>] [--after <id|ref|index>] [--index <n>] [--focus <true|false>]
@@ -12719,9 +12808,9 @@ struct CMUXCLI {
           clear-notifications
           claude-hook <session-start|stop|notification> [--workspace <id|ref>] [--surface <id|ref>]
           set-agent --type <terminal_type> [--model <id>] [--task <id>] [--role <id>] [--surface <id|ref>] [--workspace <id|ref>]
-          set-metadata (--json '{...}' | --key <K> --value <V> [--type string|number|bool|json]) [--surface <id|ref>] [--workspace <id|ref>] [--mode merge|replace] [--source <src>]
-          get-metadata [--key <K> ...] [--sources] [--surface <id|ref>] [--workspace <id|ref>]
-          clear-metadata [--key <K> ...] [--source <src>] [--surface <id|ref>] [--workspace <id|ref>]
+          set-metadata (--json '{...}' | --key <K> --value <V> [--type string|number|bool|json]) [--surface <id|ref> | --pane <id|ref>] [--workspace <id|ref>] [--mode merge|replace] [--source <src>]
+          get-metadata [--key <K> ...] [--sources] [--surface <id|ref> | --pane <id|ref>] [--workspace <id|ref>]
+          clear-metadata [--key <K> ...] [--source <src>] [--surface <id|ref> | --pane <id|ref>] [--workspace <id|ref>]
           set-workspace-metadata <key> <value> | --key <K> --value <V> | --json '{...}'  [--workspace <id|ref>]
           get-workspace-metadata [<key>] [--workspace <id|ref>]
           clear-workspace-metadata [<key>] [--key <K> ...] [--workspace <id|ref>]
