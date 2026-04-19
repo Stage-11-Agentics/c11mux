@@ -2176,6 +2176,12 @@ class TerminalController {
             return v2Result(id: id, self.v2PaneLast(params: params))
         case "pane.confirm":
             return v2Result(id: id, self.v2PaneConfirm(params: params))
+        case "pane.set_metadata":
+            return v2Result(id: id, self.v2PaneSetMetadata(params: params))
+        case "pane.get_metadata":
+            return v2Result(id: id, self.v2PaneGetMetadata(params: params))
+        case "pane.clear_metadata":
+            return v2Result(id: id, self.v2PaneClearMetadata(params: params))
 
         // Notifications
         case "notification.create":
@@ -2530,6 +2536,9 @@ class TerminalController {
             "pane.break",
             "pane.join",
             "pane.last",
+            "pane.set_metadata",
+            "pane.get_metadata",
+            "pane.clear_metadata",
             "notification.create",
             "notification.create_for_surface",
             "notification.create_for_target",
@@ -5015,6 +5024,7 @@ class TerminalController {
               let direction = parseSplitDirection(directionStr) else {
             return .err(code: "invalid_params", message: "Missing or invalid direction (left|right|up|down)", data: nil)
         }
+        let titleSeed = v2String(params, "title")
 
         var result: V2CallResult = .err(code: "internal_error", message: "Failed to create split", data: nil)
         v2MainSync {
@@ -5037,6 +5047,8 @@ class TerminalController {
 
             if let newId = tabManager.newSplit(tabId: ws.id, surfaceId: targetSurfaceId, direction: direction) {
                 let paneUUID = ws.paneId(forPanelId: newId)?.id
+                // Seed pane title atomic with pane id becoming valid.
+                v2SeedPaneTitle(workspaceId: ws.id, paneUUID: paneUUID, title: titleSeed)
                 let windowId = v2ResolveWindowId(tabManager: tabManager)
                 result = .ok([
                     "window_id": v2OrNull(windowId?.uuidString),
@@ -6632,6 +6644,7 @@ class TerminalController {
         let urlStr = v2String(params, "url")
         let url = urlStr.flatMap { URL(string: $0) }
         let filePath = v2String(params, "file")
+        let titleSeed = v2String(params, "title")
 
         // Validate and resolve markdown file path
         var resolvedMarkdownPath: String?
@@ -6689,6 +6702,10 @@ class TerminalController {
                 return
             }
             let paneUUID = ws.paneId(forPanelId: newPanelId)?.id
+            // Seed pane title atomic with the pane id becoming valid: the
+            // caller observes the pane (via the response) only after the seed
+            // is in the store.
+            v2SeedPaneTitle(workspaceId: ws.id, paneUUID: paneUUID, title: titleSeed)
             let windowId = v2ResolveWindowId(tabManager: tabManager)
             result = .ok([
                 "window_id": v2OrNull(windowId?.uuidString),
@@ -7129,6 +7146,222 @@ class TerminalController {
             ])
         }
         return result
+    }
+
+    // MARK: - V2 Pane Metadata (CMUX-11 Phase 2)
+
+    /// Resolve the (workspaceId, paneId) pair for a pane-metadata call.
+    /// Runs its bonsplit read on main (minimum needed) and returns the tab
+    /// manager for downstream use. The actual `PaneMetadataStore` mutation
+    /// happens off-main on the store's own serial queue.
+    private func v2ResolvePaneForMetadata(
+        params: [String: Any]
+    ) -> (workspaceId: UUID, paneId: UUID, tabManager: TabManager)? {
+        guard let tabManager = v2ResolveTabManager(params: params) else {
+            return nil
+        }
+        return v2MainSync {
+            guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
+                return nil
+            }
+            if let paneUUID = v2UUID(params, "pane_id") {
+                guard ws.bonsplitController.allPaneIds.contains(where: { $0.id == paneUUID }) else {
+                    return nil
+                }
+                return (ws.id, paneUUID, tabManager)
+            }
+            // Fallback: default to the workspace's focused pane.
+            if let focused = ws.bonsplitController.focusedPaneId {
+                return (ws.id, focused.id, tabManager)
+            }
+            return nil
+        }
+    }
+
+    private func v2PaneSetMetadata(params: [String: Any]) -> V2CallResult {
+        guard let metadataObj = params["metadata"] as? [String: Any] else {
+            return .err(code: "invalid_json", message: "metadata must be a JSON object", data: nil)
+        }
+
+        let modeStr = (v2String(params, "mode") ?? "merge").lowercased()
+        guard let mode = SurfaceMetadataStore.WriteMode(rawValue: modeStr) else {
+            return .err(code: "invalid_mode", message: "mode must be 'merge' or 'replace'", data: nil)
+        }
+
+        let sourceStr = (v2String(params, "source") ?? "explicit").lowercased()
+        guard let source = MetadataSource(rawValue: sourceStr) else {
+            return .err(code: "invalid_source", message: "source must be one of: explicit, declare, osc, heuristic", data: nil)
+        }
+
+        guard let resolved = v2ResolvePaneForMetadata(params: params) else {
+            return .err(code: "pane_not_found", message: "Pane not found", data: nil)
+        }
+
+        do {
+            let result = try PaneMetadataStore.shared.setMetadata(
+                workspaceId: resolved.workspaceId,
+                paneId: resolved.paneId,
+                partial: metadataObj,
+                mode: mode,
+                source: source
+            )
+            return .ok(buildPaneMetadataOkPayload(
+                workspaceId: resolved.workspaceId,
+                paneId: resolved.paneId,
+                tabManager: resolved.tabManager,
+                result: result,
+                includePriorValues: true
+            ))
+        } catch let err as SurfaceMetadataStore.WriteError {
+            return .err(code: err.code, message: err.message, data: err.detailData)
+        } catch {
+            return .err(code: "internal_error", message: "\(error)", data: nil)
+        }
+    }
+
+    private func v2PaneGetMetadata(params: [String: Any]) -> V2CallResult {
+        let keys: [String]?
+        if params["keys"] is NSNull || params["keys"] == nil {
+            keys = nil
+        } else if let arr = v2StringArray(params, "keys") {
+            keys = arr
+        } else {
+            return .err(code: "invalid_keys_param", message: "keys must be an array of strings", data: nil)
+        }
+
+        let includeSources = v2Bool(params, "include_sources") ?? false
+
+        guard let resolved = v2ResolvePaneForMetadata(params: params) else {
+            return .err(code: "pane_not_found", message: "Pane not found", data: nil)
+        }
+
+        let (fullMetadata, fullSources) = PaneMetadataStore.shared.getMetadata(
+            workspaceId: resolved.workspaceId,
+            paneId: resolved.paneId
+        )
+
+        var metadataOut: [String: Any] = fullMetadata
+        var sourcesOut: [String: [String: Any]] = fullSources
+        if let filterKeys = keys {
+            metadataOut = [:]
+            sourcesOut = [:]
+            for k in filterKeys {
+                if let v = fullMetadata[k] { metadataOut[k] = v }
+                if let s = fullSources[k] { sourcesOut[k] = s }
+            }
+        }
+
+        let windowId = v2ResolveWindowId(tabManager: resolved.tabManager)
+        var payload: [String: Any] = [
+            "workspace_id": resolved.workspaceId.uuidString,
+            "workspace_ref": v2Ref(kind: .workspace, uuid: resolved.workspaceId),
+            "pane_id": resolved.paneId.uuidString,
+            "pane_ref": v2Ref(kind: .pane, uuid: resolved.paneId),
+            "window_id": v2OrNull(windowId?.uuidString),
+            "window_ref": v2Ref(kind: .window, uuid: windowId),
+            "metadata": metadataOut
+        ]
+        if includeSources {
+            payload["metadata_sources"] = sourcesOut
+        }
+        return .ok(payload)
+    }
+
+    private func v2PaneClearMetadata(params: [String: Any]) -> V2CallResult {
+        let keys: [String]?
+        if params["keys"] == nil || params["keys"] is NSNull {
+            keys = nil
+        } else if let arr = v2StringArray(params, "keys") {
+            keys = arr
+        } else {
+            return .err(code: "invalid_keys_param", message: "keys must be an array of strings", data: nil)
+        }
+
+        let sourceStr = (v2String(params, "source") ?? "explicit").lowercased()
+        guard let source = MetadataSource(rawValue: sourceStr) else {
+            return .err(code: "invalid_source", message: "source must be one of: explicit, declare, osc, heuristic", data: nil)
+        }
+
+        guard let resolved = v2ResolvePaneForMetadata(params: params) else {
+            return .err(code: "pane_not_found", message: "Pane not found", data: nil)
+        }
+
+        do {
+            let result = try PaneMetadataStore.shared.clearMetadata(
+                workspaceId: resolved.workspaceId,
+                paneId: resolved.paneId,
+                keys: keys,
+                source: source
+            )
+            return .ok(buildPaneMetadataOkPayload(
+                workspaceId: resolved.workspaceId,
+                paneId: resolved.paneId,
+                tabManager: resolved.tabManager,
+                result: result,
+                includePriorValues: false
+            ))
+        } catch let err as SurfaceMetadataStore.WriteError {
+            return .err(code: err.code, message: err.message, data: err.detailData)
+        } catch {
+            return .err(code: "internal_error", message: "\(error)", data: nil)
+        }
+    }
+
+    private func buildPaneMetadataOkPayload(
+        workspaceId: UUID,
+        paneId: UUID,
+        tabManager: TabManager,
+        result: SurfaceMetadataStore.WriteResult,
+        includePriorValues: Bool
+    ) -> [String: Any] {
+        var appliedAny: [String: Any] = [:]
+        for (k, v) in result.applied { appliedAny[k] = v }
+        var reasonsAny: [String: Any] = [:]
+        for (k, v) in result.reasons { reasonsAny[k] = v }
+        let windowId = v2ResolveWindowId(tabManager: tabManager)
+        var payload: [String: Any] = [
+            "workspace_id": workspaceId.uuidString,
+            "workspace_ref": v2Ref(kind: .workspace, uuid: workspaceId),
+            "pane_id": paneId.uuidString,
+            "pane_ref": v2Ref(kind: .pane, uuid: paneId),
+            "window_id": v2OrNull(windowId?.uuidString),
+            "window_ref": v2Ref(kind: .window, uuid: windowId),
+            "applied": appliedAny,
+            "reasons": reasonsAny,
+            "metadata": result.metadata,
+            "metadata_sources": result.sources
+        ]
+        if includePriorValues {
+            payload["prior_values"] = result.priorValues
+        }
+        return payload
+    }
+
+    /// Seed `PaneMetadataStore` with `{title: <value>}` at pane creation time.
+    /// Called from `v2PaneCreate` / `v2SurfaceSplit` when the caller passes a
+    /// `title` parameter. Atomic with the pane id becoming valid — agents can
+    /// assume the seed is present before the RPC response returns.
+    private func v2SeedPaneTitle(
+        workspaceId: UUID,
+        paneUUID: UUID?,
+        title: String?
+    ) {
+        guard let paneUUID, let title, !title.isEmpty else { return }
+        do {
+            _ = try PaneMetadataStore.shared.setMetadata(
+                workspaceId: workspaceId,
+                paneId: paneUUID,
+                partial: [MetadataKey.title: title],
+                mode: .merge,
+                source: .explicit
+            )
+        } catch {
+            // Seeding is best-effort: the pane is already created and the
+            // caller can retry via pane.set_metadata. Log and continue.
+            #if DEBUG
+            dlog("pane.title_seed.failed pane=\(paneUUID.uuidString) err=\(error)")
+            #endif
+        }
     }
 
     /// Socket-triggered pane confirmation. Presents a .confirm interaction on the

@@ -261,6 +261,17 @@ final class PaneMetadataStore: @unchecked Sendable {
         var sblob: [String: SourceRecord]
         var result = WriteResult()
 
+        // Capture prior values for every key in the incoming partial, regardless
+        // of mode. Agents use this to implement read-then-write without a
+        // separate round trip. Only keys that previously existed are included;
+        // absence in `priorValues` means the key was unset.
+        let priorSnapshot = metadata[workspaceId]?[paneId] ?? [:]
+        for k in partial.keys {
+            if let prior = priorSnapshot[k] {
+                result.priorValues[k] = prior
+            }
+        }
+
         if mode == .replace {
             blob = [:]
             sblob = [:]
