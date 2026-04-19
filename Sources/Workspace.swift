@@ -5452,15 +5452,51 @@ final class Workspace: Identifiable, ObservableObject {
         return BrowserProfileStore.shared.effectiveLastUsedProfileID
     }
 
+    private func declareMarkdownTitleFromPanel(_ markdownPanel: MarkdownPanel) {
+        guard let path = markdownPanel.filePath, !path.isEmpty else { return }
+        let title = markdownPanel.displayTitle
+        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        _ = try? SurfaceMetadataStore.shared.setMetadata(
+            workspaceId: id,
+            surfaceId: markdownPanel.id,
+            partial: ["title": title],
+            mode: .merge,
+            source: .declare
+        )
+        syncPanelTitleFromMetadata(panelId: markdownPanel.id)
+    }
+
     private func installMarkdownPanelSubscription(_ markdownPanel: MarkdownPanel) {
+        // Declare the filename as the surface manifest title synchronously so
+        // `cmux get-metadata --key title` reflects it right after open,
+        // without waiting on Combine's main-queue delivery.
+        declareMarkdownTitleFromPanel(markdownPanel)
+
         let subscription = markdownPanel.$displayTitle
             .removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self, weak markdownPanel] newTitle in
                 guard let self,
-                      let markdownPanel,
-                      let tabId = self.surfaceIdFromPanelId(markdownPanel.id) else { return }
-                guard let existing = self.bonsplitController.tab(tabId) else { return }
+                      let markdownPanel else { return }
+
+                // Keep the declared title in sync when the panel's filename
+                // changes (e.g. via the empty-state bind flow). Source
+                // `.declare` yields to an explicit `cmux set-title`.
+                if markdownPanel.filePath != nil,
+                   !newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    _ = try? SurfaceMetadataStore.shared.setMetadata(
+                        workspaceId: self.id,
+                        surfaceId: markdownPanel.id,
+                        partial: ["title": newTitle],
+                        mode: .merge,
+                        source: .declare
+                    )
+                    self.syncPanelTitleFromMetadata(panelId: markdownPanel.id)
+                    return
+                }
+
+                guard let tabId = self.surfaceIdFromPanelId(markdownPanel.id),
+                      let existing = self.bonsplitController.tab(tabId) else { return }
 
                 if self.panelTitles[markdownPanel.id] != newTitle {
                     self.panelTitles[markdownPanel.id] = newTitle
