@@ -10462,15 +10462,12 @@ extension Workspace: BonsplitDelegate {
     }
 
     func splitTabBar(_ controller: BonsplitController, didRequestNewTab kind: String, inPane pane: PaneID) {
+        // After CMUX-30 Phase 2, only the "terminal" kind reaches here — from bonsplit's
+        // empty-space drop zone and dropZoneAfterTabs. Browser/markdown/newTab are invoked
+        // directly by Sources/Panels/TabBarTrailingAccessory.swift.
         switch kind {
         case "terminal":
             _ = newTerminalSurface(inPane: pane)
-        case "browser":
-            _ = newBrowserSurface(inPane: pane)
-        case "markdown":
-            _ = newMarkdownSurface(inPane: pane)
-        case "newTab":
-            createNewTabOfFocusedKind(inPane: pane)
         default:
             _ = newTerminalSurface(inPane: pane)
         }
@@ -10480,7 +10477,7 @@ extension Workspace: BonsplitDelegate {
     /// the same kind as whatever surface is currently selected in that pane.
     /// Falls back to terminal when the pane has no selection or no matching
     /// panel type.
-    private func createNewTabOfFocusedKind(inPane pane: PaneID) {
+    func createNewTabOfFocusedKind(inPane pane: PaneID) {
         let selectedPanelId = effectiveSelectedPanelId(inPane: pane)
         let panel = selectedPanelId.flatMap { panels[$0] }
         switch panel?.panelType {
