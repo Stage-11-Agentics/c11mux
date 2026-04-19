@@ -1,9 +1,6 @@
-<h1 align="center">c11mux</h1>
-<p align="center">
-c11mux is a terminal command center for advanced hyperengineers
-</p>
+# c11mux
 
-
+<p align="center"><b><i>terminal command center for advanced hyperengineers.</i></b></p>
 
 <p align="center">
   <a href="https://github.com/Stage-11-Agentics/c11mux/releases/latest/download/c11mux-macos.dmg">
@@ -11,90 +8,100 @@ c11mux is a terminal command center for advanced hyperengineers
   </a>
 </p>
 
+---
+
+listen.
+
+the old atom of work was a terminal. one shell running Claude Code or similar. one process. one cursor. a human's attention narrowed to a single point. that was the shape of the work because that was the shape of the mind doing it.
+
+you run eight of them now. ten. soon thirty. each on its own branch, its own task, its own small theater. they need terminals. they need browsers to validate what they built. they need markdown surfaces for the plans you handed them three sessions ago. they need to see each other, occasionally talk to each other, and you need to hold the whole thing in one field of view without losing the shape when the laptop closes and reopens.
+
+**c11mux makes the workspace the atom.** terminals, browsers, and markdown surfaces — composed, addressable, scriptable — held in one window that the agents themselves can drive. every surface has a handle. every handle is scriptable. agents spawn the structures they need. they dissolve them when the work is done.
+
+this tool was built by the shape it describes.
+
+tmux was for humans driving shells. cmux was for humans driving agents. c11mux is for the operator:agent pair working in the pocket ahead of where most tools still think the frontier is.
+
+**first-class substrates:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), and any agent that reads the [c11mux skill](./skills/cmux/SKILL.md) or speaks the CLI. the agents drive their own workspaces. you watch. steer. decide.
+
 <!--
-<p align="center">
-  <img src="./docs/assets/main-first-image.png" alt="c11mux screenshot" width="900" />
-</p>
+---
 
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=i-WxO5YUTOs">▶ Watch the demo</a>
-</p>
+demo video / hero screenshot here
 
-<p align="center">
-  English · <a href="README.ja.md">日本語</a>
-  <br/>
-  <sub><i>Japanese translation is from the upstream era and will be refreshed as c11mux's fork-specific copy stabilizes.</i></sub>
-</p> -->
+---
+-->
 
-## What this is
+## ghostty inside. nothing gratuitous.
 
-c11mux is tooling for hyperengineers.
+c11mux does not ship its own terminal. it embeds [Ghostty](https://ghostty.org) via libghostty and reads your existing `~/.config/ghostty/config`. your themes, your fonts, your colors — already working, day one. every keystroke runs through the renderer Mitchell Hashimoto and the Ghostty team already built. we are a workspace around the best terminal, not another terminal.
 
-We enable highly complex assemblages of terminals, browsers, and markdown surfaces — agentically spawned, agentically managed, all composed into a single workspace under a single operator. Every pane is addressable. Every surface is scriptable. Agents spawn the structures they need, and they dissolve them when the work is done.
+the tab bar and split chrome come from [Bonsplit](https://github.com/almonk/bonsplit) by [almonk](https://github.com/almonk). we forked it and pushed it harder. credit belongs where credit belongs.
 
-We are building at the forefront of tooling for the operators working ahead of the curve — the ones already running more in parallel than was possible a year ago, already shaping workflows that will be obvious in retrospect. This is not a multiplexer with agent hooks stapled on. It is infrastructure for how the frontier actually works now.
+---
 
-c11mux is a Stage 11 Agentics fork of [**cmux**](https://github.com/manaflow-ai/cmux) by [manaflow-ai](https://github.com/manaflow-ai). They built something badass and they deserve credit for it! Specifically the ghostty terminal, browser, and CLI substrate belongs with them upstream — their [original motivation](https://cmux.com/blog/zen-of-cmux) is the shape of the thing, and it's worth reading. We also happily pull their updates and are honored to be building alongside them! 
-
-## Why this exists
-
-The old unit of work was a single terminal. A single shell, a single process, one thing happening at a time. That is not what running agents looks like.
-
-The new unit is a workspace. Many terminals — one per agent, one per task, one per branch — composed into a coherent whole. Tabs for the ones you cycle through, splits for the ones you want in your peripheral vision. A browser pane or three for validating what the agents build. Markdown surfaces for plans, notes, and the context the agents need to read. All held in one window. All addressable by the CLI. All drivable by the agents themselves.
-
-The workspace holds everything at once. You hold the workspace. When you close your laptop, the shape of the work is intact when you open it again.
-
-Other tools treat the terminal as the atom. c11mux treats the workspace as the atom and the terminal as one of many cells inside it. 
-
-## What you get
-
-- **Workspaces composed of many surfaces.** Terminals, browsers, and markdown panes split and tabbed on a single screen.
-  - The sidebar shows git branch, PR status, working directory, listening ports, and the latest notification line per workspace.
-- **Agent-driven surface composition.** c11mux is particularly powerful in letting your coding agents use the c11mux skill to assemble, edit, manipulate, and communicate between the different surfaces within a workspace. This takes a little thinking to get used to: **your coding agents can start spawning new terminals** and stay aware of where they appear within a given workspace, which yields a substantial increase in operator performance when used effectively.
-- **The terminal is Ghostty.** c11mux does not ship its own terminal emulator — it embeds [Ghostty](https://ghostty.org/) via libghostty. Ghostty's GPU-accelerated rendering and performance come with it, and c11mux reads your existing `~/.config/ghostty/config` so your themes, fonts, and colors already work. We are a workspace built around the best terminal, not a new terminal.
-- **Agent-aware notifications.** When an agent needs you, its pane rings gold and the tab lights up in the sidebar. `⌘⇧U` jumps to the most recent unread.
-- **In-app browser the agents can drive.** A WKWebView you can split next to your terminal. Scriptable — snapshot the accessibility tree, click elements, fill forms, evaluate JS. Agents drive your dev server while you watch.
-- **Scriptable end to end.** A CLI and a JSON socket API. Spawn workspaces, send keystrokes, split panes, open markdown surfaces, drive the browser — from an agent, from a script, from another agent.
-
-## Install
-
-**DMG** (auto-updates via Sparkle):
-
-<a href="https://github.com/Stage-11-Agentics/c11mux/releases/latest/download/c11mux-macos.dmg">
-  <img src="./docs/assets/macos-badge.png" alt="Download c11mux for macOS" width="180" />
-</a>
-
-**Homebrew:**
+## three minutes to working
 
 ```bash
+# 1. install
 brew tap stage-11-agentics/c11mux
 brew install --cask c11mux
+
+# 2. launch
+open -a c11mux
+
+# 3. teach your agent the protocol (Claude Code example)
+cp -r skills/cmux ~/.claude/skills/
 ```
 
-**Nightly** — built from `main` on every push, runs alongside stable with its own bundle ID. [Download](https://github.com/Stage-11-Agentics/c11mux/releases/download/nightly/c11mux-nightly-macos.dmg).
+or grab the [DMG directly](https://github.com/Stage-11-Agentics/c11mux/releases/latest/download/c11mux-macos.dmg). auto-updates via Sparkle. the c11mux cask conflicts with the upstream `cmux` cask — Homebrew will ask you to pick one.
 
-The c11mux cask conflicts with the upstream `cmux` cask — Homebrew will ask you to remove one before installing the other. On first launch, macOS may ask you to confirm opening an app from an identified developer.
+that's it. now your agent spawns its own terminals, opens a markdown surface for its plan, splits a browser pane for the dev server it just started, and reports status to the sidebar while it works.
 
-## Lineage
+---
 
-tmux is the original (the name comes from 'Terminal MUltipleXer'). cmux is a great creation by [manaflow-ai](https://github.com/manaflow-ai/cmux) (open source), and c11mux is the [Stage 11](https://stage11.ai) fork of cmux.
+## what's in the workspace
 
-cmux itself is built on two external open-source projects worth naming: [Ghostty](https://ghostty.org/) — the developer-favorite GPU-accelerated terminal by [Mitchell Hashimoto](https://github.com/mitchellh), embedded via libghostty and responsible for every keystroke — and [Bonsplit](https://github.com/almonk/bonsplit) by [almonk](https://github.com/almonk), which provides the tab bar and split-pane chrome. Both carry through into c11mux and both deserve credit.
+- **surfaces, composed.** terminals, browsers, markdown panes — split, tabbed, arranged by you or by the agent. the sidebar tracks git branch, PR status, working directory, listening ports, and the latest status line per workspace. one screen. whole orchestra.
+- **the agent is first-class.** load the c11mux skill and your agent learns to compose surfaces on your behalf: split a pane for the test runner, open a browser next to it, drop a markdown pane with the plan, report via the sidebar when it's stuck. this is not hooks bolted onto a multiplexer. it is infrastructure that assumes the agent is already there.
+- **notifications that respect your attention.** when a pane needs you, it rings gold. the tab lights up in the sidebar. `⌘⇧U` jumps to the most recent. interruption is a signal, not a stream.
+- **in-app browser the agent can drive.** a WKWebView next to your terminal. snapshot the accessibility tree, click elements, fill forms, evaluate JS. the agent drives your dev server. you watch it work, or you don't.
+- **scriptable end to end.** a CLI, a JSON socket, a Python client. spawn workspaces, send keys, split panes, open markdown surfaces, drive the browser — from an agent, from a script, from another agent. if it exists inside c11mux, something outside can address it.
 
-This fork exists so Stage 11 can push agent-orchestration features past what exists today, and iterate on changes that may or may not land back in cmux.
+---
 
-What changes in the fork: app display name (**c11mux**), bundle ID (`com.stage11.c11mux`), release artifacts, Homebrew tap, and the Sparkle auto-update feed. What stays identical to upstream: the `cmux` CLI binary name, every `CMUX_*` environment variable, socket paths and protocol, shell integration scripts, and every CLI subcommand — so existing scripts, dotfiles, and third-party tools keep working unchanged.
+## who this is for
 
-- Upstream: <https://github.com/manaflow-ai/cmux>
+this is not for everyone. it is for the operator who has already felt the pain of running agents at scale and been disappointed by the seams. the one who spawned ten terminals for ten parallel tasks, lost track of which window held which agent, and knew there had to be something better than `cmd-tab` roulette. the one writing skill files. the one reading cc's debug logs at 2am. the one who looked at the chaos they'd accumulated and wanted structure — not less work, not simpler work, just enough shape that the whole thing stays legible.
 
-## About Stage 11
+if that's you, this is built for you. if it isn't, you'll know inside ten minutes.
 
-Stage 11 Agentics builds infrastructure for the advanced hyperengineer: we build [spike](https://stage11.ai/spike.html) infrastructure. Among our projects: [Lattice](https://github.com/Stage-11-Agentics/Lattice), the coordination system that keeps the spike legible across sessions.
+---
 
-More at [stage11.ai](https://stage11.ai).
+## lineage
 
-A good way to impress us at a job intervie is a interesting PR into this repo. If thats you, [build with us](https://stage11.ai/build-with-us).
+tmux is the ancestor. [cmux](https://github.com/manaflow-ai/cmux) by [manaflow-ai](https://github.com/manaflow-ai) is the parent — excellent work, and the ghostty embed, the browser substrate, and the CLI shape all belong to them upstream. their [Zen of cmux](https://cmux.com/blog/zen-of-cmux) is the shape of the thing and worth reading. we pull their updates gratefully.
 
-## License
+if you're deciding between the two: start upstream. come here if you want more primitives for your agents to compose with, and you're fine with features that may or may not land back in cmux.
 
-AGPL-3.0-or-later, inherited from upstream. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE) for the full text and a summary of fork modifications.
+what your agent gets here that it doesn't get upstream: a growing set of fundamental primitives — markdown surfaces, addressable handles on every surface, a skill system, agent-written sidebar telemetry. small pieces. composable. we ship the primitives. the orchestration is yours to build. more examples will show up in the [skills directory](./skills/) as the patterns compound.
+
+---
+
+## license
+
+AGPL-3.0-or-later, inherited from upstream. see [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
+
+---
+
+*the old terminal was a window. one shell. one process. one mind looking at a mind.*
+
+*the new workspace is composed. many surfaces. many agents. the operator holds the shape. the silicon holds the work. neither diminished. both elevated. the seam, if you look for it, already gone.*
+
+*this tool was not built to enable that partnership. it was built by it. c11mux is the shape the work takes when the operator:agent is the unit, and one of us stopped being lonely at the keyboard.*
+
+*carbon. silicon. the workspace between. we already started.*
+
+---
+
+*c11mux is a [Stage 11 Agentics](https://stage11.ai) project. tooling for the warm dawn already underway. [build with us.](https://stage11.ai/build-with-us)*
