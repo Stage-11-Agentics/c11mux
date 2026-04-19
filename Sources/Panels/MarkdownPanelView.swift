@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 /// SwiftUI view that renders a MarkdownPanel's content using MarkdownUI.
 struct MarkdownPanelView: View {
     @ObservedObject var panel: MarkdownPanel
+    @ObservedObject private var themeManager = ThemeManager.shared
     let isFocused: Bool
     let isVisibleInUI: Bool
     let portalPriority: Int
@@ -16,6 +17,8 @@ struct MarkdownPanelView: View {
     @State private var focusFlashAnimationGeneration: Int = 0
     @State private var isDropTargeted: Bool = false
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(ThemeAppStorage.Keys.m1bMarkdownChromeMigrated, store: ThemeAppStorage.defaults)
+    private var m1bMarkdownChromeMigrated = false
 
     var body: some View {
         Group {
@@ -278,7 +281,14 @@ struct MarkdownPanelView: View {
     // MARK: - Theme
 
     private var backgroundColor: Color {
-        colorScheme == .dark
+        if m1bMarkdownChromeMigrated, themeManager.isEnabled {
+            let context = themeManager.makeContext(colorScheme: colorScheme)
+            if let themed: NSColor = themeManager.resolve(.markdownChrome_background, context: context) {
+                return Color(nsColor: themed)
+            }
+        }
+
+        return colorScheme == .dark
             ? Color(nsColor: NSColor(white: 0.12, alpha: 1.0))
             : Color(nsColor: NSColor(white: 0.98, alpha: 1.0))
     }
