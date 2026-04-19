@@ -1,0 +1,76 @@
+{
+  "behavior" : {
+    "animateWorkspaceCrossfade" : false
+  },
+  "chrome" : {
+    "browserChrome" : {
+      "background" : "$ghosttyBackground",
+      "omnibarFill" : "$surface.mix($background, 0.15)"
+    },
+    "dividers" : {
+      "color" : "$workspaceColor.mix($background, 0.65)",
+      "thicknessPt" : 1
+    },
+    "markdownChrome" : {
+      "background" : "$background"
+    },
+    "sidebar" : {
+      "activeTabFill" : "$workspaceColor",
+      "activeTabFillFallback" : "$surface",
+      "activeTabRail" : "$workspaceColor",
+      "activeTabRailFallback" : "$accent",
+      "activeTabRailOpacity" : 0.95,
+      "badgeFill" : "$accent",
+      "borderLeading" : "$separator",
+      "inactiveTabCustomOpacity" : 0.7,
+      "inactiveTabMultiSelectOpacity" : 0.35,
+      "tintBase" : "$background",
+      "tintBaseOpacity" : 0.18,
+      "tintOverlay" : "$workspaceColor.opacity(0.08)"
+    },
+    "tabBar" : {
+      "activeFill" : "$ghosttyBackground.lighten(0.04)",
+      "activeIndicator" : "$workspaceColor",
+      "background" : "$ghosttyBackground",
+      "divider" : "$separator"
+    },
+    "titleBar" : {
+      "background" : "$surface",
+      "backgroundOpacity" : 0.85,
+      "borderBottom" : "$separator",
+      "foreground" : "$foreground",
+      "foregroundSecondary" : "$foregroundSecondary"
+    },
+    "windowFrame" : {
+      "color" : "$workspaceColor",
+      "inactiveOpacity" : 0.25,
+      "thicknessPt" : 1.5,
+      "unfocusedOpacity" : 0.6
+    }
+  },
+  "identity" : {
+    "author" : "Stage 11 Agentics",
+    "display_name" : "Stage 11",
+    "name" : "stage11",
+    "schema" : 1,
+    "version" : "0.01.001"
+  },
+  "palette" : {
+    "fog" : "#2A2F36",
+    "gold" : "#C4A561",
+    "surface" : "#121519",
+    "text" : "#E9EAEB",
+    "textDim" : "#8A8F96",
+    "void" : "#0A0C0F"
+  },
+  "variables" : {
+    "accent" : "$palette.gold",
+    "background" : "$palette.void",
+    "foreground" : "$palette.text",
+    "foregroundSecondary" : "$palette.textDim",
+    "ghosttyBackground" : "$ghosttyBackground",
+    "separator" : "$palette.fog",
+    "surface" : "$palette.surface",
+    "workspaceColor" : "$workspaceColor"
+  }
+}

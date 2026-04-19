@@ -1417,11 +1417,13 @@ func installFileDropOverlay(on window: NSWindow, tabManager: TabManager) {
 
 struct ContentView: View {
     @ObservedObject var updateViewModel: UpdateViewModel
+    @ObservedObject private var themeManager = ThemeManager.shared
     let windowId: UUID
     @EnvironmentObject var tabManager: TabManager
     @EnvironmentObject var notificationStore: TerminalNotificationStore
     @EnvironmentObject var sidebarState: SidebarState
     @EnvironmentObject var sidebarSelectionState: SidebarSelectionState
+    @Environment(\.colorScheme) private var colorScheme
     @State private var sidebarWidth: CGFloat = 200
     @State private var hoveredResizerHandles: Set<SidebarResizerHandle> = []
     @State private var isResizerDragging = false
@@ -2161,15 +2163,59 @@ struct ContentView: View {
     @AppStorage("bgGlassTintOpacity") private var bgGlassTintOpacity = 0.03
     @AppStorage("bgGlassEnabled") private var bgGlassEnabled = false
     @AppStorage("debugTitlebarLeadingExtra") private var debugTitlebarLeadingExtra: Double = 0
+    @AppStorage(ThemeAppStorage.Keys.m1bCustomTitlebarMigrated, store: ThemeAppStorage.defaults)
+    private var m1bCustomTitlebarMigrated = false
 
     @State private var titlebarLeadingInset: CGFloat = 12
     private var windowIdentifier: String { "cmux.main.\(windowId.uuidString)" }
     private var fakeTitlebarTextColor: Color {
         _ = titlebarThemeGeneration
-        let ghosttyBackground = GhosttyApp.shared.defaultBackgroundColor
-        return ghosttyBackground.isLightColor
+        let referenceBackground = useThemeM1bCustomTitlebarPath
+            ? resolvedCustomTitlebarBackgroundColor
+            : GhosttyApp.shared.defaultBackgroundColor
+        return referenceBackground.isLightColor
             ? Color.black.opacity(0.78)
             : Color.white.opacity(0.82)
+    }
+
+    private var useThemeM1bCustomTitlebarPath: Bool {
+        m1bCustomTitlebarMigrated && themeManager.isEnabled
+    }
+
+    private var titlebarThemeContext: ThemeContext {
+        themeManager.makeContext(
+            workspaceColor: tabManager.selectedWorkspace?.customColor,
+            colorScheme: colorScheme
+        )
+    }
+
+    private var legacyCustomTitlebarOpacity: CGFloat {
+        let alpha = CGFloat(GhosttyApp.shared.defaultBackgroundOpacity)
+        return alpha >= 0.999 ? alpha : 1.0 - pow(1.0 - alpha, 2)
+    }
+
+    private var resolvedCustomTitlebarBackgroundColor: NSColor {
+        guard useThemeM1bCustomTitlebarPath,
+              let color: NSColor = themeManager.resolve(.titleBar_background, context: titlebarThemeContext) else {
+            return GhosttyApp.shared.defaultBackgroundColor
+        }
+        return color
+    }
+
+    private var resolvedCustomTitlebarBackgroundOpacity: CGFloat {
+        guard useThemeM1bCustomTitlebarPath,
+              let opacity: Double = themeManager.resolve(.titleBar_backgroundOpacity, context: titlebarThemeContext) else {
+            return legacyCustomTitlebarOpacity
+        }
+        return CGFloat(opacity)
+    }
+
+    private var resolvedCustomTitlebarBottomBorder: Color {
+        guard useThemeM1bCustomTitlebarPath,
+              let color: NSColor = themeManager.resolve(.titleBar_borderBottom, context: titlebarThemeContext) else {
+            return Color(nsColor: .separatorColor)
+        }
+        return Color(nsColor: color)
     }
     private var fullscreenControls: some View {
         TitlebarControlsView(
@@ -2224,19 +2270,14 @@ struct ContentView: View {
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
         .background({
-            // The terminal area has two stacked semi-transparent layers: the Bonsplit
-            // container chrome background plus Ghostty's own Metal-rendered background.
-            // Compute the effective composited opacity so the titlebar matches visually.
-            let alpha = CGFloat(GhosttyApp.shared.defaultBackgroundOpacity)
-            let effective = alpha >= 0.999 ? alpha : 1.0 - pow(1.0 - alpha, 2)
             return TitlebarLayerBackground(
-                backgroundColor: GhosttyApp.shared.defaultBackgroundColor,
-                opacity: effective
+                backgroundColor: resolvedCustomTitlebarBackgroundColor,
+                opacity: resolvedCustomTitlebarBackgroundOpacity
             )
         }())
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color(nsColor: .separatorColor))
+                .fill(resolvedCustomTitlebarBottomBorder)
                 .frame(height: 1)
         }
     }
@@ -8152,9 +8193,11 @@ private struct SidebarResizerAccessibilityModifier: ViewModifier {
 
 struct VerticalTabsSidebar: View {
     @ObservedObject var updateViewModel: UpdateViewModel
+    @ObservedObject private var themeManager = ThemeManager.shared
     let onSendFeedback: () -> Void
     @EnvironmentObject var tabManager: TabManager
     @EnvironmentObject var notificationStore: TerminalNotificationStore
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var selection: SidebarSelection
     @Binding var selectedTabIds: Set<UUID>
     @Binding var lastSidebarSelectionIndex: Int?
@@ -8167,6 +8210,10 @@ struct VerticalTabsSidebar: View {
     private var sidebarHideAllDetails = SidebarWorkspaceDetailSettings.defaultHideAllDetails
     @AppStorage(SidebarWorkspaceDetailSettings.showNotificationMessageKey)
     private var sidebarShowNotificationMessage = SidebarWorkspaceDetailSettings.defaultShowNotificationMessage
+    @AppStorage(SidebarActiveTabIndicatorSettings.styleKey)
+    private var activeTabIndicatorStyleRaw = SidebarActiveTabIndicatorSettings.defaultStyle.rawValue
+    @AppStorage(ThemeAppStorage.Keys.m1bSidebarTabItemMigrated, store: ThemeAppStorage.defaults)
+    private var m1bSidebarTabItemMigrated = false
     @AppStorage(WorkspacePresentationModeSettings.modeKey)
     private var workspacePresentationMode = WorkspacePresentationModeSettings.defaultMode.rawValue
 
@@ -8184,6 +8231,62 @@ struct VerticalTabsSidebar: View {
             showNotificationMessage: sidebarShowNotificationMessage,
             hideAllDetails: sidebarHideAllDetails
         )
+    }
+
+    private var activeTabIndicatorStyle: SidebarActiveTabIndicatorStyle {
+        SidebarActiveTabIndicatorSettings.resolvedStyle(rawValue: activeTabIndicatorStyleRaw)
+    }
+
+    private var useThemeM1bSidebarTabItemPath: Bool {
+        m1bSidebarTabItemMigrated && themeManager.isEnabled
+    }
+
+    private func themedSidebarTabColors(
+        tab: Tab,
+        isActive: Bool,
+        isMultiSelected: Bool
+    ) -> (background: NSColor?, rail: NSColor?) {
+        guard useThemeM1bSidebarTabItemPath else { return (nil, nil) }
+
+        let context = themeManager.makeContext(
+            workspaceColor: tab.customColor,
+            colorScheme: colorScheme,
+            forceBright: activeTabIndicatorStyle == .leftRail
+        )
+
+        switch activeTabIndicatorStyle {
+        case .leftRail:
+            guard isActive else { return (nil, nil) }
+
+            let role: ThemeRole = tab.customColor == nil ? .sidebar_activeTabRailFallback : .sidebar_activeTabRail
+            guard let baseColor: NSColor = themeManager.resolve(role, context: context) else {
+                return (nil, nil)
+            }
+            let opacity = (themeManager.resolve(.sidebar_activeTabRailOpacity, context: context) as Double?) ?? 0.95
+            return (nil, baseColor.withAlphaComponent(CGFloat(opacity)))
+
+        case .solidFill:
+            if isActive {
+                let role: ThemeRole = tab.customColor == nil ? .sidebar_activeTabFillFallback : .sidebar_activeTabFill
+                guard let fill: NSColor = themeManager.resolve(role, context: context) else {
+                    return (nil, nil)
+                }
+                return (fill, nil)
+            }
+
+            guard tab.customColor != nil,
+                  let fill: NSColor = themeManager.resolve(.sidebar_activeTabFill, context: context)
+            else {
+                return (nil, nil)
+            }
+
+            let opacityRole: ThemeRole = isMultiSelected
+                ? .sidebar_inactiveTabMultiSelectOpacity
+                : .sidebar_inactiveTabCustomOpacity
+            let opacity = (themeManager.resolve(opacityRole, context: context) as Double?)
+                ?? (isMultiSelected ? 0.35 : 0.7)
+            return (fill.withAlphaComponent(CGFloat(opacity)), nil)
+        }
     }
 
     var body: some View {
@@ -8207,6 +8310,13 @@ struct VerticalTabsSidebar: View {
                                 let remoteContextMenuTargets = tabManager.tabs.filter { workspace in
                                     contextTargetIds.contains(workspace.id) && workspace.isRemoteWorkspace
                                 }
+                                let isActive = tabManager.selectedTabId == tab.id
+                                let isMultiSelected = selectedTabIds.contains(tab.id)
+                                let themedColors = themedSidebarTabColors(
+                                    tab: tab,
+                                    isActive: isActive,
+                                    isMultiSelected: isMultiSelected
+                                )
                                 let agentChip: AgentChip? = {
                                     guard let focusedId = tab.focusedPanelId else {
                                         return nil
@@ -8225,7 +8335,7 @@ struct VerticalTabsSidebar: View {
                                     notificationStore: notificationStore,
                                     tab: tab,
                                     index: index,
-                                    isActive: tabManager.selectedTabId == tab.id,
+                                    isActive: isActive,
                                     agentChip: agentChip,
                                     workspaceShortcutDigit: WorkspaceShortcutMapper.commandDigitForWorkspace(
                                         at: index,
@@ -8251,6 +8361,8 @@ struct VerticalTabsSidebar: View {
                                     dragAutoScrollController: dragAutoScrollController,
                                     draggedTabId: $draggedTabId,
                                     dropIndicator: $dropIndicator,
+                                    themedBackgroundColor: themedColors.background,
+                                    themedRailColor: themedColors.rail,
                                     remoteContextMenuWorkspaceIds: remoteContextMenuTargets.map(\.id),
                                     allRemoteContextMenuTargetsConnecting: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .connecting },
                                     allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected }
@@ -10620,6 +10732,8 @@ private struct TabItemView: View, Equatable {
         lhs.latestNotificationText == rhs.latestNotificationText &&
         lhs.rowSpacing == rhs.rowSpacing &&
         lhs.showsModifierShortcutHints == rhs.showsModifierShortcutHints &&
+        lhs.themedBackgroundColor?.hexString(includeAlpha: true) == rhs.themedBackgroundColor?.hexString(includeAlpha: true) &&
+        lhs.themedRailColor?.hexString(includeAlpha: true) == rhs.themedRailColor?.hexString(includeAlpha: true) &&
         lhs.remoteContextMenuWorkspaceIds == rhs.remoteContextMenuWorkspaceIds &&
         lhs.allRemoteContextMenuTargetsConnecting == rhs.allRemoteContextMenuTargetsConnecting &&
         lhs.allRemoteContextMenuTargetsDisconnected == rhs.allRemoteContextMenuTargetsDisconnected
@@ -10648,6 +10762,8 @@ private struct TabItemView: View, Equatable {
     let dragAutoScrollController: SidebarDragAutoScrollController
     @Binding var draggedTabId: UUID?
     @Binding var dropIndicator: SidebarDropIndicator?
+    let themedBackgroundColor: NSColor?
+    let themedRailColor: NSColor?
     let remoteContextMenuWorkspaceIds: [UUID]
     let allRemoteContextMenuTargetsConnecting: Bool
     let allRemoteContextMenuTargetsDisconnected: Bool
@@ -11469,6 +11585,10 @@ private struct TabItemView: View, Equatable {
     }
 
     private var backgroundColor: Color {
+        if let themedBackgroundColor {
+            return Color(nsColor: themedBackgroundColor)
+        }
+
         switch activeTabIndicatorStyle {
         case .leftRail:
             if isMultiSelected { return cmuxAccentColor().opacity(0.25) }
@@ -11488,7 +11608,10 @@ private struct TabItemView: View, Equatable {
     }
 
     private var railColor: Color {
-        explicitRailColor ?? .clear
+        if let themedRailColor {
+            return Color(nsColor: themedRailColor)
+        }
+        return explicitRailColor ?? .clear
     }
 
     private var explicitRailColor: Color? {
