@@ -3891,12 +3891,18 @@ enum DefaultGridSettings {
             ?? window.flatMap(bestScreen(for:))
             ?? NSScreen.main
         guard let screen else { return .zero }
-        let scale = screen.backingScaleFactor
-        return NSRect(
+        return scaledPhysicalFrame(logicalFrame: screen.frame, scale: screen.backingScaleFactor)
+    }
+
+    /// Pure helper that converts a logical-point screen frame into its
+    /// physical-pixel size at the origin. Factored out so the scaling math
+    /// can be unit-tested directly without staging an `NSScreen` fixture.
+    static func scaledPhysicalFrame(logicalFrame: NSRect, scale: CGFloat) -> NSRect {
+        NSRect(
             x: 0,
             y: 0,
-            width: screen.frame.width * scale,
-            height: screen.frame.height * scale
+            width: logicalFrame.width * scale,
+            height: logicalFrame.height * scale
         )
     }
 

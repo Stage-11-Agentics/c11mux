@@ -82,6 +82,57 @@ final class DefaultGridSettingsTests: XCTestCase {
         XCTAssertEqual(rows, 3)
     }
 
+    // MARK: - scaledPhysicalFrame()
+
+    func testScaledPhysicalFrameNonRetinaIsIdentity() {
+        // backingScaleFactor 1.0 (non-retina external monitor): physical == logical.
+        let result = DefaultGridSettings.scaledPhysicalFrame(
+            logicalFrame: NSRect(x: 0, y: 0, width: 1920, height: 1080),
+            scale: 1.0
+        )
+        XCTAssertEqual(result.width, 1920)
+        XCTAssertEqual(result.height, 1080)
+    }
+
+    func testScaledPhysicalFrameRetina2xDoublesDimensions() {
+        // Standard 2.0 retina scale: logical 1440×900 → physical 2880×1800.
+        let result = DefaultGridSettings.scaledPhysicalFrame(
+            logicalFrame: NSRect(x: 0, y: 0, width: 1440, height: 900),
+            scale: 2.0
+        )
+        XCTAssertEqual(result.width, 2880)
+        XCTAssertEqual(result.height, 1800)
+    }
+
+    func testScaledPhysicalFrame32Inch4KHiDPIReaches4KBucket() {
+        // The headline bug: 32" 4K in "Looks like 2560" HiDPI mode reports
+        // logical 2560×1440 at scale 1.5 → physical 3840×2160. When fed
+        // through scaledPhysicalFrame + classify, this reaches the 4K bucket.
+        let scaled = DefaultGridSettings.scaledPhysicalFrame(
+            logicalFrame: NSRect(x: 0, y: 0, width: 2560, height: 1440),
+            scale: 1.5
+        )
+        XCTAssertEqual(scaled.width, 3840)
+        XCTAssertEqual(scaled.height, 2160)
+        let (cols, rows) = DefaultGridSettings.classify(screenFrame: scaled)
+        XCTAssertEqual(cols, 3)
+        XCTAssertEqual(rows, 3)
+    }
+
+    func testScaledPhysicalFrameOriginIsZeroed() {
+        // The helper intentionally flattens to origin (0,0) — classify() only
+        // looks at size, but downstream callers should not accidentally rely
+        // on the original origin.
+        let result = DefaultGridSettings.scaledPhysicalFrame(
+            logicalFrame: NSRect(x: 1440, y: 900, width: 1280, height: 800),
+            scale: 2.0
+        )
+        XCTAssertEqual(result.origin.x, 0)
+        XCTAssertEqual(result.origin.y, 0)
+        XCTAssertEqual(result.width, 2560)
+        XCTAssertEqual(result.height, 1600)
+    }
+
     // MARK: - gridSplitOperations()
 
     func testGridOpsOneByOneProducesNoSplits() {
