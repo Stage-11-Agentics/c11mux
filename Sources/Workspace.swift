@@ -68,6 +68,11 @@ struct SidebarStatusEntry {
     let priority: Int
     let format: SidebarMetadataFormat
     let timestamp: Date
+    /// True when this entry was rebuilt from a session snapshot on restart.
+    /// The process that last wrote it is gone, so the value is shown with
+    /// reduced emphasis until the next real write clears the flag. See the
+    /// stale→live override in `TerminalController.shouldReplaceStatusEntry`.
+    let staleFromRestart: Bool
 
     init(
         key: String,
@@ -77,7 +82,8 @@ struct SidebarStatusEntry {
         url: URL? = nil,
         priority: Int = 0,
         format: SidebarMetadataFormat = .plain,
-        timestamp: Date = Date()
+        timestamp: Date = Date(),
+        staleFromRestart: Bool = false
     ) {
         self.key = key
         self.value = value
@@ -87,6 +93,7 @@ struct SidebarStatusEntry {
         self.priority = priority
         self.format = format
         self.timestamp = timestamp
+        self.staleFromRestart = staleFromRestart
     }
 }
 
@@ -176,7 +183,11 @@ extension Workspace {
                     value: entry.value,
                     icon: entry.icon,
                     color: entry.color,
-                    timestamp: entry.timestamp.timeIntervalSince1970
+                    timestamp: entry.timestamp.timeIntervalSince1970,
+                    url: entry.url?.absoluteString,
+                    priority: entry.priority == 0 ? nil : entry.priority,
+                    format: entry.format == .plain ? nil : entry.format.rawValue,
+                    staleFromRestart: entry.staleFromRestart ? true : nil
                 )
             }
         let logSnapshots = logEntries.map { entry in
@@ -257,10 +268,31 @@ extension Workspace {
         isPinned = snapshot.isPinned
         metadata = snapshot.metadata ?? [:]
 
-        // Status entries and agent PIDs are ephemeral runtime state tied to running
-        // processes (e.g. claude_code "Running"). Don't restore them across app
-        // restarts because the processes that set them are gone.
-        statusEntries.removeAll()
+        // Tier 1 Phase 3: restore `statusEntries` from the snapshot, stamping
+        // each entry with `staleFromRestart: true` so the sidebar can render
+        // them with reduced emphasis until the agent re-announces the value.
+        // `agentPIDs` stays cleared — a PID from a prior boot is meaningless.
+        // `CMUX_DISABLE_STATUS_ENTRY_PERSIST=1` reverts to the pre-Phase-3
+        // discard-on-restore behavior.
+        if SessionPersistencePolicy.statusEntryPersistEnabled {
+            statusEntries = snapshot.statusEntries.reduce(into: [:]) { acc, snap in
+                let url = snap.url.flatMap { URL(string: $0) }
+                let format = snap.format.flatMap { SidebarMetadataFormat(rawValue: $0) } ?? .plain
+                acc[snap.key] = SidebarStatusEntry(
+                    key: snap.key,
+                    value: snap.value,
+                    icon: snap.icon,
+                    color: snap.color,
+                    url: url,
+                    priority: snap.priority ?? 0,
+                    format: format,
+                    timestamp: Date(timeIntervalSince1970: snap.timestamp),
+                    staleFromRestart: true
+                )
+            }
+        } else {
+            statusEntries.removeAll()
+        }
         agentPIDs.removeAll()
         logEntries = snapshot.logEntries.map { entry in
             SidebarLogEntry(
