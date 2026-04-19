@@ -78,6 +78,9 @@ private struct ConfirmCard: View {
                 Button(role: content.role == .destructive ? .destructive : nil,
                        action: confirm) {
                     Text(content.confirmLabel)
+                        .foregroundColor(content.role == .destructive
+                                         ? BrandColors.whiteSwiftUI
+                                         : BrandColors.blackSwiftUI)
                         .frame(minWidth: 64)
                 }
                 .buttonStyle(.borderedProminent)
@@ -126,6 +129,10 @@ private struct TextInputCard: View {
     @State private var value: String = ""
     @State private var errorText: String?
 
+    private var selection: TextInputSelectionField {
+        runtime.textInputSelection[panelId] ?? .field
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(content.title)
@@ -142,7 +149,13 @@ private struct TextInputCard: View {
                 text: $value,
                 placeholder: content.placeholder,
                 onSubmit: submit,
-                onCancel: cancel
+                onCancel: cancel,
+                onTabOut: { backward in
+                    runtime.cycleTextInputSelection(panelId: panelId, backward: backward)
+                },
+                onBeganEditing: {
+                    runtime.setTextInputSelection(panelId: panelId, .field)
+                }
             )
             .frame(minHeight: 22)
 
@@ -163,18 +176,35 @@ private struct TextInputCard: View {
                 }
                 .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
+                .selectionBox(isActive: selection == .cancel)
+                .accessibilityAddTraits(selection == .cancel ? .isSelected : [])
 
                 Button(action: submit) {
                     Text(content.confirmLabel)
+                        .foregroundColor(BrandColors.blackSwiftUI)
                         .frame(minWidth: 64)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(BrandColors.goldSwiftUI)
                 .keyboardShortcut(.defaultAction)
+                .selectionBox(isActive: selection != .cancel)
+                .accessibilityAddTraits(selection == .confirm ? .isSelected : [])
             }
         }
         .padding(24)
         .frame(minWidth: 320, maxWidth: 480, alignment: .leading)
+        .background(
+            // Background tap: click on the card chrome (outside the field and
+            // buttons) defocuses the field and promotes selection to .confirm
+            // so arrow keys start driving the buttons. The Color.clear layer
+            // sits behind real content, so taps on the field / buttons hit
+            // those first and never reach this gesture.
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    runtime.setTextInputSelection(panelId: panelId, .confirm)
+                }
+        )
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(BrandColors.surfaceSwiftUI)
@@ -236,6 +266,15 @@ private struct IMESafeTextField: NSViewRepresentable {
     let placeholder: String?
     let onSubmit: () -> Void
     let onCancel: () -> Void
+    /// Called when Tab / Shift-Tab is pressed inside the field. `backward`
+    /// is true for Shift-Tab. The card uses this to cycle its selection
+    /// state off `.field`; the overlay host's selection observer then
+    /// transfers first responder from this field to itself.
+    var onTabOut: ((_ backward: Bool) -> Void)? = nil
+    /// Called when the field begins editing (e.g., user clicked it after
+    /// defocusing). Lets the card restore `.field` selection so the outline
+    /// on Cancel/Confirm clears.
+    var onBeganEditing: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -292,6 +331,14 @@ private struct IMESafeTextField: NSViewRepresentable {
             parent.text = tf.stringValue
         }
 
+        func controlTextDidBeginEditing(_ obj: Notification) {
+            // User clicked back into the field (or AppKit granted responder) —
+            // reset the card's selection so the outline on Cancel/Confirm
+            // clears and arrow keys go back to cursor-movement inside the
+            // field editor.
+            parent.onBeganEditing?()
+        }
+
         func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
             switch selector {
             case #selector(NSResponder.insertNewline(_:)):
@@ -307,6 +354,16 @@ private struct IMESafeTextField: NSViewRepresentable {
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
                 parent.onCancel()
+                return true
+            case #selector(NSResponder.insertTab(_:)):
+                if textView.hasMarkedText() { return false }
+                parent.text = control.stringValue
+                parent.onTabOut?(false)
+                return true
+            case #selector(NSResponder.insertBacktab(_:)):
+                if textView.hasMarkedText() { return false }
+                parent.text = control.stringValue
+                parent.onTabOut?(true)
                 return true
             default:
                 return false

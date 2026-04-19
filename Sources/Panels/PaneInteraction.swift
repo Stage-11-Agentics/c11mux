@@ -127,6 +127,17 @@ public enum ConfirmMoveDirection {
     case toggle
 }
 
+/// Which element is highlighted in a `.textInput` card. `.field` means the
+/// text field owns first responder and arrow keys move the cursor; `.cancel`
+/// and `.confirm` are the two buttons that draw a white outline when active.
+/// Tab cycles between the buttons; click-out on the scrim/card-background
+/// moves selection off `.field` (default lands on `.confirm`).
+public enum TextInputSelectionField: Hashable {
+    case field
+    case cancel
+    case confirm
+}
+
 public enum TextInputResult: Equatable {
     case submitted(String)
     case cancelled
@@ -197,6 +208,12 @@ public final class PaneInteractionRuntime: ObservableObject {
     /// Driven by arrow / tab keys; Return resolves the selected option.
     /// Reset to `.confirm` on `present` / queue advance / clear.
     @Published public private(set) var confirmSelection: [UUID: ConfirmSelectionField] = [:]
+    /// Focus pivot per panel for an active `.textInput` card. `.field` is the
+    /// default on present (text field owns first responder). Tab cycles
+    /// `.field → .cancel → .confirm → .field`; clicking outside the field on
+    /// the scrim or card background moves to `.confirm`. Reset to `.field` on
+    /// queue advance / clear.
+    @Published public private(set) var textInputSelection: [UUID: TextInputSelectionField] = [:]
 
     public static let perPanelQueueSoftCap = 4
 
@@ -223,6 +240,7 @@ public final class PaneInteractionRuntime: ObservableObject {
         if active[panelId] == nil {
             active[panelId] = interaction
             if case .confirm = interaction { confirmSelection[panelId] = .confirm }
+            if case .textInput = interaction { textInputSelection[panelId] = .field }
         } else {
             var queue = queues[panelId, default: []]
             queue.append(interaction)
@@ -331,15 +349,19 @@ public final class PaneInteractionRuntime: ObservableObject {
             let next = queue.removeFirst()
             active[panelId] = next
             queues[panelId] = queue
-            if case .confirm = next {
+            switch next {
+            case .confirm:
                 confirmSelection[panelId] = .confirm
-            } else {
+                textInputSelection[panelId] = nil
+            case .textInput:
                 confirmSelection[panelId] = nil
+                textInputSelection[panelId] = .field
             }
         } else {
             active[panelId] = nil
             queues[panelId] = nil
             confirmSelection[panelId] = nil
+            textInputSelection[panelId] = nil
         }
     }
 
@@ -355,6 +377,77 @@ public final class PaneInteractionRuntime: ObservableObject {
         case .toggle: next = (current == .confirm) ? .cancel : .confirm
         }
         confirmSelection[panelId] = next
+    }
+
+    /// Set the active `.textInput` selection directly. No-op if the active
+    /// interaction isn't a `.textInput` variant. Used by click-to-defocus
+    /// (scrim / card background) and by the field delegate to report that
+    /// AppKit has restored editing focus.
+    public func setTextInputSelection(panelId: UUID, _ selection: TextInputSelectionField) {
+        guard case .textInput? = active[panelId] else { return }
+        textInputSelection[panelId] = selection
+    }
+
+    /// Move the textInput selection via an arrow key. No-op when the field
+    /// owns focus (arrows move the cursor in that case).
+    public func moveTextInputSelection(panelId: UUID, direction: ConfirmMoveDirection) {
+        guard case .textInput? = active[panelId] else { return }
+        let current = textInputSelection[panelId] ?? .field
+        guard current != .field else { return }
+        let next: TextInputSelectionField
+        switch direction {
+        case .left: next = .cancel
+        case .right: next = .confirm
+        case .toggle: next = (current == .confirm) ? .cancel : .confirm
+        }
+        textInputSelection[panelId] = next
+    }
+
+    /// Cycle textInput selection with Tab (`backward` == Shift+Tab).
+    /// `.field → .cancel → .confirm → .field` forward; reverse otherwise.
+    public func cycleTextInputSelection(panelId: UUID, backward: Bool) {
+        guard case .textInput? = active[panelId] else { return }
+        let current = textInputSelection[panelId] ?? .field
+        let next: TextInputSelectionField
+        if backward {
+            switch current {
+            case .field: next = .confirm
+            case .cancel: next = .field
+            case .confirm: next = .cancel
+            }
+        } else {
+            switch current {
+            case .field: next = .cancel
+            case .cancel: next = .confirm
+            case .confirm: next = .field
+            }
+        }
+        textInputSelection[panelId] = next
+    }
+
+    /// Resolve the active `.textInput` using whichever target is currently
+    /// highlighted. `.cancel` cancels; `.field` and `.confirm` submit the
+    /// live (bridged) value — validation is honored, so a failed submit
+    /// leaves the card in place for the field's inline error.
+    /// Returns true if the interaction was resolved.
+    @discardableResult
+    public func acceptSelectedTextInput(panelId: UUID) -> Bool {
+        guard case .textInput(let t)? = active[panelId] else { return false }
+        let selection = textInputSelection[panelId] ?? .field
+        if selection == .cancel {
+            retireToken(forInteractionId: t.id, panelId: panelId)
+            pendingTextInputValues.removeValue(forKey: t.id)
+            t.completion(.cancelled)
+            advance(panelId: panelId)
+            return true
+        }
+        let value = pendingTextInputValues[t.id] ?? t.defaultValue
+        if t.validate(value) != nil { return false }
+        retireToken(forInteractionId: t.id, panelId: panelId)
+        pendingTextInputValues.removeValue(forKey: t.id)
+        t.completion(.submitted(value))
+        advance(panelId: panelId)
+        return true
     }
 
     /// Resolve the active `.confirm` using whichever button is currently
@@ -385,6 +478,7 @@ public final class PaneInteractionRuntime: ObservableObject {
         }
         queues[panelId] = nil
         confirmSelection[panelId] = nil
+        textInputSelection[panelId] = nil
         // Clear every token-bookkeeping entry for interactions on this panel.
         if let byToken = tokenToInteractionIds[panelId] {
             for (_, ids) in byToken {

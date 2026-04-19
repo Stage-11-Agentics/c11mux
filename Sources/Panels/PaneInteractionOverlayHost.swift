@@ -23,10 +23,14 @@ final class PaneInteractionOverlayHost: NSView {
     let runtime: PaneInteractionRuntime
     private var hostingView: NSHostingView<PaneInteractionCardView>?
     private var cancellable: AnyCancellable?
+    private var textInputSelectionCancellable: AnyCancellable?
     /// Responder to restore when the overlay hides. Captured on show so the
     /// terminal / browser view that had focus before the dialog regains it
     /// without requiring a manual click (synthesis-critical §2.10).
     private weak var priorFirstResponder: NSResponder?
+    /// Last textInput selection we acted on — used to detect `.field` transitions
+    /// so we don't repeatedly call `makeFirstResponder` on the same target.
+    private var lastTextInputSelection: TextInputSelectionField?
 
     init(panelId: UUID, runtime: PaneInteractionRuntime) {
         self.panelId = panelId
@@ -40,6 +44,11 @@ final class PaneInteractionOverlayHost: NSView {
             .receive(on: RunLoop.main)
             .sink { [weak self] active in
                 self?.apply(interaction: active[panelId])
+            }
+        textInputSelectionCancellable = runtime.$textInputSelection
+            .receive(on: RunLoop.main)
+            .sink { [weak self] selections in
+                self?.applyTextInputSelection(selections[panelId])
             }
         apply(interaction: runtime.active[panelId])
     }
@@ -66,9 +75,15 @@ final class PaneInteractionOverlayHost: NSView {
         super.becomeFirstResponder()
     }
 
-    // Prevent background mouseDown (on the scrim) from stealing focus back from
-    // whatever child view currently needs it — the card manages its own focus.
-    override func mouseDown(with event: NSEvent) { /* swallow */ }
+    // Clicks on the scrim (outside the card): for `.textInput` cards, a click
+    // on the scrim should move selection off `.field` — the user's way of
+    // saying "I'm done editing, arrow keys should drive the buttons now."
+    // Clicks still don't dismiss the dialog (modal barrier contract).
+    override func mouseDown(with event: NSEvent) {
+        if case .textInput? = runtime.active[panelId] {
+            runtime.setTextInputSelection(panelId: panelId, .confirm)
+        }
+    }
     override func mouseUp(with event: NSEvent) { /* swallow */ }
     override func rightMouseDown(with event: NSEvent) { /* swallow */ }
 
@@ -80,19 +95,42 @@ final class PaneInteractionOverlayHost: NSView {
     //
     // keyCode values: left=123, right=124, tab=48, return=36, numpad enter=76.
     override func keyDown(with event: NSEvent) {
-        guard !isHidden, case .confirm? = runtime.active[panelId] else {
+        guard !isHidden else {
             super.keyDown(with: event)
             return
         }
-        switch Int(event.keyCode) {
-        case 123:
-            runtime.moveConfirmSelection(panelId: panelId, direction: .left)
-        case 124:
-            runtime.moveConfirmSelection(panelId: panelId, direction: .right)
-        case 48:
-            runtime.moveConfirmSelection(panelId: panelId, direction: .toggle)
-        case 36, 76:
-            runtime.acceptSelectedConfirm(panelId: panelId)
+        switch runtime.active[panelId] {
+        case .confirm?:
+            switch Int(event.keyCode) {
+            case 123:
+                runtime.moveConfirmSelection(panelId: panelId, direction: .left)
+            case 124:
+                runtime.moveConfirmSelection(panelId: panelId, direction: .right)
+            case 48:
+                runtime.moveConfirmSelection(panelId: panelId, direction: .toggle)
+            case 36, 76:
+                runtime.acceptSelectedConfirm(panelId: panelId)
+            default:
+                super.keyDown(with: event)
+            }
+        case .textInput?:
+            // This path only fires when the overlay host has first responder
+            // (selection is .cancel or .confirm). The text field intercepts
+            // Tab itself to leave `.field`; keys while .field-focused go to
+            // the field's editor, not here.
+            let shift = event.modifierFlags.contains(.shift)
+            switch Int(event.keyCode) {
+            case 123:
+                runtime.moveTextInputSelection(panelId: panelId, direction: .left)
+            case 124:
+                runtime.moveTextInputSelection(panelId: panelId, direction: .right)
+            case 48:
+                runtime.cycleTextInputSelection(panelId: panelId, backward: shift)
+            case 36, 76:
+                runtime.acceptSelectedTextInput(panelId: panelId)
+            default:
+                super.keyDown(with: event)
+            }
         default:
             super.keyDown(with: event)
         }
@@ -144,12 +182,48 @@ final class PaneInteractionOverlayHost: NSView {
                 }
             }
             priorFirstResponder = nil
+            lastTextInputSelection = nil
         }
+    }
+
+    /// Mirror the runtime's textInput selection into AppKit responder state.
+    /// `.field`  → find the embedded NSTextField and make it first responder.
+    /// `.cancel` / `.confirm` → take responder ourselves so keyDown routes
+    /// arrow/tab/return to the selected button.
+    private func applyTextInputSelection(_ selection: TextInputSelectionField?) {
+        guard let selection else {
+            lastTextInputSelection = nil
+            return
+        }
+        guard case .textInput? = runtime.active[panelId], !isHidden else { return }
+        if lastTextInputSelection == selection { return }
+        lastTextInputSelection = selection
+        guard let window else { return }
+        switch selection {
+        case .field:
+            if let textField = findTextField(in: hostingView) {
+                window.makeFirstResponder(textField)
+            }
+        case .cancel, .confirm:
+            if window.firstResponder !== self {
+                window.makeFirstResponder(self)
+            }
+        }
+    }
+
+    private func findTextField(in view: NSView?) -> NSTextField? {
+        guard let view else { return nil }
+        if let tf = view as? NSTextField { return tf }
+        for sub in view.subviews {
+            if let tf = findTextField(in: sub) { return tf }
+        }
+        return nil
     }
 
     // MARK: - Lifecycle
 
     deinit {
         cancellable?.cancel()
+        textInputSelectionCancellable?.cancel()
     }
 }

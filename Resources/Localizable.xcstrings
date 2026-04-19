@@ -31231,13 +31231,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enter a custom name for this tab."
+            "value": "Any text works. Longer titles make it easier to spot this tab when many are open."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このタブのカスタム名を入力してください。"
+            "value": "どんな文字列でも設定できます。タブが多いときは長めのタイトルのほうが見分けやすくなります。"
           }
         },
         "zh-Hans": {
@@ -31457,13 +31457,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rename Tab"
+            "value": "Set Tab Title"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "タブの名称変更"
+            "value": "タブタイトルを設定"
           }
         },
         "zh-Hans": {
