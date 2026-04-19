@@ -61,6 +61,7 @@
 		A5001403 /* TerminalPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001413 /* TerminalPanelView.swift */; };
 		A5001404 /* BrowserPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001414 /* BrowserPanelView.swift */; };
 		A5007420 /* BrowserPopupWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5007421 /* BrowserPopupWindowController.swift */; };
+		C30A0000A1B2C3D4E5F60718 /* TabBarTrailingAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30A0001A1B2C3D4E5F60718 /* TabBarTrailingAccessory.swift */; };
 		A5001420 /* MarkdownPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001418 /* MarkdownPanel.swift */; };
 		A5C101A0 /* PaneInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C101B0 /* PaneInteraction.swift */; };
 		A5C101A1 /* PaneInteractionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C101B1 /* PaneInteractionCardView.swift */; };
@@ -306,6 +307,7 @@
 		A5001413 /* TerminalPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/TerminalPanelView.swift; sourceTree = "<group>"; };
 		A5001414 /* BrowserPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/BrowserPanelView.swift; sourceTree = "<group>"; };
 		A5007421 /* BrowserPopupWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/BrowserPopupWindowController.swift; sourceTree = "<group>"; };
+		C30A0001A1B2C3D4E5F60718 /* TabBarTrailingAccessory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/TabBarTrailingAccessory.swift; sourceTree = "<group>"; };
 		A5001415 /* PanelContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/PanelContentView.swift; sourceTree = "<group>"; };
 		A5001418 /* MarkdownPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/MarkdownPanel.swift; sourceTree = "<group>"; };
 		A5C101B0 /* PaneInteraction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/PaneInteraction.swift; sourceTree = "<group>"; };
@@ -571,6 +573,7 @@
 				A5001413 /* TerminalPanelView.swift */,
 				A5001414 /* BrowserPanelView.swift */,
 				A5007421 /* BrowserPopupWindowController.swift */,
+				C30A0001A1B2C3D4E5F60718 /* TabBarTrailingAccessory.swift */,
 				A5001418 /* MarkdownPanel.swift */,
 				A5C101B0 /* PaneInteraction.swift */,
 				A5C101B1 /* PaneInteractionCardView.swift */,
@@ -922,6 +925,7 @@
 				A5001403 /* TerminalPanelView.swift in Sources */,
 				A5001404 /* BrowserPanelView.swift in Sources */,
 				A5007420 /* BrowserPopupWindowController.swift in Sources */,
+				C30A0000A1B2C3D4E5F60718 /* TabBarTrailingAccessory.swift in Sources */,
 				A5001420 /* MarkdownPanel.swift in Sources */,
 				A5C101A0 /* PaneInteraction.swift in Sources */,
 				A5C101A1 /* PaneInteractionCardView.swift in Sources */,
