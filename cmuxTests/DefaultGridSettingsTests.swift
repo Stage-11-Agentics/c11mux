@@ -62,6 +62,77 @@ final class DefaultGridSettingsTests: XCTestCase {
         XCTAssertEqual(rows, 3)
     }
 
+    func testClassifyRetina27ScaledProducesTwoByThree() {
+        // Mid-tier retina display class: logical 1440×900 at backingScaleFactor
+        // 2.0 → physical 2880×1800. Sits above QHD (2560×1440) and below 4K
+        // (3840×2160). Post-fix classify() is called with the scaled rect and
+        // correctly returns 2×3.
+        let (cols, rows) = DefaultGridSettings.classify(screenFrame: NSRect(x: 0, y: 0, width: 2880, height: 1800))
+        XCTAssertEqual(cols, 2)
+        XCTAssertEqual(rows, 3)
+    }
+
+    func testClassifyRetina32ScaledProducesThreeByThree() {
+        // Exact 32" 4K bug scenario: logical 2560×1440 at backingScaleFactor
+        // 1.5 ("Looks like 2560" HiDPI mode) → physical 3840×2160. Pre-fix
+        // classify() saw the logical 2560×1440 and misclassified as 2×3
+        // (QHD bucket); post-fix it sees the scaled 4K rect and returns 3×3.
+        let (cols, rows) = DefaultGridSettings.classify(screenFrame: NSRect(x: 0, y: 0, width: 3840, height: 2160))
+        XCTAssertEqual(cols, 3)
+        XCTAssertEqual(rows, 3)
+    }
+
+    // MARK: - scaledPhysicalFrame()
+
+    func testScaledPhysicalFrameNonRetinaIsIdentity() {
+        // backingScaleFactor 1.0 (non-retina external monitor): physical == logical.
+        let result = DefaultGridSettings.scaledPhysicalFrame(
+            logicalFrame: NSRect(x: 0, y: 0, width: 1920, height: 1080),
+            scale: 1.0
+        )
+        XCTAssertEqual(result.width, 1920)
+        XCTAssertEqual(result.height, 1080)
+    }
+
+    func testScaledPhysicalFrameRetina2xDoublesDimensions() {
+        // Standard 2.0 retina scale: logical 1440×900 → physical 2880×1800.
+        let result = DefaultGridSettings.scaledPhysicalFrame(
+            logicalFrame: NSRect(x: 0, y: 0, width: 1440, height: 900),
+            scale: 2.0
+        )
+        XCTAssertEqual(result.width, 2880)
+        XCTAssertEqual(result.height, 1800)
+    }
+
+    func testScaledPhysicalFrame32Inch4KHiDPIReaches4KBucket() {
+        // The headline bug: 32" 4K in "Looks like 2560" HiDPI mode reports
+        // logical 2560×1440 at scale 1.5 → physical 3840×2160. When fed
+        // through scaledPhysicalFrame + classify, this reaches the 4K bucket.
+        let scaled = DefaultGridSettings.scaledPhysicalFrame(
+            logicalFrame: NSRect(x: 0, y: 0, width: 2560, height: 1440),
+            scale: 1.5
+        )
+        XCTAssertEqual(scaled.width, 3840)
+        XCTAssertEqual(scaled.height, 2160)
+        let (cols, rows) = DefaultGridSettings.classify(screenFrame: scaled)
+        XCTAssertEqual(cols, 3)
+        XCTAssertEqual(rows, 3)
+    }
+
+    func testScaledPhysicalFrameOriginIsZeroed() {
+        // The helper intentionally flattens to origin (0,0) — classify() only
+        // looks at size, but downstream callers should not accidentally rely
+        // on the original origin.
+        let result = DefaultGridSettings.scaledPhysicalFrame(
+            logicalFrame: NSRect(x: 1440, y: 900, width: 1280, height: 800),
+            scale: 2.0
+        )
+        XCTAssertEqual(result.origin.x, 0)
+        XCTAssertEqual(result.origin.y, 0)
+        XCTAssertEqual(result.width, 2560)
+        XCTAssertEqual(result.height, 1600)
+    }
+
     // MARK: - gridSplitOperations()
 
     func testGridOpsOneByOneProducesNoSplits() {

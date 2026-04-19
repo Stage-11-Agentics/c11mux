@@ -3880,16 +3880,30 @@ enum DefaultGridSettings {
     }
 
     /// Resolves the pixel frame of the screen that best contains the given
-    /// window. Returns `.zero` if no screen can be resolved, which the
-    /// classifier treats as the 1×1 fallback (no grid).
+    /// window. `NSScreen.frame` reports logical points; multiply by
+    /// `backingScaleFactor` so `classify()` compares against physical
+    /// pixel thresholds (a 32" 4K in a HiDPI mode reports 2560×1440 points
+    /// and would misclassify as QHD without the scale). Returns `.zero` if
+    /// no screen can be resolved, which the classifier treats as the 1×1
+    /// fallback (no grid).
     static func resolvedScreenFrame(for window: NSWindow?) -> NSRect {
-        if let screen = window?.screen {
-            return screen.frame
-        }
-        if let window, let best = bestScreen(for: window) {
-            return best.frame
-        }
-        return NSScreen.main?.frame ?? .zero
+        let screen: NSScreen? = window?.screen
+            ?? window.flatMap(bestScreen(for:))
+            ?? NSScreen.main
+        guard let screen else { return .zero }
+        return scaledPhysicalFrame(logicalFrame: screen.frame, scale: screen.backingScaleFactor)
+    }
+
+    /// Pure helper that converts a logical-point screen frame into its
+    /// physical-pixel size at the origin. Factored out so the scaling math
+    /// can be unit-tested directly without staging an `NSScreen` fixture.
+    static func scaledPhysicalFrame(logicalFrame: NSRect, scale: CGFloat) -> NSRect {
+        NSRect(
+            x: 0,
+            y: 0,
+            width: logicalFrame.width * scale,
+            height: logicalFrame.height * scale
+        )
     }
 
     private static func bestScreen(for window: NSWindow) -> NSScreen? {
@@ -3908,6 +3922,11 @@ enum DefaultGridSettings {
         initialPanel: TerminalPanel,
         screenFrame: NSRect
     ) {
+        // Remote workspaces spawn a fresh SSH session per pane via
+        // `remoteTerminalStartupCommand()`. Fanning out up to 9 sessions on
+        // workspace creation is the wrong default; require an explicit split.
+        guard !workspace.isRemoteWorkspace else { return }
+
         let (cols, rows) = classify(screenFrame: screenFrame)
         guard cols > 1 || rows > 1 else { return }
 
@@ -3923,23 +3942,43 @@ enum DefaultGridSettings {
             case .horizontalToNewColumn:
                 // Chain off the previous column's head so columns march rightward.
                 let sourceColumn = op.column - 1
-                guard let source = columnTails[sourceColumn] else { return }
+                guard let source = columnTails[sourceColumn] else {
+                    #if DEBUG
+                    dlog("grid.split.failed col=\(op.column) dir=\(op.direction) reason=missing_source")
+                    #endif
+                    return
+                }
                 guard let newPanel = workspace.newTerminalSplit(
                     from: source.id,
                     orientation: .horizontal,
                     insertFirst: false,
                     focus: false
-                ) else { return }
+                ) else {
+                    #if DEBUG
+                    dlog("grid.split.failed col=\(op.column) dir=\(op.direction)")
+                    #endif
+                    return
+                }
                 columnTails[op.column] = newPanel
 
             case .verticalDownInColumn:
-                guard let source = columnTails[op.column] else { return }
+                guard let source = columnTails[op.column] else {
+                    #if DEBUG
+                    dlog("grid.split.failed col=\(op.column) dir=\(op.direction) reason=missing_source")
+                    #endif
+                    return
+                }
                 guard let newPanel = workspace.newTerminalSplit(
                     from: source.id,
                     orientation: .vertical,
                     insertFirst: false,
                     focus: false
-                ) else { return }
+                ) else {
+                    #if DEBUG
+                    dlog("grid.split.failed col=\(op.column) dir=\(op.direction)")
+                    #endif
+                    return
+                }
                 columnTails[op.column] = newPanel
             }
         }

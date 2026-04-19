@@ -1258,9 +1258,7 @@ class TabManager: ObservableObject {
 
         if let terminalPanel = workspace.focusedTerminalPanel,
            terminalPanel.surface.surface != nil {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                performGrid(terminalPanel)
-            }
+            performGrid(terminalPanel)
             return
         }
 
@@ -1277,9 +1275,7 @@ class TabManager: ObservableObject {
                 NotificationCenter.default.removeObserver(readyObserver)
             }
             panelsCancellable?.cancel()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                performGrid(terminalPanel)
-            }
+            performGrid(terminalPanel)
         }
 
         panelsCancellable = workspace.$panels
