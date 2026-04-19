@@ -62,6 +62,26 @@ final class DefaultGridSettingsTests: XCTestCase {
         XCTAssertEqual(rows, 3)
     }
 
+    func testClassifyRetina27ScaledProducesTwoByThree() {
+        // Mid-tier retina display class: logical 1440×900 at backingScaleFactor
+        // 2.0 → physical 2880×1800. Sits above QHD (2560×1440) and below 4K
+        // (3840×2160). Post-fix classify() is called with the scaled rect and
+        // correctly returns 2×3.
+        let (cols, rows) = DefaultGridSettings.classify(screenFrame: NSRect(x: 0, y: 0, width: 2880, height: 1800))
+        XCTAssertEqual(cols, 2)
+        XCTAssertEqual(rows, 3)
+    }
+
+    func testClassifyRetina32ScaledProducesThreeByThree() {
+        // Exact 32" 4K bug scenario: logical 2560×1440 at backingScaleFactor
+        // 1.5 ("Looks like 2560" HiDPI mode) → physical 3840×2160. Pre-fix
+        // classify() saw the logical 2560×1440 and misclassified as 2×3
+        // (QHD bucket); post-fix it sees the scaled 4K rect and returns 3×3.
+        let (cols, rows) = DefaultGridSettings.classify(screenFrame: NSRect(x: 0, y: 0, width: 3840, height: 2160))
+        XCTAssertEqual(cols, 3)
+        XCTAssertEqual(rows, 3)
+    }
+
     // MARK: - gridSplitOperations()
 
     func testGridOpsOneByOneProducesNoSplits() {
