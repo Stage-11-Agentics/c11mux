@@ -3811,10 +3811,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                         sources: sources
                     )
                 }
+
+                // CMUX-11 Phase 3: same round-trip for `PaneMetadataStore`.
+                // The debug rail does not rebuild the bonsplit layout, so live
+                // pane UUIDs are unchanged from the snapshot — no old→new
+                // remap needed. Walk the layout tree, clear each pane's live
+                // store, then replay the persisted blob.
+                let paneSnapshots = collectPaneLayoutSnapshots(wsSnapshot.layout)
+                for paneSnapshot in paneSnapshots {
+                    guard let paneUUID = paneSnapshot.id else { continue }
+                    PaneMetadataStore.shared.removePane(
+                        workspaceId: workspace.id,
+                        paneId: paneUUID
+                    )
+                    guard let persistedValues = paneSnapshot.metadata else { continue }
+                    let values = PersistedMetadataBridge.decodeValues(persistedValues)
+                    let sources = PersistedMetadataBridge.decodeSources(
+                        paneSnapshot.metadataSources ?? [:]
+                    )
+                    PaneMetadataStore.shared.restoreFromSnapshot(
+                        workspaceId: workspace.id,
+                        paneId: paneUUID,
+                        values: values,
+                        sources: sources
+                    )
+                }
             }
         }
         dlog("debug.session.save_and_load step=done windows=\(loaded.windows.count)")
         return true
+    }
+
+    /// CMUX-11 Phase 3: flatten a `SessionWorkspaceLayoutSnapshot` tree into
+    /// the leaf `SessionPaneLayoutSnapshot`s. Used by the debug round-trip
+    /// rail to walk persisted pane metadata without re-creating the layout.
+    private func collectPaneLayoutSnapshots(
+        _ node: SessionWorkspaceLayoutSnapshot
+    ) -> [SessionPaneLayoutSnapshot] {
+        switch node {
+        case .pane(let pane):
+            return [pane]
+        case .split(let split):
+            return collectPaneLayoutSnapshots(split.first)
+                + collectPaneLayoutSnapshots(split.second)
+        }
     }
 #endif
 

@@ -259,6 +259,11 @@ extension Workspace {
             oldToNewPanelIds: oldToNewPanelIds
         )
 
+        // CMUX-11 Phase 3: rehydrate PaneMetadataStore entries from each
+        // restored leaf and prune any pane metadata not in the live set.
+        restorePaneMetadataFromSnapshot(leafEntries: leafEntries)
+        prunePaneMetadata(validPaneIds: Set(bonsplitController.allPaneIds.map { $0.id }))
+
         pruneSurfaceMetadata(validSurfaceIds: Set(panels.keys))
         applySessionDividerPositions(snapshotNode: snapshot.layout, liveNode: bonsplitController.treeSnapshot())
 
@@ -323,10 +328,19 @@ extension Workspace {
         case .pane(let pane):
             let panelIds = sessionPanelIDs(for: pane)
             let selectedPanelId = pane.selectedTabId.flatMap(sessionPanelID(forExternalTabIDString:))
+            // CMUX-11 Phase 3: capture the bonsplit pane UUID and any
+            // PaneMetadataStore values so they survive a restart. Both fields
+            // are optional; we only emit them when we can resolve a UUID and
+            // a non-empty store.
+            let paneUUID = UUID(uuidString: pane.id)
+            let (persistedPaneMetadata, persistedPaneSources) = persistedPaneMetadata(forPaneUUID: paneUUID)
             return .pane(
                 SessionPaneLayoutSnapshot(
                     panelIds: panelIds,
-                    selectedPanelId: selectedPanelId
+                    selectedPanelId: selectedPanelId,
+                    id: paneUUID,
+                    metadata: persistedPaneMetadata,
+                    metadataSources: persistedPaneSources
                 )
             )
         case .split(let split):
@@ -339,6 +353,36 @@ extension Workspace {
                 )
             )
         }
+    }
+
+    /// CMUX-11 Phase 3: pull `PaneMetadataStore` values + sources for a pane,
+    /// run them through the persistence bridge, and apply the 64 KiB cap.
+    /// Returns `(nil, nil)` when the store is empty, the rollback flag is
+    /// set, or the pane UUID could not be parsed — keeping snapshots minimal.
+    private func persistedPaneMetadata(
+        forPaneUUID paneUUID: UUID?
+    ) -> ([String: PersistedJSONValue]?, [String: PersistedMetadataSource]?) {
+        guard let paneUUID else { return (nil, nil) }
+        if PersistedMetadataBridge.isPersistDisabled { return (nil, nil) }
+        let snapshot = PaneMetadataStore.shared.getMetadata(workspaceId: id, paneId: paneUUID)
+        if snapshot.metadata.isEmpty && snapshot.sources.isEmpty {
+            return (nil, nil)
+        }
+        let bridgedValues = PersistedMetadataBridge.encodeValues(
+            snapshot.metadata,
+            surfaceIdForLog: paneUUID
+        )
+        let cappedValues = PersistedMetadataBridge.enforceSizeCap(
+            bridgedValues,
+            entityKind: "pane",
+            entityId: paneUUID
+        )
+        let bridgedSources = PersistedMetadataBridge.encodeSources(snapshot.sources)
+        let alignedSources = bridgedSources.filter { cappedValues.keys.contains($0.key) }
+        return (
+            cappedValues.isEmpty ? nil : cappedValues,
+            alignedSources.isEmpty ? nil : alignedSources
+        )
     }
 
     private func sessionPanelIDs(for pane: ExternalPaneNode) -> [UUID] {
@@ -6335,6 +6379,45 @@ final class Workspace: Identifiable, ObservableObject {
                 sources: sources
             )
         }
+    }
+
+    /// CMUX-11 Phase 3: re-install persisted pane metadata after the layout
+    /// is rebuilt. Each leaf entry pairs a freshly minted `PaneID` with the
+    /// snapshot that created it; we rehydrate `PaneMetadataStore` under the
+    /// new pane UUID, preserving the original `(source, ts)` records so the
+    /// precedence chain survives the restart. Silent — same contract as the
+    /// surface restore path.
+    ///
+    /// Skipped when `CMUX_DISABLE_METADATA_PERSIST=1` is set in the app's
+    /// launch environment.
+    private func restorePaneMetadataFromSnapshot(
+        leafEntries: [SessionPaneRestoreEntry]
+    ) {
+        if PersistedMetadataBridge.isPersistDisabled { return }
+        for entry in leafEntries {
+            guard let persistedValues = entry.snapshot.metadata,
+                  !persistedValues.isEmpty else { continue }
+            let persistedSources = entry.snapshot.metadataSources ?? [:]
+            let values = PersistedMetadataBridge.decodeValues(persistedValues)
+            let sources = PersistedMetadataBridge.decodeSources(persistedSources)
+            PaneMetadataStore.shared.restoreFromSnapshot(
+                workspaceId: id,
+                paneId: entry.paneId.id,
+                values: values,
+                sources: sources
+            )
+        }
+    }
+
+    /// CMUX-11 Phase 3: drop pane metadata entries for panes no longer in the
+    /// live set. Called from session restore so the singleton store doesn't
+    /// accumulate stale rows across repeated `debug.session.save_and_load`
+    /// cycles or partial restores.
+    func prunePaneMetadata(validPaneIds: Set<UUID>) {
+        PaneMetadataStore.shared.pruneWorkspace(
+            workspaceId: id,
+            validPaneIds: validPaneIds
+        )
     }
 
     func pruneSurfaceMetadata(validSurfaceIds: Set<UUID>) {

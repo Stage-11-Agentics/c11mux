@@ -358,6 +358,25 @@ enum SessionSplitOrientation: String, Codable, Sendable {
 struct SessionPaneLayoutSnapshot: Codable, Sendable {
     var panelIds: [UUID]
     var selectedPanelId: UUID?
+
+    /// CMUX-11 Phase 3: bonsplit pane UUID, persisted so the restore path can
+    /// remap stored `PaneMetadataStore` entries from the old pane id to the
+    /// freshly minted one. Optional for backcompat with pre-Phase-3 snapshots
+    /// (and for the synthetic empty-leaf fallback emitted when a split's
+    /// rebuild fails); when nil, no pane metadata is rehydrated for the leaf.
+    /// Defaulted to nil so existing two-arg construction sites keep compiling.
+    var id: UUID? = nil
+
+    /// CMUX-11 Phase 3: persisted `PaneMetadataStore` values for this pane.
+    /// Optional for backcompat. Numbers round-trip as `Double` per
+    /// `PersistedJSONValue`; the 64 KiB per-pane cap is enforced at the
+    /// persistence boundary on save.
+    var metadata: [String: PersistedJSONValue]? = nil
+
+    /// Parallel sidecar preserving the per-key `(source, ts)` record so the
+    /// `explicit > declare > osc > heuristic` precedence chain survives a
+    /// restart. See `PersistedMetadataSource`.
+    var metadataSources: [String: PersistedMetadataSource]? = nil
 }
 
 struct SessionSplitLayoutSnapshot: Codable, Sendable {
