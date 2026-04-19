@@ -1,0 +1,8 @@
+{
+  "colorScheme": "light",
+  "indicatorStyle": "solidFill",
+  "selectionState": "inactive",
+  "hasCustomColor": true,
+  "expectedBackgroundHex": "#FFFFFFB2",
+  "expectedRailHex": null
+}
