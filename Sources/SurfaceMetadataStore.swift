@@ -225,6 +225,12 @@ final class SurfaceMetadataStore: @unchecked Sendable {
         var metadata: [String: Any] = [:]
         /// Post-op snapshot of the sidecar.
         var sources: [String: [String: Any]] = [:]
+        /// Prior values for keys in the incoming partial, captured before the
+        /// write was applied. Only populated when the key existed previously;
+        /// absence means the key was unset. Substrate for the read-then-write
+        /// convention (CMUX-11 Phase 2) so callers get the prior value back
+        /// in-hand without a separate round trip.
+        var priorValues: [String: Any] = [:]
     }
 
     /// Merge or replace a partial metadata object on a surface.
