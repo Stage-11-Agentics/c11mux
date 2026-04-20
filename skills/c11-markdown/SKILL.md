@@ -1,11 +1,11 @@
 ---
-name: cmux-markdown
-description: Open markdown files in a c11mux markdown surface with live reload. Use when you need to display plans, documentation, or notes alongside terminals and browser surfaces with rich rendering (headings, code blocks, tables, lists, Mermaid diagrams). Prefer this over external viewers when c11mux is running.
+name: c11-markdown
+description: Open markdown files in a c11 markdown surface with live reload. Use when you need to display plans, documentation, or notes alongside terminals and browser surfaces with rich rendering (headings, code blocks, tables, lists, Mermaid diagrams). Prefer this over external viewers when c11 is running.
 ---
 
-# c11mux Markdown Surfaces
+# c11 Markdown Surfaces
 
-Use this skill to display markdown files in a c11mux markdown surface — a first-class surface type that lives alongside terminal and browser surfaces in the same workspace, driven from the same `cmux` CLI. The binary is `cmux`.
+Use this skill to display markdown files in a c11 markdown surface — a first-class surface type that lives alongside terminal and browser surfaces in the same workspace, driven from the same `cmux` CLI. The binary is `cmux`.
 
 Rich rendering (headings, code blocks, tables, lists, Mermaid) with live file watching — the panel auto-updates when the file changes on disk.
 

@@ -1,11 +1,11 @@
 ---
-name: cmux-debug-windows
-description: Manage c11mux debug windows and related debug menu wiring for Sidebar Debug, Background Debug, and Menu Bar Extra Debug. Use this when the user asks to open/tune these debug controls, add or adjust Debug menu entries, or capture/copy a combined debug config snapshot. Applies to the c11mux macOS app (binary `cmux`).
+name: c11-debug-windows
+description: Manage c11 debug windows and related debug menu wiring for Sidebar Debug, Background Debug, and Menu Bar Extra Debug. Use this when the user asks to open/tune these debug controls, add or adjust Debug menu entries, or capture/copy a combined debug config snapshot. Applies to the c11 macOS app (binary `cmux`).
 ---
 
-# c11mux Debug Windows
+# c11 Debug Windows
 
-Developer-focused workflow for the c11mux macOS app's Debug menu (DEBUG builds only). Covers existing debug windows and menu wiring — do not add a new utility/debug control window unless the user asks explicitly.
+Developer-focused workflow for the c11 macOS app's Debug menu (DEBUG builds only). Covers existing debug windows and menu wiring — do not add a new utility/debug control window unless the user asks explicitly.
 
 ## Workflow
 
@@ -21,7 +21,7 @@ Developer-focused workflow for the c11mux macOS app's Debug menu (DEBUG builds o
 3. Reuse existing per-window copy buttons (`Copy Config`) in each debug window before adding new UI.
 4. For one combined payload, run:
 ```bash
-skills/cmux-debug-windows/scripts/debug_windows_snapshot.sh --copy
+skills/c11-debug-windows/scripts/debug_windows_snapshot.sh --copy
 ```
 5. After code edits, run build + tagged reload:
 ```bash
@@ -45,7 +45,7 @@ Purpose:
 
 Examples:
 ```bash
-skills/cmux-debug-windows/scripts/debug_windows_snapshot.sh
-skills/cmux-debug-windows/scripts/debug_windows_snapshot.sh --copy
-skills/cmux-debug-windows/scripts/debug_windows_snapshot.sh --domain <bundle-id> --copy
+skills/c11-debug-windows/scripts/debug_windows_snapshot.sh
+skills/c11-debug-windows/scripts/debug_windows_snapshot.sh --copy
+skills/c11-debug-windows/scripts/debug_windows_snapshot.sh --domain <bundle-id> --copy
 ```

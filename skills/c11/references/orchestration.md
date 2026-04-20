@@ -1,4 +1,4 @@
-# c11mux Orchestration
+# c11 Orchestration
 
 Patterns for running multiple agents in parallel panes: layout, tab naming, launching sub-agents, agent-to-agent communication, sidebar reporting. The binary is `cmux`.
 
@@ -11,7 +11,7 @@ Patterns for running multiple agents in parallel panes: layout, tab naming, laun
 - [Agent-to-agent communication](#agent-to-agent-communication)
 - [Sub-agent self-reporting](#sub-agent-self-reporting)
 - [Monitoring agents from the orchestrator](#monitoring-agents-from-the-orchestrator)
-- [Writing c11mux-aware agent prompts](#writing-c11mux-aware-agent-prompts)
+- [Writing c11-aware agent prompts](#writing-c11-aware-agent-prompts)
 
 ## Layout philosophy
 
@@ -90,9 +90,9 @@ The orchestrator writes the first lineage line when it spawns the child so the c
 
 Use **`cc`** (the `--dangerously-skip-permissions` alias) — never bare `claude` or `claude -p`:
 
-- **`claude -p` (headless)** breaks the c11mux auth chain. The subprocess is reparented to `launchd` and cannot call any `cmux` command. Sub-agents lose the ability to self-report.
+- **`claude -p` (headless)** breaks the c11 auth chain. The subprocess is reparented to `launchd` and cannot call any `cmux` command. Sub-agents lose the ability to self-report.
 - **Plain `claude`** stalls on every tool call waiting for permission approvals nobody answers.
-- **`cc` in an interactive pane** inherits c11mux env vars, preserves the auth chain, and skips approvals. Sub-agents can self-report via `cmux set-status`, `cmux log`, `cmux set-progress`, `cmux set-metadata`.
+- **`cc` in an interactive pane** inherits c11 env vars, preserves the auth chain, and skips approvals. Sub-agents can self-report via `cmux set-status`, `cmux log`, `cmux set-progress`, `cmux set-metadata`.
 
 ### Standard launch pattern
 
@@ -120,7 +120,7 @@ cmux send --workspace $WS --surface $SURF "Your tab title is already set to 'Log
 cmux send-key --workspace $WS --surface $SURF enter
 ```
 
-**Why two-call send:** `\n` in `cmux send` is stripped by Claude Code's Bash tool before reaching c11mux, so the command sits unsent on the sub-agent's prompt line. Always pair `send` with a separate `send-key enter`.
+**Why two-call send:** `\n` in `cmux send` is stripped by Claude Code's Bash tool before reaching c11, so the command sits unsent on the sub-agent's prompt line. Always pair `send` with a separate `send-key enter`.
 
 ### For complex prompts: deliver via temp file
 
@@ -174,14 +174,14 @@ Supported status values: `Idle` (prompt waiting), `Running` (processing a turn),
 > **Critical gotcha — workspace aggregation.** `cmux list-status` is workspace-scoped; `--surface` is silently ignored. The `claude_code=...` row reflects activity across **every** cc surface in the workspace, not the one you're targeting. With two or more cc's running (orchestrator + sub-agent, planner + triage + impl, or any parallel review fan-out), the row never decisively reports `Idle` and the `until` loop deadlocks. Prefer the one-shot pattern above whenever any sibling cc is in flight. This gotcha is a known binary limitation (no surface-scoped agent-status query exists); there is no polling recipe that safely substitutes in the multi-cc case.
 
 Additional notes on the polling signal:
-- The signal only exists when cc was launched through c11mux's bundled PATH. A cc / claude invocation that bypasses the PATH wrapper will not emit status. For sub-agents you orchestrate from inside a c11mux surface this is almost always fine — the wrapper is the default for `cc` / `claude` in that context.
+- The signal only exists when cc was launched through c11's bundled PATH. A cc / claude invocation that bypasses the PATH wrapper will not emit status. For sub-agents you orchestrate from inside a c11 surface this is almost always fine — the wrapper is the default for `cc` / `claude` in that context.
 - Other TUIs (codex, kimi, opencode, etc.) do **not** get an equivalent wrapper, by design. For those, agents self-report by calling `cmux set-metadata --key status --value idle` / `running` themselves, following instructions in the cmux skill file they load at session start. If an agent hasn't been taught to self-report, you won't see status for them — that's expected.
 
 **Do not** regex for `❯`, `> `, or `Welcome to Claude Code`. Those patterns drift across cc releases and produce silent stalls when they miss (v2.1.114 dropped the box prompt and changed the banner, breaking every previous recipe). Use one-shot argv delivery, or poll the status row when it's safe to do so.
 
 ### Why this works only for cc, and why that's okay
 
-The cc PATH wrapper at `Resources/bin/claude` is a **grandfathered, cc-specific concession** — c11mux does not write to any TUI's persistent config, and will not install analogous wrappers for codex, kimi, or opencode. The host is deliberately unopinionated about the terminal: c11mux provides the surface, the socket, and the skill file; what an agent does with them is the agent's business. For every TUI except cc, the skill-driven self-reporting path above is how status gets populated — there is no installer, no config-writing, no hook injection performed by c11mux.
+The cc PATH wrapper at `Resources/bin/claude` is a **grandfathered, cc-specific concession** — c11 does not write to any TUI's persistent config, and will not install analogous wrappers for codex, kimi, or opencode. The host is deliberately unopinionated about the terminal: c11 provides the surface, the socket, and the skill file; what an agent does with them is the agent's business. For every TUI except cc, the skill-driven self-reporting path above is how status gets populated — there is no installer, no config-writing, no hook injection performed by c11.
 
 ## Agent-to-agent communication
 
@@ -231,9 +231,9 @@ cmux set-progress 0.6 --label "3/5 subtasks"
 cmux log --source "orchestrator" "Agent A finished; Agent B starting"
 ```
 
-## Writing c11mux-aware agent prompts
+## Writing c11-aware agent prompts
 
-When spawning sub-agents in c11mux, include these as first-class instructions in the prompt:
+When spawning sub-agents in c11, include these as first-class instructions in the prompt:
 
 1. **Self-identify immediately.** First action: `cmux identify` + `cmux get-titlebar-state` (to read any lineage the orchestrator pre-wrote) + `cmux rename-tab "<descriptive name>"` + `cmux set-agent --type <tui> --model <model-id>`. An unnamed, undeclared tab is an unidentifiable agent. If a lineage prefix (`Parent :: …`) is already present, preserve it and refine only the trailing segment.
 2. **Name every tab you create with lineage.** Format: `<parent title> :: <child role>` (e.g., `Login Button :: Plan`). Chain additional rungs as needed. Also write `cmux set-description` with a `Lineage: A → B → C` breadcrumb so the sub-agent inherits the chain and preserves it when self-updating. Pass the parent title in the spawn prompt so the sub-agent can recompose if it ever has to rename from scratch.

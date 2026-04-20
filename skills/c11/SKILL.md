@@ -1,24 +1,24 @@
 ---
-name: cmux
-description: c11mux — Stage 11's native macOS terminal multiplexer built as infrastructure for the Spike. Use when (1) session starts inside c11mux (env var CMUX_SHELL_INTEGRATION=1), (2) creating pane splits, surfaces, or workspaces, (3) sending text or commands to another surface, (4) launching or orchestrating sub-agents in sibling panes, (5) declaring agent identity or writing the surface manifest, (6) reading surface contents or spatial layout via `cmux tree`, (7) setting surface title or description, (8) reporting progress via sidebar status/log/progress, (9) using the embedded browser for web validation (preferred over Chrome MCP when inside c11mux), (10) any cmux-specific command or troubleshooting question. Auto-load whenever c11mux is detected in the environment.
+name: c11
+description: c11 — Stage 11's native macOS terminal multiplexer built as infrastructure for the Spike. Use when (1) session starts inside c11 (env var CMUX_SHELL_INTEGRATION=1), (2) creating pane splits, surfaces, or workspaces, (3) sending text or commands to another surface, (4) launching or orchestrating sub-agents in sibling panes, (5) declaring agent identity or writing the surface manifest, (6) reading surface contents or spatial layout via `cmux tree`, (7) setting surface title or description, (8) reporting progress via sidebar status/log/progress, (9) using the embedded browser for web validation (preferred over Chrome MCP when inside c11), (10) any cmux-specific command or troubleshooting question. Auto-load whenever c11 is detected in the environment.
 ---
 
-# c11mux
+# c11
 
-**c11mux** is Stage 11's fork of [cmux](https://github.com/manaflow-ai/cmux), a macOS-native reinterpretation of `tmux` rebuilt on [Ghostty](https://ghostty.org). The lineage matters: tmux ergonomics — panes, splits, persistent sessions — land as first-class AppKit surfaces, and the terminal underneath is a GPU-accelerated renderer, not a font-pushing TTY widget.
+**c11** is Stage 11's fork of [cmux](https://github.com/manaflow-ai/cmux), a macOS-native reinterpretation of `tmux` rebuilt on [Ghostty](https://ghostty.org). The lineage matters: tmux ergonomics — panes, splits, persistent sessions — land as first-class AppKit surfaces, and the terminal underneath is a GPU-accelerated renderer, not a font-pushing TTY widget.
 
-**c11mux is infrastructure for the [Spike](https://stage11.ai/spike).** The spike is the compound actor — human:digital, operator:model — a human navigating a shifting capability surface as a single entity. c11mux is the room that actor works in.
+**c11 is infrastructure for the [Spike](https://stage11.ai/spike).** The spike is the compound actor — human:digital, operator:model — a human navigating a shifting capability surface as a single entity. c11 is the room that actor works in.
 
 The goal is narrow and deliberate: be best-in-class for the hyperengineer — the operator running extensive terminal-based LLM coding agents in parallel — and for the agents themselves. Wherever the work happens. Terrestrial, orbital, or elsewhere — the interface is the same. That is who this tool is for. Everything else is scaffolding.
 
-c11mux is not an intelligence layer. The opinion about what agents *do* lives upstairs — Lattice, Mycelium, the rest of the Stage 11 stack. c11mux is host and primitive: terminal, browser, and markdown surfaces; workspaces, panes, tabs; notifications; one CLI and socket API for every seam. The binary is `cmux`. The app is `c11mux`. Commands below use the binary name.
+c11 is not an intelligence layer. The opinion about what agents *do* lives upstairs — Lattice, Mycelium, the rest of the Stage 11 stack. c11 is host and primitive: terminal, browser, and markdown surfaces; workspaces, panes, tabs; notifications; one CLI and socket API for every seam. The binary is `cmux`. The app is `c11`. Commands below use the binary name.
 
-## Detect c11mux
+## Detect c11
 
-Check `CMUX_SHELL_INTEGRATION`. If set to `1`, you are inside c11mux; use native workflows (splits, embedded browser, `cmux set-metadata`) instead of Chrome MCP or plain `open`.
+Check `CMUX_SHELL_INTEGRATION`. If set to `1`, you are inside c11; use native workflows (splits, embedded browser, `cmux set-metadata`) instead of Chrome MCP or plain `open`.
 
 ```bash
-[ "$CMUX_SHELL_INTEGRATION" = "1" ] && echo "in c11mux" || echo "not in c11mux"
+[ "$CMUX_SHELL_INTEGRATION" = "1" ] && echo "in c11" || echo "not in c11"
 ```
 
 Other env vars available to child processes: `CMUX_WORKSPACE_ID`, `CMUX_SURFACE_ID`, `CMUX_TAB_ID`, `CMUX_SOCKET_PATH`, `CMUX_SOCKET_PASSWORD`. The spawning shell may also set `CMUX_AGENT_TYPE`, `CMUX_AGENT_MODEL`, and `CMUX_AGENT_TASK` to pre-seed agent declaration — read once at surface start.
@@ -66,15 +66,15 @@ cmux set-agent --type codex --task lat-412
 
 Supported `--type` values include `claude-code`, `codex`, `kimi`, `opencode`. Any kebab-case string is accepted for unrecognized agents — the sidebar will render a generic chip.
 
-If c11mux's integration was installed for your TUI via `cmux install <tui>`, the declaration fires automatically at every session start. Call it anyway — `set-agent` is idempotent and guards against the integration not being installed.
+If c11's integration was installed for your TUI via `cmux install <tui>`, the declaration fires automatically at every session start. Call it anyway — `set-agent` is idempotent and guards against the integration not being installed.
 
 You can also declare via env vars set in the spawning shell: `CMUX_AGENT_TYPE`, `CMUX_AGENT_MODEL`, `CMUX_AGENT_TASK`. Read once at surface start.
 
 ## The surface manifest
 
-Every surface carries a **surface manifest** — an open-ended JSON document that declares what the surface is, what it's doing, and anything else agents or tools want to advertise about it. Agents read and write it over the socket via `cmux get-metadata` / `cmux set-metadata`. c11mux renders a small set of canonical keys in the sidebar and title bar, and leaves every other field opaque for Lattice, Mycelium, and third-party tools to define their own keyspace on top.
+Every surface carries a **surface manifest** — an open-ended JSON document that declares what the surface is, what it's doing, and anything else agents or tools want to advertise about it. Agents read and write it over the socket via `cmux get-metadata` / `cmux set-metadata`. c11 renders a small set of canonical keys in the sidebar and title bar, and leaves every other field opaque for Lattice, Mycelium, and third-party tools to define their own keyspace on top.
 
-Think of the manifest as the extension point for c11mux: the host provides the surface and the transport; anyone can stake out their own keys.
+Think of the manifest as the extension point for c11: the host provides the surface and the transport; anyone can stake out their own keys.
 
 ```bash
 # Write
@@ -144,7 +144,7 @@ For complex prompts (backticks, code blocks, multi-line), deliver via temp file 
 
 - Ask the human operator to exercise the UI and paste back the result.
 - Accessibility automation (`AXUIElement`, `System Events` AppleScript).
-- A purpose-built debug socket command in the c11mux app itself (e.g. add a `textbox.focus` or `textbox.send-key` handler to the socket).
+- A purpose-built debug socket command in the c11 app itself (e.g. add a `textbox.focus` or `textbox.send-key` handler to the socket).
 
 Surface this constraint up front when planning — don't sink time into PTY-based automation for a target that isn't a terminal.
 
@@ -220,7 +220,7 @@ cmux get-titlebar-state                      # read caller's own title/descripti
 
 ### The title + description split
 
-Given the naming rule above (and its sub-agent echo in [orchestration.md](references/orchestration.md#writing-c11mux-aware-agent-prompts)), the useful further distinction is *what* title and *what* description. They carry different weight:
+Given the naming rule above (and its sub-agent echo in [orchestration.md](references/orchestration.md#writing-c11-aware-agent-prompts)), the useful further distinction is *what* title and *what* description. They carry different weight:
 
 - **Title = what the surface *is*.** Generic and reusable across sessions. For file-backed surfaces (markdown, browser-on-local-file) the filename alone is usually right: `PHILOSOPHY.md`, `RFC-42.md`, `staging.yaml`. For role-holding terminals, the role in 2–4 words: `Phase 2 agent`, `Log tail`, `gh pr watch`.
 - **Description = why this surface is open *right now*.** Context-specific, one to two sentences. The operator glancing at the sidebar and expanding the title bar should understand what prompted this surface and what to pay attention to, without reading the content.
@@ -256,7 +256,7 @@ Panes (the split-tree leaves a surface lives in) carry their own free-form JSON 
 - **Write with `--pane`.** `cmux set-metadata --pane <pane-ref> --key title --value "Parent :: Child"` (or `--json '{...}'`) writes to the pane layer. `--surface` and `--pane` are mutually exclusive on the same call.
 - **Read-then-write is the default.** `pane.set_metadata` returns `prior_values` for every key in the incoming partial. Compose from the prior value rather than replacing — chain a new rung onto the existing lineage instead of blowing it away, unless the new task is genuinely unrelated.
 - **Same `::` rules as surface titles.** Parent first, short segments, sibling workers skip the chain (see the *Orient first* and *Lineage in titles and descriptions* sections above — don't duplicate conventions across layers). When you `--title "Parent :: Child"` on `cmux new-split` / `new-pane`, the seeded value flows through the same persistence path as an explicit write.
-- **On `/clear` (context reset), ask before renaming.** An agent that drops context inherits the pane title it had before the reset. If the next task is unrelated, ask the operator whether to rename the pane rather than silently replacing the breadcrumb — the prior lineage was load-bearing for someone. c11mux installs no `/clear` hook; this is guidance, not automation.
+- **On `/clear` (context reset), ask before renaming.** An agent that drops context inherits the pane title it had before the reset. If the next task is unrelated, ask the operator whether to rename the pane rather than silently replacing the breadcrumb — the prior lineage was load-bearing for someone. c11 installs no `/clear` hook; this is guidance, not automation.
 
 ## Sidebar reporting
 
@@ -270,7 +270,7 @@ cmux list-status
 cmux clear-status task
 ```
 
-**Constraint**: these only work from a direct c11mux child process. Headless `claude -p` subprocesses are reparented to `launchd` and lose the auth chain — they cannot call any `cmux` command. Interactive `cc` keeps the chain intact.
+**Constraint**: these only work from a direct c11 child process. Headless `claude -p` subprocesses are reparented to `launchd` and lose the auth chain — they cannot call any `cmux` command. Interactive `cc` keeps the chain intact.
 
 ## Launching sub-agents
 
@@ -278,7 +278,7 @@ Use **`cc`** (the `--dangerously-skip-permissions` alias) — never bare `claude
 
 - `claude -p` (headless) breaks the auth chain; sub-agents can't self-report.
 - Plain `claude` stalls on permission approvals.
-- `cc` in an interactive pane inherits c11mux env vars, preserves the auth chain, and skips approvals. Sub-agents can `cmux set-status`, `cmux log`, `cmux set-progress` freely.
+- `cc` in an interactive pane inherits c11 env vars, preserves the auth chain, and skips approvals. Sub-agents can `cmux set-status`, `cmux log`, `cmux set-progress` freely.
 
 **Preferred launch — one-shot prompt via cc argv.** Write the prompt to a file first, then launch `cc` with a short positional argument that tells it to read the file. cc boots and submits the initial message in one step, so there is no ready-state race to solve:
 
@@ -311,12 +311,12 @@ cmux send-key --workspace $WS --surface $SURF enter
 
 ## Web validation
 
-When in c11mux, prefer the embedded browser over Chrome MCP (`mcp__claude-in-chrome__*`). It is lighter, integrated into the workspace, and does not create stray Chrome windows.
+When in c11, prefer the embedded browser over Chrome MCP (`mcp__claude-in-chrome__*`). It is lighter, integrated into the workspace, and does not create stray Chrome windows.
 
 - Preview: `open <url>` or `open <file>` — reuses the browser surface automatically.
 - Interact: `cmux browser click`, `cmux browser snapshot`, `cmux browser fill`, etc.
 
-Reach for Chrome MCP only when **not** in c11mux or when a Chrome-specific feature is required. See the `cmux-browser` sibling skill for the full automation API.
+Reach for Chrome MCP only when **not** in c11 or when a Chrome-specific feature is required. See the `cmux-browser` sibling skill for the full automation API.
 
 ### Opening a browser pane on a local service
 
@@ -341,4 +341,4 @@ disown
 - **[../cmux-browser/SKILL.md](../cmux-browser/SKILL.md)** — cmux embedded browser automation
 - **[../cmux-markdown/SKILL.md](../cmux-markdown/SKILL.md)** — markdown surface viewer
 
-Working with Lattice tickets inside c11mux? Also consult the `lattice` skill for Lattice+c11mux integration patterns.
+Working with Lattice tickets inside c11? Also consult the `lattice` skill for Lattice+c11 integration patterns.

@@ -1,6 +1,6 @@
-# c11mux Per-Surface Metadata
+# c11 Per-Surface Metadata
 
-Every surface in c11mux carries an open-ended JSON metadata blob. Agents read and write it over the socket. c11mux stores it, renders a narrow set of **canonical keys** in the sidebar and title bar, and leaves everything else opaque for consumers (Lattice, internal dashboards, future Stage 11 tooling). This is the transport — and the vocabulary — that lets a spike's agents speak to the room they are working in.
+Every surface in c11 carries an open-ended JSON metadata blob. Agents read and write it over the socket. c11 stores it, renders a narrow set of **canonical keys** in the sidebar and title bar, and leaves everything else opaque for consumers (Lattice, internal dashboards, future Stage 11 tooling). This is the transport — and the vocabulary — that lets a spike's agents speak to the room they are working in.
 
 Canonical spec: [`docs/c11mux-module-2-metadata-spec.md`](../../../docs/c11mux-module-2-metadata-spec.md). This reference summarizes the agent-facing surface.
 
@@ -17,7 +17,7 @@ Canonical spec: [`docs/c11mux-module-2-metadata-spec.md`](../../../docs/c11mux-m
 ## Delivery model
 
 - **Pull-on-demand only.** Consumers fetch the blob when they want the current state. No push/subscribe, no `metadata.changed` event.
-- **In-memory only.** The blob lives on the `Surface` model in the running c11mux process. It does not persist across app relaunch. Consumers that need durability own it.
+- **In-memory only.** The blob lives on the `Surface` model in the running c11 process. It does not persist across app relaunch. Consumers that need durability own it.
 - **Per-surface.** Keyed by the surface UUID. No workspace- or window-scoped metadata in v1.
 - **64 KiB cap** on the serialized `metadata` object per surface. Writes that would exceed the cap return `payload_too_large`. Store large payloads externally (S3, Lattice attachments) and put a reference in the blob.
 
@@ -38,7 +38,7 @@ These keys have a defined shape and render in the sidebar or title bar. Any writ
 
 **Sidebar rendering order** when present: `model` → `terminal_type` → `role` → `status` → `task` → `progress`. `title` and `description` render in the title bar, not the sidebar — the sidebar tab label is a truncated projection of `title`.
 
-**Non-canonical keys are yours.** Any JSON value, any key shape. The blob is Lattice's transport, your app's transport, your orchestrator's transport — c11mux does not interpret non-canonical content.
+**Non-canonical keys are yours.** Any JSON value, any key shape. The blob is Lattice's transport, your app's transport, your orchestrator's transport — c11 does not interpret non-canonical content.
 
 ## CLI
 
@@ -171,7 +171,7 @@ Every canonical key's value carries a parallel `metadata_sources[key]` record de
 
 | Value | Writer | Notes |
 |-------|--------|-------|
-| `heuristic` | c11mux internal process-tree scan (M1) | Best-effort auto-detection. Never overwrites higher-precedence values. |
+| `heuristic` | c11 internal process-tree scan (M1) | Best-effort auto-detection. Never overwrites higher-precedence values. |
 | `osc` | Terminal emulator OSC 0/1/2 sequence (M7) | Writes `title` only. Newer OSC writes overwrite older `osc` writes. |
 | `declare` | Agent declaration (`cmux set-agent`, env vars) | Explicit agent self-identification. |
 | `explicit` | User CLI (`cmux set-metadata`, `cmux set-title`, inline edit) | Highest precedence; user intent wins. |
@@ -213,4 +213,4 @@ A write that fails the precedence check returns `ok: true` with `result.applied[
 
 **Handoffs.** Structured handoffs between agents can ride on non-canonical keys — e.g. agent A writes `cmux set-metadata --json '{"handoff":{"from":"A","to":"B","result":{...}}}'` on agent B's surface; agent B polls `get-metadata --key handoff` at its prompt loop. Pull-on-demand, no subscribe.
 
-**Custom surfaces.** Any app that creates a c11mux surface (via the socket `surface.create` method) owns that surface's metadata. Use it to carry domain-specific state — a markdown viewer could write `{"doc_path":"/path/to/file.md","last_modified_ts":...}` on its own surface so other agents can pull the current doc without asking.
+**Custom surfaces.** Any app that creates a c11 surface (via the socket `surface.create` method) owns that surface's metadata. Use it to carry domain-specific state — a markdown viewer could write `{"doc_path":"/path/to/file.md","last_modified_ts":...}` on its own surface so other agents can pull the current doc without asking.

@@ -1,6 +1,6 @@
-# c11mux API Reference
+# c11 API Reference
 
-Full command surface for c11mux. The main `SKILL.md` covers what you reach for most often; this file is the fallback when you need something outside the core path. The binary is `cmux`.
+Full command surface for c11. The main `SKILL.md` covers what you reach for most often; this file is the fallback when you need something outside the core path. The binary is `cmux`.
 
 ## Contents
 
@@ -45,12 +45,12 @@ Most commands default to the caller's context via env vars — no flags needed w
 
 | Var | Purpose |
 |-----|---------|
-| `CMUX_WORKSPACE_ID` | Auto-set in c11mux terminals; default for `--workspace` |
+| `CMUX_WORKSPACE_ID` | Auto-set in c11 terminals; default for `--workspace` |
 | `CMUX_SURFACE_ID` | Auto-set; default for `--surface` |
 | `CMUX_TAB_ID` | Optional alias for tab commands |
 | `CMUX_SOCKET_PATH` | Override socket path (default `/tmp/cmux.sock`; auto-discovers tagged/debug sockets) |
 | `CMUX_SOCKET_PASSWORD` | Socket auth password (if set in Settings) |
-| `CMUX_SHELL_INTEGRATION` | Set to `1` in c11mux terminals — use to detect you're inside c11mux |
+| `CMUX_SHELL_INTEGRATION` | Set to `1` in c11 terminals — use to detect you're inside c11 |
 | `CMUX_AGENT_TYPE` | Declared agent TUI type (`claude-code`, `codex`, `kimi`, `opencode`, kebab-case custom); read at surface start |
 | `CMUX_AGENT_MODEL` | Declared agent model identifier |
 | `CMUX_AGENT_TASK` | Declared agent task ID |
@@ -78,7 +78,7 @@ The `caller` block in `cmux identify` always reflects the pane invoking the comm
 
 ```bash
 # Create
-cmux <path>                          # Open directory in new workspace (launches c11mux if needed)
+cmux <path>                          # Open directory in new workspace (launches c11 if needed)
 cmux new-workspace [--cwd <path>] [--command <text>]
 cmux new-split <left|right|up|down>  # Split any pane; the new pane is always a terminal
 cmux new-pane [--type <terminal|browser|markdown>] [--direction <dir>] [--url <url>]
@@ -151,7 +151,7 @@ cmux send --workspace workspace:2 --surface surface:3 "ls\n"
 
 **`cmux send` does NOT auto-submit.** Include `\n` or call `cmux send-key enter` separately.
 
-**`\n` gotcha from Claude Code's Bash tool:** the newline is stripped before reaching c11mux. Always send the text, then `send-key enter` as two separate calls:
+**`\n` gotcha from Claude Code's Bash tool:** the newline is stripped before reaching c11. Always send the text, then `send-key enter` as two separate calls:
 
 ```bash
 cmux send --workspace $WS --surface $SURF "your command"
@@ -212,7 +212,7 @@ cmux list-log [--limit <n>]
 cmux clear-log
 ```
 
-**Constraint:** these must be called from a direct c11mux child process. Subprocesses spawned by `claude -p` get reparented to `launchd`, breaking the auth chain. Interactive `cc` keeps it intact.
+**Constraint:** these must be called from a direct c11 child process. Subprocesses spawned by `claude -p` get reparented to `launchd`, breaking the auth chain. Interactive `cc` keeps it intact.
 
 ## Spatial layout (`cmux tree`)
 
@@ -242,7 +242,7 @@ Also responds to standard terminal escape sequences: OSC 9, OSC 99, OSC 777.
 
 ## Installation (`cmux install`)
 
-`cmux install <tui>` wires c11mux's notification shims and agent-declaration calls into a TUI's configuration. Human-run, consent-gated, reversible.
+`cmux install <tui>` wires c11's notification shims and agent-declaration calls into a TUI's configuration. Human-run, consent-gated, reversible.
 
 ```bash
 cmux install claude-code             # Writes hooks into ~/.claude/settings.json
@@ -255,11 +255,11 @@ cmux install claude-code --dry-run   # Show diff without writing
 cmux uninstall claude-code           # Reverses install byte-for-byte
 ```
 
-Consent is always requested before any write. The installer also installs the c11mux skill bundle into `~/.claude/skills/` so agents using that TUI learn the c11mux vocabulary.
+Consent is always requested before any write. The installer also installs the c11 skill bundle into `~/.claude/skills/` so agents using that TUI learn the c11 vocabulary.
 
 ## Troubleshooting
 
-- **"Connection refused" / socket errors** — c11mux app may not be running. Launch it, then retry.
+- **"Connection refused" / socket errors** — c11 app may not be running. Launch it, then retry.
 - **"Surface not found"** — target surface was closed or the ref is stale. Run `cmux tree --all` for current refs.
 - **"Surface is not a terminal"** — you used `--surface` without `--workspace`. Always pass both when targeting remote surfaces.
 - **Browser commands fail with "not a browser"** — you're targeting a terminal surface. Find the browser surface ref with `cmux tree` and pass `--surface <ref>`.
@@ -270,5 +270,5 @@ Consent is always requested before any write. The installer also installs the c1
 
 ## Notes
 
-- c11mux is a **local** multiplexer — not a remote session manager. For SSH work, install tmux on the remote.
-- Socket access modes: disabled, c11mux-spawned processes only (`cmuxOnly`), or all local processes. Check with `cmux capabilities`.
+- c11 is a **local** multiplexer — not a remote session manager. For SSH work, install tmux on the remote.
+- Socket access modes: disabled, c11-spawned processes only (`cmuxOnly`), or all local processes. Check with `cmux capabilities`.
