@@ -31,7 +31,7 @@ extension UNUserNotificationCenter {
 
 enum NotificationSoundSettings {
     static let key = "notificationSound"
-    static let defaultValue = "default"
+    static let defaultValue = "Bottle"
     static let customFileValue = "custom_file"
     static let customFilePathKey = "notificationSoundCustomFilePath"
     static let defaultCustomFilePath = ""

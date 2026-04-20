@@ -2876,13 +2876,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         } else {
             let displays = currentDisplayGeometries()
             let fallbackGeometry = persistedWindowGeometry()
-            if let restoredFrame = Self.resolvedStartupPrimaryWindowFrame(
+            let restoredFrame = Self.resolvedStartupPrimaryWindowFrame(
                 primarySnapshot: nil,
                 fallbackFrame: fallbackGeometry?.frame,
                 fallbackDisplaySnapshot: fallbackGeometry?.display,
                 availableDisplays: displays.available,
                 fallbackDisplay: displays.fallback
-            ) {
+            ) ?? Self.firstLaunchPrimaryWindowFrame(
+                window: primaryWindow,
+                fallbackDisplay: displays.fallback
+            )
+            if let restoredFrame {
                 primaryWindow.setFrame(restoredFrame, display: true)
             }
         }
@@ -2960,6 +2964,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             availableDisplays: displays.available,
             fallbackDisplay: displays.fallback
         )
+    }
+
+    nonisolated static func firstLaunchPrimaryWindowFrame(
+        window: NSWindow?,
+        fallbackDisplay: SessionDisplayGeometry?
+    ) -> CGRect? {
+        let visibleFrame = window?.screen?.visibleFrame
+            ?? fallbackDisplay?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
+            ?? NSScreen.screens.first?.visibleFrame
+        guard let visibleFrame,
+              visibleFrame.width.isFinite,
+              visibleFrame.height.isFinite,
+              visibleFrame.width > 0,
+              visibleFrame.height > 0 else {
+            return nil
+        }
+        return visibleFrame.integral
     }
 
     nonisolated static func resolvedStartupPrimaryWindowFrame(
