@@ -113,6 +113,8 @@ This creates an isolated app with its own name, bundle ID, socket, and derived d
 
 Before launching a new tagged run, clean up any older tags you started in this session (quit old tagged app + remove its `/tmp` socket/derived data).
 
+**Prune stale tags periodically.** Each `reload.sh --tag` leaves ~3.5G behind in DerivedData and `/tmp` that nothing auto-cleans — across many iterations this has consumed hundreds of GB. Use `./scripts/prune-tags.sh` (dry run) or `./scripts/prune-tags.sh --yes` to remove every stale tag artifact. Running tags are auto-protected; pass `--keep <tag>` to preserve additional ones.
+
 ## Debug event log
 
 All debug events (keys, mouse, focus, splits, tabs) go to a unified log in DEBUG builds:

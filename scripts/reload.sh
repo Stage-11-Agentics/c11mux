@@ -182,13 +182,9 @@ print_tag_cleanup_reminder() {
     for tag in "${stale_tags[@]}"; do
       echo "    - ${tag}"
     done
-    echo "Cleanup stale tags only:"
-    for tag in "${stale_tags[@]}"; do
-      echo "  pkill -f \"c11mux DEV ${tag}.app/Contents/MacOS/cmux\""
-      echo "  rm -rf \"$(tagged_derived_data_path "$tag")\" \"/tmp/c11mux-${tag}\" \"/tmp/c11mux-debug-${tag}.sock\""
-      echo "  rm -f \"/tmp/c11mux-debug-${tag}.log\""
-      echo "  rm -f \"$HOME/Library/Application Support/c11mux/cmuxd-dev-${tag}.sock\""
-    done
+    echo "Prune all stale tags (protects running tags automatically):"
+    echo "  ./scripts/prune-tags.sh          # dry run"
+    echo "  ./scripts/prune-tags.sh --yes    # actually delete"
   fi
   echo "After you verify current tag, cleanup command:"
   echo "  pkill -f \"c11mux DEV ${current_slug}.app/Contents/MacOS/cmux\""
