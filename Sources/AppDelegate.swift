@@ -6055,12 +6055,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     }
 
     func sendWelcomeCommandWhenReady(to workspace: Workspace, markShownOnSend: Bool = false) {
-        runWhenInitialTerminalReady(in: workspace) { initialPanel in
+        runWhenInitialTerminalReady(in: workspace) { [weak self] initialPanel in
             if markShownOnSend {
                 UserDefaults.standard.set(true, forKey: WelcomeSettings.shownKey)
             }
             WelcomeSettings.performQuadLayout(on: workspace, initialPanel: initialPanel)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                self?.presentAgentSkillsOnboardingIfNeeded()
+            }
         }
+    }
+
+    // MARK: - Agent skill onboarding
+
+    private weak var agentSkillsOnboardingWindow: NSWindow?
+
+    /// If the user has Claude Code installed and hasn't already seen the skill
+    /// onboarding sheet, show it over the frontmost window. Consent-gated; the
+    /// sheet never writes without an explicit click.
+    func presentAgentSkillsOnboardingIfNeeded() {
+        guard AgentSkillsOnboarding.shouldPresent() else { return }
+        presentAgentSkillsOnboarding()
+    }
+
+    func presentAgentSkillsOnboarding() {
+        if let existing = agentSkillsOnboardingWindow {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 320),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = String(localized: "agentSkills.onboarding.windowTitle", defaultValue: "c11mux Agent Skills")
+        window.isReleasedWhenClosed = false
+        window.level = .modalPanel
+        let rootView = AgentSkillsOnboardingSheet(onDismiss: { [weak window] in
+            window?.close()
+        })
+        window.contentView = NSHostingView(rootView: rootView)
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        agentSkillsOnboardingWindow = window
     }
 
     func spawnDefaultGridWhenReady(to workspace: Workspace) {
