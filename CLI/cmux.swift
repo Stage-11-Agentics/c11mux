@@ -15640,6 +15640,93 @@ extension CMUXCLI {
         }
     }
 
+    // MARK: Structured skill-subcommand parser.
+    //
+    // The global optionValue/hasFlag helpers are permissive: they don't
+    // understand `--flag=value`, don't reject unknown flags, and happily
+    // consume the next flag as a value. For `cmux skill`, a user mistyping
+    // `--home --json` previously resolved the home override to the string
+    // `--json`, which is worse than failing. Each skill subcommand declares
+    // its allowed flags and this parser rejects anything outside the list.
+
+    fileprivate struct SkillFlagSpec {
+        enum Kind { case flag, value }
+        let name: String
+        let kind: Kind
+    }
+
+    fileprivate struct ParsedSkillArgs {
+        var values: [String: String] = [:]
+        var flags: Set<String> = []
+        var positional: [String] = []
+
+        func value(_ name: String) -> String? { values[name] }
+        func has(_ name: String) -> Bool { flags.contains(name) }
+    }
+
+    fileprivate func parseSkillSubcommandArgs(
+        _ args: [String],
+        spec: [SkillFlagSpec]
+    ) throws -> ParsedSkillArgs {
+        let byName = Dictionary(uniqueKeysWithValues: spec.map { ($0.name, $0) })
+        var out = ParsedSkillArgs()
+        var i = 0
+        while i < args.count {
+            let raw = args[i]
+            if raw.hasPrefix("--") {
+                let name: String
+                let inlineValue: String?
+                if let eq = raw.firstIndex(of: "=") {
+                    name = String(raw[..<eq])
+                    inlineValue = String(raw[raw.index(after: eq)...])
+                } else {
+                    name = raw
+                    inlineValue = nil
+                }
+                guard let flag = byName[name] else {
+                    throw CLIError(message: "Unknown flag '\(name)' for this subcommand.")
+                }
+                switch flag.kind {
+                case .flag:
+                    if inlineValue != nil {
+                        throw CLIError(message: "Flag '\(name)' does not take a value.")
+                    }
+                    out.flags.insert(name)
+                case .value:
+                    if let v = inlineValue {
+                        out.values[name] = v
+                    } else {
+                        guard i + 1 < args.count else {
+                            throw CLIError(message: "Flag '\(name)' requires a value.")
+                        }
+                        let next = args[i + 1]
+                        if next.hasPrefix("--") {
+                            throw CLIError(message: "Flag '\(name)' requires a value, got another flag '\(next)'.")
+                        }
+                        out.values[name] = next
+                        i += 1
+                    }
+                }
+            } else {
+                out.positional.append(raw)
+            }
+            i += 1
+        }
+        return out
+    }
+
+    /// JSON encoder for `cmux skill *` output. Forces `.sortedKeys` so
+    /// scripts parsing the output get deterministic key order across builds.
+    fileprivate func skillJSONString(_ object: Any) -> String {
+        let options: JSONSerialization.WritingOptions = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        guard JSONSerialization.isValidJSONObject(object),
+              let data = try? JSONSerialization.data(withJSONObject: object, options: options),
+              let output = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return output
+    }
+
     private func skillCommandUsage() -> String {
         return """
         cmux skill — manage the c11mux skill file for detected agent tools.
@@ -15662,8 +15749,8 @@ extension CMUXCLI {
         """
     }
 
-    private func parseSkillHomeOverride(_ args: [String]) throws -> URL {
-        if let override = optionValue(args, name: "--home") {
+    private func homeFromParsedSkillArgs(_ parsed: ParsedSkillArgs) -> URL {
+        if let override = parsed.value("--home") {
             let expanded = (override as NSString).expandingTildeInPath
             return URL(fileURLWithPath: expanded, isDirectory: true).standardizedFileURL
         }
@@ -15671,10 +15758,11 @@ extension CMUXCLI {
         return URL(fileURLWithPath: envHome, isDirectory: true).standardizedFileURL
     }
 
-    private func parseSkillTarget(_ args: [String], defaultTarget: SkillInstallerTarget) throws -> SkillInstallerTarget {
-        guard let raw = optionValue(args, name: "--tool") else {
-            return defaultTarget
-        }
+    private func targetFromParsedSkillArgs(
+        _ parsed: ParsedSkillArgs,
+        defaultTarget: SkillInstallerTarget
+    ) throws -> SkillInstallerTarget {
+        guard let raw = parsed.value("--tool") else { return defaultTarget }
         guard let tool = SkillInstallerTarget(rawValue: raw.lowercased()) else {
             throw CLIError(message: "Unknown tool '\(raw)'. Supported: \(SkillInstallerTarget.allCases.map { $0.rawValue }.joined(separator: ", "))")
         }
@@ -15690,21 +15778,29 @@ extension CMUXCLI {
     }
 
     private func runSkillPath(args: [String], jsonOutput: Bool) throws {
+        let parsed = try parseSkillSubcommandArgs(args, spec: [
+            SkillFlagSpec(name: "--json", kind: .flag),
+        ])
         let source = try resolveSkillSource(jsonOutput: jsonOutput)
-        if jsonOutput || hasFlag(args, name: "--json") {
-            print(jsonString(["path": source.path]))
+        if jsonOutput || parsed.has("--json") {
+            print(skillJSONString(["path": source.path]))
         } else {
             print(source.path)
         }
     }
 
     private func runSkillStatus(args: [String], jsonOutput: Bool) throws {
+        let parsed = try parseSkillSubcommandArgs(args, spec: [
+            SkillFlagSpec(name: "--tool", kind: .value),
+            SkillFlagSpec(name: "--home", kind: .value),
+            SkillFlagSpec(name: "--json", kind: .flag),
+        ])
         let source = try resolveSkillSource(jsonOutput: jsonOutput)
-        let home = try parseSkillHomeOverride(args)
-        let emitJSON = jsonOutput || hasFlag(args, name: "--json")
+        let home = homeFromParsedSkillArgs(parsed)
+        let emitJSON = jsonOutput || parsed.has("--json")
 
         var targets = SkillInstallerTarget.allCases
-        if let raw = optionValue(args, name: "--tool") {
+        if let raw = parsed.value("--tool") {
             guard let target = SkillInstallerTarget(rawValue: raw.lowercased()) else {
                 throw CLIError(message: "Unknown tool '\(raw)'.")
             }
@@ -15714,34 +15810,52 @@ extension CMUXCLI {
         var rows: [[String: Any]] = []
         for target in targets {
             let detected = target.isDetected(home: home)
-            let statuses = detected
-                ? (try? SkillInstaller.status(for: target, home: home, sourceDir: source)) ?? []
-                : []
-            let packageRows: [[String: Any]] = statuses.map { st in
-                var row: [String: Any] = [
-                    "package": st.package.name,
-                    "state": st.state.rawValue,
-                    "dest": st.destinationDir.path,
-                    "source_sha256": st.sourceContentHash,
-                ]
-                if let record = st.record {
-                    row["installed_sha256"] = record.sourceContentHash
-                    row["installed_at"] = record.installedAt
-                    row["app_version"] = record.appVersion
+            var packageRows: [[String: Any]] = []
+            var errorPayload: [String: Any]? = nil
+            if detected {
+                do {
+                    let statuses = try SkillInstaller.status(for: target, home: home, sourceDir: source)
+                    packageRows = statuses.map { st in
+                        var row: [String: Any] = [
+                            "package": st.package.name,
+                            "state": st.state.rawValue,
+                            "dest": st.destinationDir.path,
+                            "source_sha256": st.sourceContentHash,
+                        ]
+                        if let record = st.record {
+                            row["installed_sha256"] = record.sourceContentHash
+                            row["installed_at"] = record.installedAt
+                            row["app_version"] = record.appVersion
+                        }
+                        return row
+                    }
+                } catch let err as SkillInstallerError {
+                    var payload: [String: Any] = [
+                        "code": err.code.rawValue,
+                        "message": err.message,
+                    ]
+                    if let p = err.path { payload["path"] = p }
+                    errorPayload = payload
+                } catch {
+                    errorPayload = [
+                        "code": "unknown",
+                        "message": "\(error)",
+                    ]
                 }
-                return row
             }
-            rows.append([
+            var row: [String: Any] = [
                 "tool": target.rawValue,
                 "display_name": target.displayName,
                 "detected": detected,
                 "skills_dir": target.skillsDir(home: home).path,
                 "packages": packageRows,
-            ])
+            ]
+            if let err = errorPayload { row["error"] = err }
+            rows.append(row)
         }
 
         if emitJSON {
-            print(jsonString(["targets": rows, "source": source.path]))
+            print(skillJSONString(["targets": rows, "source": source.path]))
             return
         }
         print("Bundled skills: \(source.path)")
@@ -15754,6 +15868,12 @@ extension CMUXCLI {
             let detectTag = detected ? "detected" : "not detected"
             print("\(display) [\(tool)] — \(detectTag)")
             print("  skills dir: \(dir)")
+            if let err = row["error"] as? [String: Any] {
+                let code = (err["code"] as? String) ?? "error"
+                let msg = (err["message"] as? String) ?? ""
+                print("  error [\(code)]: \(msg)")
+                continue
+            }
             let packageRows = (row["packages"] as? [[String: Any]]) ?? []
             if !detected {
                 print("  (\(display) config dir not present; install skipped)")
@@ -15774,17 +15894,24 @@ extension CMUXCLI {
     }
 
     private func runSkillInstall(args: [String], jsonOutput: Bool) throws {
+        let parsed = try parseSkillSubcommandArgs(args, spec: [
+            SkillFlagSpec(name: "--tool", kind: .value),
+            SkillFlagSpec(name: "--home", kind: .value),
+            SkillFlagSpec(name: "--json", kind: .flag),
+            SkillFlagSpec(name: "--force", kind: .flag),
+            SkillFlagSpec(name: "--dry-run", kind: .flag),
+        ])
         let source = try resolveSkillSource(jsonOutput: jsonOutput)
-        let home = try parseSkillHomeOverride(args)
-        let target = try parseSkillTarget(args, defaultTarget: .claude)
-        let dryRun = hasFlag(args, name: "--dry-run")
-        let force = hasFlag(args, name: "--force")
-        let emitJSON = jsonOutput || hasFlag(args, name: "--json")
+        let home = homeFromParsedSkillArgs(parsed)
+        let target = try targetFromParsedSkillArgs(parsed, defaultTarget: .claude)
+        let dryRun = parsed.has("--dry-run")
+        let force = parsed.has("--force")
+        let emitJSON = jsonOutput || parsed.has("--json")
 
         if !target.isDetected(home: home) {
             let msg = "Tool '\(target.rawValue)' config dir \(target.configRoot(home: home).path) not found. Install \(target.displayName) first, or pass --tool <other> if you meant a different target."
             if emitJSON {
-                print(jsonString(["error": "target_not_detected", "tool": target.rawValue, "message": msg]))
+                print(skillJSONString(["error": "target_not_detected", "tool": target.rawValue, "message": msg]))
                 exit(2)
             }
             throw CLIError(message: msg)
@@ -15795,7 +15922,7 @@ extension CMUXCLI {
             let planned = statuses.filter { force || $0.state != .installedCurrent }.map { $0.package.name }
             let skipped = statuses.filter { !force && $0.state == .installedCurrent }.map { $0.package.name }
             if emitJSON {
-                print(jsonString([
+                print(skillJSONString([
                     "dry_run": true,
                     "tool": target.rawValue,
                     "planned": planned,
@@ -15824,7 +15951,7 @@ extension CMUXCLI {
         )
 
         if emitJSON {
-            print(jsonString([
+            print(skillJSONString([
                 "tool": target.rawValue,
                 "dest": result.destDir.path,
                 "installed": result.installed,
@@ -15846,14 +15973,19 @@ extension CMUXCLI {
     }
 
     private func runSkillRemove(args: [String], jsonOutput: Bool) throws {
+        let parsed = try parseSkillSubcommandArgs(args, spec: [
+            SkillFlagSpec(name: "--tool", kind: .value),
+            SkillFlagSpec(name: "--home", kind: .value),
+            SkillFlagSpec(name: "--json", kind: .flag),
+        ])
         let source = try resolveSkillSource(jsonOutput: jsonOutput)
-        let home = try parseSkillHomeOverride(args)
-        let target = try parseSkillTarget(args, defaultTarget: .claude)
-        let emitJSON = jsonOutput || hasFlag(args, name: "--json")
+        let home = homeFromParsedSkillArgs(parsed)
+        let target = try targetFromParsedSkillArgs(parsed, defaultTarget: .claude)
+        let emitJSON = jsonOutput || parsed.has("--json")
 
         let result = try SkillInstaller.remove(target: target, home: home, sourceDir: source)
         if emitJSON {
-            print(jsonString([
+            print(skillJSONString([
                 "tool": target.rawValue,
                 "dest": result.destDir.path,
                 "removed": result.removed,

@@ -14,6 +14,7 @@ final class AgentSkillsModel: ObservableObject {
         let detected: Bool
         let destinationDir: URL
         let packages: [SkillInstallerPackageStatus]
+        let statusError: String?
         var hasOutdated: Bool {
             packages.contains { $0.state == .installedOutdated || $0.state == .installedNoManifest || $0.state == .schemaMismatch }
         }
@@ -60,6 +61,7 @@ final class AgentSkillsModel: ObservableObject {
         for target in SkillInstallerTarget.allCases {
             let detected = target.isDetected(home: home, fileManager: fileManager)
             var packages: [SkillInstallerPackageStatus] = []
+            var statusError: String? = nil
             if detected {
                 do {
                     packages = try SkillInstaller.status(
@@ -68,8 +70,10 @@ final class AgentSkillsModel: ObservableObject {
                         sourceDir: source,
                         fileManager: fileManager
                     )
+                } catch let err as SkillInstallerError {
+                    statusError = AgentSkillsLocalized.description(for: err, target: target)
                 } catch {
-                    packages = []
+                    statusError = error.localizedDescription
                 }
             }
             newRows.append(TargetRow(
@@ -77,7 +81,8 @@ final class AgentSkillsModel: ObservableObject {
                 target: target,
                 detected: detected,
                 destinationDir: target.skillsDir(home: home),
-                packages: packages
+                packages: packages,
+                statusError: statusError
             ))
         }
         rows = newRows
@@ -363,6 +368,12 @@ private struct AgentSkillsRow: View {
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                if let err = row.statusError {
+                    Text(err)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
