@@ -4,14 +4,39 @@ All notable changes to c11 (and, before the fork, cmux) are documented here.
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-04-20
+
+First substantive release of the Stage 11 fork after the v0.1.0 versioning reset. Version number tracks the highest Lattice ticket (CMUX-37). 61 commits since v0.1.0; highlights below.
+
 ### Added
-- **M10: pane-scoped close confirmations.** Tab- and workspace-close confirmations now appear as a card anchored inside the specific panel they apply to, instead of a window-centered NSAlert. The scrim is bounded to that panel's rect, so other splits, tabs, and windows stay interactive while the dialog is visible. Enter / Cmd+D accept, Esc cancels, Tab cycles buttons. Destructive actions render in the system red with a gold focus ring.
-- **M10: `pane.confirm` socket command + `cmux pane-confirm` CLI.** Any local agent with socket access can request a panel-anchored confirmation on a specific panel UUID (`--panel <uuid> --title … [--message …] [--destructive] [--timeout <seconds>]`). Exit codes: 0=ok, 2=cancel, 3=dismissed, 1=error.
-- **M8: `cmux tree` overhaul.** New flags `--window`, `--workspace <id>`, `--all`, `--layout`, `--no-layout`, `--canvas-cols <N>`. Pane lines now carry `size=W%×H%`, `px=W×H`, and `split=…` badges. JSON output gains a `layout` sub-object on each pane (`percent`, `pixels`, `split_path`) and a `content_area` field on each workspace. Single-workspace text output renders an ASCII floor plan above the hierarchical tree by default.
+- **C11-1: Stage 11 fork brand pass.** App display name is **c11**, bundle ID is `com.stage11.c11mux`, release artifact is `c11mux-macos.dmg`, Homebrew tap is `stage-11-agentics/c11mux`, and the Sparkle auto-update feed points at the Stage 11 appcast. The `cmux` CLI binary, `CMUX_*` env vars, socket paths/protocol, and shell-integration files are preserved unchanged for backward compatibility. See [NOTICE](./NOTICE) for attribution. ([#36](https://github.com/Stage-11-Agentics/c11mux/pull/36))
+- **CMUX-40: Skill installer.** Settings → Agent Skills pane, `cmux skills install` CLI, and a first-launch wizard for distributing the cmux skill into Claude Code / Codex / other agent tenants. ([#33](https://github.com/Stage-11-Agentics/c11mux/pull/33))
+- **CMUX-36: Bottom status bar + jump-to-unread.** Per-window status row aggregates per-pane indicators; one-tap jump to the next unread surface. ([#34](https://github.com/Stage-11-Agentics/c11mux/pull/34))
+- **CMUX-35: User themes + hot reload.** Drop a `.theme` in the user themes directory and it appears immediately. Settings picker overload, CLI, and socket command included. ([#31](https://github.com/Stage-11-Agentics/c11mux/pull/31))
+- **CMUX-32: Workspace color prevalence.** Selected workspace tints frame, dividers, and sidebar — clear visual cue for which workspace owns the foreground. ([#30](https://github.com/Stage-11-Agentics/c11mux/pull/30))
+- **CMUX-9 M1: Theme engine foundation.** New theme engine with surface adoption (M1a + M1b), groundwork for the M2+ theming roadmap. ([#28](https://github.com/Stage-11-Agentics/c11mux/pull/28))
+- **CMUX-15: Auto-spawn default pane grid.** New workspaces open with a default pane grid sized to the monitor class. ([#24](https://github.com/Stage-11-Agentics/c11mux/pull/24); follow-ups for retina, remote, delay, and diagnostics in [#26](https://github.com/Stage-11-Agentics/c11mux/pull/26))
+- **CMUX-11: Pane metadata RPCs + persistence.** Per-pane title and metadata persist across restarts; `cmux pane` CLI for set/get; `--title` flag seeds a launching pane. Phases 1–4. ([#22](https://github.com/Stage-11-Agentics/c11mux/pull/22), [#25](https://github.com/Stage-11-Agentics/c11mux/pull/25), [#27](https://github.com/Stage-11-Agentics/c11mux/pull/27))
+- **CMUX-3 (Tier 1 persistence Phase 3): persist `statusEntries`.** Sidebar status entries survive restart. ([#23](https://github.com/Stage-11-Agentics/c11mux/pull/23))
+- **Tier 1 persistence Phase 2: SurfaceMetadataStore.** ([#13](https://github.com/Stage-11-Agentics/c11mux/pull/13))
+- **M10: Pane-scoped close confirmations + `pane.confirm` socket/CLI.** Tab- and workspace-close confirmations render as a card anchored inside the specific panel instead of a window-centered NSAlert; other splits, tabs, and windows remain interactive. Enter / Cmd+D accept, Esc cancels, Tab cycles. Local agents can request panel-anchored confirmations via `cmux pane-confirm` / the `pane.confirm` socket command (exit 0=ok, 2=cancel, 3=dismissed, 1=error). ([#17](https://github.com/Stage-11-Agentics/c11mux/pull/17))
+- **M9: TextBox Input port** from the alumican/cmux-tb fork. ([#14](https://github.com/Stage-11-Agentics/c11mux/pull/14))
+- **M8: `cmux tree` overhaul.** New flags `--window`, `--workspace <id>`, `--all`, `--layout`, `--no-layout`, `--canvas-cols <N>`. Pane lines carry `size=W%×H%`, `px=W×H`, and `split=…` badges. JSON output gains a `layout` sub-object on each pane (`percent`, `pixels`, `split_path`) and a `content_area` on each workspace. Single-workspace text output renders an ASCII floor plan above the hierarchical tree by default.
+- **Pane toolbar:** Markdown + NewTab buttons with hover highlight (Bonsplit fork). ([#16](https://github.com/Stage-11-Agentics/c11mux/pull/16))
+- **Radical theme** (bundled).
+- **`scripts/prune-tags.sh`** to clean stale `reload.sh --tag` artifacts in DerivedData and `/tmp` (each tag leaves ~3.5 G behind that nothing auto-cleans).
 
 ### Changed
-- Forked from [manaflow-ai/cmux](https://github.com/manaflow-ai/cmux) as **c11**. Bundle ID (`com.stage11.c11mux`), app display name, Homebrew tap (`stage-11-agentics/c11mux`), release artifacts (`c11mux-macos.dmg`), and Sparkle auto-update feed are now under Stage 11 Agentics. The `cmux` CLI binary, all `CMUX_*` environment variables, socket paths and protocol, and shell integration files are preserved unchanged for backward compatibility. See [NOTICE](./NOTICE) for attribution and modification details.
-- **`cmux tree` now defaults to the current workspace.** Use `--window` for the pre-M8 behavior (current window, all workspaces) and `--all` for every window.
+- **App menu reordered.** c11mux Settings sits in the top group; Ghostty Settings moves below Services.
+- **Theme picker simplified** + dark appearance forced. ([#35](https://github.com/Stage-11-Agentics/c11mux/pull/35))
+- **`cmux tree` defaults to the current workspace.** Use `--window` for the pre-M8 behavior (current window, all workspaces) and `--all` for every window.
+- **First-launch defaults:** app fills the screen on first launch; default notification sound is Bottle.
+- **Sidebar:** keep custom workspace color when selected. ([#19](https://github.com/Stage-11-Agentics/c11mux/pull/19))
+- **README** rewritten in the Stage 11 voice; lineage credits Ghostty and Bonsplit.
+
+### Fixed
+- **Pane rename dialog:** button copy is now "Set Tab Title"; arrow / tab / return keyboard nav and contrast in confirm cards.
+- **`CMUX_TAB_ID` env var** propagation in c11mux.
 
 ## [0.62.2] - 2026-03-14
 
