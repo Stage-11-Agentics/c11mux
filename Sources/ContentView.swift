@@ -8416,7 +8416,7 @@ struct VerticalTabsSidebar: View {
         }
         .accessibilityIdentifier("Sidebar")
         .ignoresSafeArea()
-        .background(SidebarBackdrop(workspaceColorHex: tabManager.selectedWorkspace?.customColor).ignoresSafeArea())
+        .background(SidebarBackdrop(selectedWorkspace: tabManager.selectedWorkspace).ignoresSafeArea())
         .background(
             WindowAccessor { window in
                 modifierKeyMonitor.setHostWindow(window)
@@ -13614,12 +13614,13 @@ private struct TitlebarLeadingInsetReader: NSViewRepresentable {
 }
 
 private struct SidebarBackdrop: View {
-    /// Hex string sourced from `tabManager.selectedWorkspace?.customColor`. Passing the
-    /// primitive directly (not the `Workspace` instance) lets SwiftUI diff the value —
-    /// the parent view already re-evaluates on workspace selection, and
-    /// `WorkspaceContentView` forwards `customColorDidChange` through `themeManager`'s
-    /// cache invalidation so the overlay picks up picker edits without explicit wiring.
-    let workspaceColorHex: String?
+    /// Selected workspace — used so the sidebar tint overlay can react to `customColor`
+    /// edits even though `TabManager` does not republish when a nested workspace's
+    /// `@Published` property changes. SidebarBackdrop subscribes to
+    /// `Workspace.customColorDidChange` directly and keeps the rendered hex in `@State`.
+    let selectedWorkspace: Workspace?
+
+    @State private var workspaceColorHex: String?
 
     @AppStorage("sidebarTintOpacity") private var sidebarTintOpacity = SidebarTintDefaults.opacity
     @AppStorage("sidebarTintHex") private var sidebarTintHex = SidebarTintDefaults.hex
@@ -13680,6 +13681,22 @@ private struct SidebarBackdrop: View {
             // When material is none or useWindowLevelGlass, render nothing
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .onAppear { syncWorkspaceColorFromSelection() }
+        .onChange(of: selectedWorkspace?.id) { _, _ in syncWorkspaceColorFromSelection() }
+        .onReceive(workspaceColorPublisher) { hex in workspaceColorHex = hex }
+    }
+
+    private func syncWorkspaceColorFromSelection() {
+        workspaceColorHex = selectedWorkspace?.customColor
+    }
+
+    /// When a workspace is selected, forward its `customColorDidChange`. When none is
+    /// selected, emit an `Empty` publisher so `onReceive` is well-typed and inert.
+    private var workspaceColorPublisher: AnyPublisher<String?, Never> {
+        if let publisher = selectedWorkspace?.customColorDidChange {
+            return publisher.eraseToAnyPublisher()
+        }
+        return Empty<String?, Never>(completeImmediately: false).eraseToAnyPublisher()
     }
 
     private func resolveThemeTintOverlay() -> NSColor? {
