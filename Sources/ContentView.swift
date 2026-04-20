@@ -8416,7 +8416,7 @@ struct VerticalTabsSidebar: View {
         }
         .accessibilityIdentifier("Sidebar")
         .ignoresSafeArea()
-        .background(SidebarBackdrop().ignoresSafeArea())
+        .background(SidebarBackdrop(selectedWorkspace: tabManager.selectedWorkspace).ignoresSafeArea())
         .background(
             WindowAccessor { window in
                 modifierKeyMonitor.setHostWindow(window)
@@ -13614,6 +13614,14 @@ private struct TitlebarLeadingInsetReader: NSViewRepresentable {
 }
 
 private struct SidebarBackdrop: View {
+    /// Selected workspace — used so the sidebar tint overlay can react to `customColor`
+    /// edits even though `TabManager` does not republish when a nested workspace's
+    /// `@Published` property changes. SidebarBackdrop subscribes to
+    /// `Workspace.customColorDidChange` directly and keeps the rendered hex in `@State`.
+    let selectedWorkspace: Workspace?
+
+    @State private var workspaceColorHex: String?
+
     @AppStorage("sidebarTintOpacity") private var sidebarTintOpacity = SidebarTintDefaults.opacity
     @AppStorage("sidebarTintHex") private var sidebarTintHex = SidebarTintDefaults.hex
     @AppStorage("sidebarTintHexLight") private var sidebarTintHexLight: String?
@@ -13623,6 +13631,7 @@ private struct SidebarBackdrop: View {
     @AppStorage("sidebarState") private var sidebarState = SidebarStateOption.followWindow.rawValue
     @AppStorage("sidebarCornerRadius") private var sidebarCornerRadius = 0.0
     @AppStorage("sidebarBlurOpacity") private var sidebarBlurOpacity = 1.0
+    @ObservedObject private var themeManager = ThemeManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -13641,6 +13650,7 @@ private struct SidebarBackdrop: View {
         let cornerRadius = CGFloat(max(0, sidebarCornerRadius))
         let useLiquidGlass = materialOption?.usesLiquidGlass ?? false
         let useWindowLevelGlass = useLiquidGlass && blendingMode == .behindWindow
+        let themeTintOverlay = resolveThemeTintOverlay()
 
         return ZStack {
             if let material = materialOption?.material {
@@ -13662,9 +13672,41 @@ private struct SidebarBackdrop: View {
                     }
                 }
             }
+            // Theme-resolved workspace-color tint layered atop the existing tint.
+            // Default formula is `$workspaceColor.opacity(0.08)` — subtle peripheral
+            // grounding, not loud (plan §2 #2). Alpha already encoded in the color.
+            if let themeTintOverlay {
+                Color(nsColor: themeTintOverlay)
+            }
             // When material is none or useWindowLevelGlass, render nothing
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .onAppear { syncWorkspaceColorFromSelection() }
+        .onChange(of: selectedWorkspace?.id) { _, _ in syncWorkspaceColorFromSelection() }
+        .onReceive(workspaceColorPublisher) { hex in workspaceColorHex = hex }
+    }
+
+    private func syncWorkspaceColorFromSelection() {
+        workspaceColorHex = selectedWorkspace?.customColor
+    }
+
+    /// When a workspace is selected, forward its `customColorDidChange`. When none is
+    /// selected, emit an `Empty` publisher so `onReceive` is well-typed and inert.
+    private var workspaceColorPublisher: AnyPublisher<String?, Never> {
+        if let publisher = selectedWorkspace?.customColorDidChange {
+            return publisher.eraseToAnyPublisher()
+        }
+        return Empty<String?, Never>(completeImmediately: false).eraseToAnyPublisher()
+    }
+
+    private func resolveThemeTintOverlay() -> NSColor? {
+        guard themeManager.isEnabled else { return nil }
+        let themeColorScheme: ThemeContext.ColorScheme = colorScheme == .dark ? .dark : .light
+        let context = themeManager.makeContext(
+            workspaceColor: workspaceColorHex,
+            colorScheme: themeColorScheme
+        )
+        return themeManager.resolve(.sidebar_tintOverlay, context: context)
     }
 }
 

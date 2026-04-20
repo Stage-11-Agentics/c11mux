@@ -152,6 +152,15 @@ struct WorkspaceContentView: View {
             // Keep split overlay color/opacity in sync with light/dark theme transitions.
             refreshGhosttyAppearanceConfig(reason: "colorSchemeChanged:\(oldValue)->\(newValue)")
         }
+        .onReceive(workspace.customColorDidChange) { _ in
+            // Workspace color edits (sidebar color picker, CLI `workspace-color set`, theme
+            // refresh) don't go through the Ghostty background pipeline, so without this
+            // subscription the `$workspaceColor`-derived divider/frame/sidebar-tint colors
+            // would go stale until the next background-related event. The no-op guard in
+            // `applyGhosttyChrome` keeps rapid color changes cheap.
+            themeManager.invalidateForWorkspaceColorChange()
+            workspace.applyGhosttyChrome(from: config, reason: "customColorDidChange")
+        }
         .onReceive(NotificationCenter.default.publisher(for: .ghosttyDefaultBackgroundDidChange)) { notification in
             let payloadHex = (notification.userInfo?[GhosttyNotificationKey.backgroundColor] as? NSColor)?.hexString() ?? "nil"
             let eventId = (notification.userInfo?[GhosttyNotificationKey.backgroundEventId] as? NSNumber)?.uint64Value
@@ -178,6 +187,14 @@ struct WorkspaceContentView: View {
                 bonsplitView
             }
         }
+        .overlay(
+            WorkspaceFrame(
+                workspace: workspace,
+                themeManager: themeManager,
+                isWorkspaceActive: isWorkspaceInputActive,
+                isWindowFocused: NSApp.keyWindow?.isKeyWindow ?? true
+            )
+        )
 
         if useThemeM1bWorkspaceContentViewContextPath {
             content
