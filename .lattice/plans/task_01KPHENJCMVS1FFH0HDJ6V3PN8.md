@@ -30,3 +30,5 @@ Phase 4 — Skill guidance addition (cross-reference to Title Bar Fidelity's :: 
 NO UI in this ticket. Visibility is via cmux tree, cmux list-panes, and RPC responses. Pane title bar chrome is Ticket 2.
 
 PLAN DOC: docs/c11mux-pane-naming-plan.md
+
+## Reset 2026-04-19 by agent:claude-opus-4-7

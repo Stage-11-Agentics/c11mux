@@ -1,0 +1,1 @@
+Confirmed done by Atin at v0.11.0 prod cut — retina/remote/latency/diagnostic follow-ups landed (#26).

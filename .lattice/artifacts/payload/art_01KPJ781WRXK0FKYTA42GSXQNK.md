@@ -1,0 +1,1 @@
+Confirmed done by Atin at v0.11.0 prod cut — nameable panes metadata + :: lineage shipped (#22, #25).
