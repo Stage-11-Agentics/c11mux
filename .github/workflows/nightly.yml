@@ -472,6 +472,8 @@ jobs:
         if: needs.decide.outputs.should_publish != 'true' || (steps.current_head_prebuild.outputs.still_current == 'true' && steps.current_head_postbuild.outputs.still_current == 'true')
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          DOWNLOAD_URL_PREFIX: https://github.com/Stage-11-Agentics/c11/releases/download/nightly/
+          RELEASE_NOTES_URL: https://github.com/Stage-11-Agentics/c11/releases/tag/nightly
         run: |
           if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
             echo "Missing SPARKLE_PRIVATE_KEY secret" >&2
