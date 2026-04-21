@@ -9580,8 +9580,6 @@ private enum SidebarHelpMenuAction {
     case docs
     case changelog
     case github
-    case githubIssues
-    case discord
     case checkForUpdates
     case sendFeedback
     case welcome
@@ -10079,11 +10077,9 @@ enum FeedbackComposerBridge {
 }
 
 private struct SidebarHelpMenuButton: View {
-    private let docsURL = URL(string: "https://cmux.com/docs")
-    private let changelogURL = URL(string: "https://cmux.com/docs/changelog")
-    private let githubURL = URL(string: "https://github.com/manaflow-ai/cmux")
-    private let githubIssuesURL = URL(string: "https://github.com/manaflow-ai/cmux/issues")
-    private let discordURL = URL(string: "https://discord.gg/xsgFEVrWCZ")
+    private let docsURL = URL(string: "https://github.com/Stage-11-Agentics/c11/tree/main/docs")
+    private let changelogURL = URL(string: "https://github.com/Stage-11-Agentics/c11/blob/main/CHANGELOG.md")
+    private let githubURL = URL(string: "https://github.com/Stage-11-Agentics/c11")
     private let helpTitle = String(localized: "sidebar.help.button", defaultValue: "Help")
     private let buttonSize: CGFloat = 22
     private let iconSize: CGFloat = 11
@@ -10174,22 +10170,6 @@ private struct SidebarHelpMenuButton: View {
                     title: String(localized: "about.github", defaultValue: "GitHub"),
                     action: .github,
                     accessibilityIdentifier: "SidebarHelpMenuOptionGitHub",
-                    isExternalLink: true
-                )
-            }
-            if githubIssuesURL != nil {
-                helpOptionButton(
-                    title: String(localized: "sidebar.help.githubIssues", defaultValue: "GitHub Issues"),
-                    action: .githubIssues,
-                    accessibilityIdentifier: "SidebarHelpMenuOptionGitHubIssues",
-                    isExternalLink: true
-                )
-            }
-            if discordURL != nil {
-                helpOptionButton(
-                    title: String(localized: "sidebar.help.discord", defaultValue: "Discord"),
-                    action: .discord,
-                    accessibilityIdentifier: "SidebarHelpMenuOptionDiscord",
                     isExternalLink: true
                 )
             }
@@ -10285,12 +10265,6 @@ private struct SidebarHelpMenuButton: View {
         case .github:
             guard let githubURL else { return }
             NSWorkspace.shared.open(githubURL)
-        case .githubIssues:
-            guard let githubIssuesURL else { return }
-            NSWorkspace.shared.open(githubIssuesURL)
-        case .discord:
-            guard let discordURL else { return }
-            NSWorkspace.shared.open(discordURL)
         case .checkForUpdates:
             Task { @MainActor in
                 AppDelegate.shared?.checkForUpdates(nil)

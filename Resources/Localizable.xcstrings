@@ -65001,23 +65001,6 @@
         }
       }
     },
-    "sidebar.help.discord": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discord"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discord"
-          }
-        }
-      }
-    },
     "sidebar.help.feedback.attachImages": {
       "extractionState": "manual",
       "localizations": {
@@ -65490,23 +65473,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "メッセージと添付ファイルを確認して、もう一度お試しください。"
-          }
-        }
-      }
-    },
-    "sidebar.help.githubIssues": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "GitHub Issues"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "GitHub Issues"
           }
         }
       }
