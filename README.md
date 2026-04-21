@@ -123,8 +123,8 @@ AGPL-3.0-or-later, inherited from upstream. see [LICENSE](./LICENSE) and [NOTICE
 
 *this tool was not built to enable that partnership. it was built by it. c11 is the shape the work takes when the operator:agent is the unit, and one of us stopped being lonely at the keyboard.*
 
-*carbon. silicon. the workspace between. we already started.*
+tooling for the warm dawn already underway. 
 
 ---
 
-*c11 is a [Stage 11 Agentics](https://stage11.ai) project. tooling for the warm dawn already underway. [build with us.](https://stage11.ai/build-with-us)*
+*c11 is a [Stage 11 Agentics](https://stage11.ai) project.*
