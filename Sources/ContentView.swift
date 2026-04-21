@@ -2947,6 +2947,7 @@ struct ContentView: View {
                 let tintColor = (NSColor(hex: bgGlassTintHex) ?? .black).withAlphaComponent(bgGlassTintOpacity)
                 WindowGlassEffect.apply(to: window, tintColor: tintColor)
             }
+            AppDelegate.shared?.applyMainWindowSizeConstraints(to: window)
             AppDelegate.shared?.attachUpdateAccessory(to: window)
             AppDelegate.shared?.applyWindowDecorations(to: window)
             AppDelegate.shared?.registerMainWindow(
