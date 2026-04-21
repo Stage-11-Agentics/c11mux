@@ -2,26 +2,32 @@
 
 All notable changes to c11 (and, before the fork, cmux) are documented here.
 
-Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the Unreleased section for the rename.
+Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the 0.38.0 section for the rename.
 
-## Unreleased
+## [0.38.0] - 2026-04-21
 
 ### Changed
+- The product rename from `c11mux` to `c11` is now reflected across structural surfaces, including app naming, release artifacts, Homebrew tap references, docs, and automation. ([#37](https://github.com/Stage-11-Agentics/c11/pull/37)) — thanks @BenevolentFutures!
 - **c11 ↔ upstream cmux coexistence.** c11 no longer claims the `cmux` name on the user's system. Practical effects:
   - The "Shell Command: Install…" palette action installs `/usr/local/bin/c11` (previous default: `/usr/local/bin/cmux`). No `cmux` alias is installed.
   - The Homebrew cask (`stage-11-agentics/c11/c11`) no longer creates a `cmux` binary alias and no longer declares `conflicts_with cask: "cmux"`. c11 and upstream cmux can be installed in parallel.
   - The bundled shell integration still prepends the bundled `Resources/bin/` to `PATH` inside c11 terminals, but that directory no longer contains a `cmux` symlink — an upstream `cmux` elsewhere on `PATH` stays visible.
-  - `CMUX_*` environment variables are still honored alongside the new `C11_*` variants; socket paths, protocol, and shell-integration file names remain unchanged.
+  - `CMUX_*` environment variables are still honored alongside the new `C11_*` variants; socket paths, protocol, and shell-integration file names remain unchanged. ([#38](https://github.com/Stage-11-Agentics/c11/pull/38)) — thanks @BenevolentFutures!
 - Release DMG is now `c11-macos.dmg` (was `c11mux-macos.dmg`).
 - Homebrew cask is `stage-11-agentics/c11/c11` (was `stage-11-agentics/c11mux/c11mux`).
 
 ### Fixed
 - The "Open c11 app" shell command now runs `open -a c11` (was `open -a cmux`, which failed because the installed bundle is `c11.app`).
+- Pane close confirmations no longer leak Return or arrow-key events into embedded browser panes while the confirmation is open. ([#39](https://github.com/Stage-11-Agentics/c11/pull/39)) — thanks @BenevolentFutures!
 
 ### Upgrade notes
 - **Stale `/usr/local/bin/cmux` symlinks** created by earlier c11 versions are not removed automatically. `c11 uninstall` only touches `/usr/local/bin/c11`. If you want the stale link gone, remove it manually: `ls -l /usr/local/bin/cmux` to confirm it points at c11, then `sudo rm /usr/local/bin/cmux`.
 - **Relocated app bundles.** If you move `c11.app` between installs, the in-app uninstall cannot always remove its PATH symlink (the original bundle target is gone). Remove manually with `sudo rm /usr/local/bin/c11` and re-run "Shell Command: Install 'c11' in PATH".
 - **Scripts calling `cmux <subcommand>`** keep working only if `cmux` still resolves on PATH via an earlier install or upstream cmux. Update them to `c11 <subcommand>` to rely on c11 alone.
+
+### Thanks to 1 contributor!
+
+[@BenevolentFutures](https://github.com/BenevolentFutures)
 
 ## [0.37.0] - 2026-04-20
 
