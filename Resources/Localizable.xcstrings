@@ -43215,8 +43215,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "c11 は承認がある場合にのみ、検出したエージェントのスキルフォルダへスキルファイルをインストールします。リンクされたスキルフォルダは共有として表示され、1つの削除操作が別のエージェントに暗黙に影響しないようにします。"
+            "state": "translated",
+            "value": "c11 は承認後にのみ、検出したエージェントのフォルダへスキルファイルを書き込みます。リンクされたフォルダは共有として表示されます — 1つの削除が別のエージェントに暗黙に影響することはありません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11은 승인 후에만 감지된 에이전트 폴더에 스킬 파일을 씁니다. 연결된 폴더는 공유로 표시되어, 제거 한 번이 다른 에이전트에 몰래 영향을 주지 않습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 仅在你同意后，才会将技能文件写入识别到的代理文件夹。已链接文件夹显示为共享——一次移除不会悄悄影响另一个代理。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 僅在你核可後才將技能檔寫入偵測到的代理資料夾。已連結的資料夾標示為共享 — 一次移除不會悄悄波及其他代理。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 записывает файлы навыков в обнаруженные папки агентов только после вашего согласия. Связанные папки показаны как общие — одно удаление не затронет другого агента незаметно."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 записує файли навичок у виявлені теки агентів лише після вашого схвалення. Пов'язані теки показані як спільні — видалення в одній не зачепить потай іншого агента."
           }
         }
       }
@@ -43254,8 +43284,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "c11テーマ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 테마"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 主题"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 主題"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тема c11"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тема c11"
           }
         }
       }
@@ -43271,8 +43331,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "c11テーマはアプリのクロームだけを変更します。Ghosttyのターミナルテーマは変更しません。"
+            "state": "translated",
+            "value": "c11テーマはアプリのクロームだけを変更します。Ghosttyのターミナルテーマは別です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 테마는 앱 크롬만 변경합니다. Ghostty 터미널 테마는 별도입니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 主题仅改变应用外观。Ghostty 终端主题相互独立。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 主題僅變更應用外殼。Ghostty 終端機主題獨立運作。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тема c11 меняет только оформление приложения. Темы терминала Ghostty — отдельно."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тема c11 змінює тільки хром застосунку. Теми терміналу Ghostty — окремо."
           }
         }
       }
@@ -43373,8 +43463,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "通知発火時に/bin/sh -cで実行します。通知のタイトル、サブタイトル、本文はCMUX_NOTIFICATION_*環境変数として渡されます。"
+            "state": "translated",
+            "value": "通知発火時に /bin/sh -c で実行します。タイトル、サブタイトル、本文は CMUX_NOTIFICATION_* 環境変数に入ります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알림이 울릴 때 /bin/sh -c로 실행됩니다. 제목, 부제목, 본문은 CMUX_NOTIFICATION_* 환경 변수로 전달됩니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知触发时以 /bin/sh -c 执行。标题、副标题与正文会传入 CMUX_NOTIFICATION_* 环境变量。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知觸發時以 /bin/sh -c 執行。標題、副標題和內文放入 CMUX_NOTIFICATION_* 環境變數。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускается через /bin/sh -c при срабатывании уведомления. Заголовок, подзаголовок и текст попадают в переменные окружения CMUX_NOTIFICATION_*."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запускається через /bin/sh -c, коли надходить сповіщення. Заголовок, підзаголовок і текст потрапляють у змінні середовища CMUX_NOTIFICATION_*."
           }
         }
       }
@@ -43458,8 +43578,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "デスクトップ通知はシステム設定で無効になっています。"
+            "state": "translated",
+            "value": "システム設定で無効になっています。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "시스템 설정에서 비활성화됨."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在「系统设置」中禁用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已於系統設定停用。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отключено в Системных настройках."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вимкнено в Системних налаштуваннях."
           }
         }
       }
@@ -43475,8 +43625,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "デスクトップ通知は有効です。"
+            "state": "translated",
+            "value": "有効です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "활성화됨."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已启用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已啟用。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включено."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увімкнено."
           }
         }
       }
@@ -43492,8 +43672,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "デスクトップ通知は一時的に有効です。"
+            "state": "translated",
+            "value": "一時的に有効です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일시적으로 활성화됨."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "临时启用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暫時啟用。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Временно включено."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увімкнено тимчасово."
           }
         }
       }
@@ -43509,8 +43719,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "デスクトップ通知はまだ有効になっていません。"
+            "state": "translated",
+            "value": "まだ有効になっていません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 활성화되지 않음."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未启用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未啟用。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пока не включено."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ще не ввімкнено."
           }
         }
       }
@@ -43526,8 +43766,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "デスクトップ通知は静かな配信で有効です。"
+            "state": "translated",
+            "value": "有効、静かな配信です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "활성화됨, 조용한 전달."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已启用，静默送达。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已啟用,靜默傳送。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включено, тихая доставка."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Увімкнено, тиха доставка."
           }
         }
       }
@@ -43786,8 +44056,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "最後のサーフェスを閉じてもワークスペースを残す"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "마지막 서피스가 닫힐 때 작업 공간 유지"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭最后一个界面时保留工作区"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉最後一個介面時保留工作區"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранять рабочее пространство при закрытии последней поверхности"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Залишати робочий простір при закритті останньої поверхні"
           }
         }
       }
@@ -44013,26 +44313,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "アプリアイコン（DockおよびCmd+Tab）に未読数を表示します。"
+            "state": "translated",
+            "value": "アプリアイコン（Dock と Cmd+Tab）の未読数。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "在应用图标上显示未读计数（程序坞和 Cmd+Tab）。"
+            "state": "translated",
+            "value": "应用图标上的未读计数（程序坞和 Cmd+Tab）。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "在 App 圖示上顯示未讀數量（Dock 和 Cmd+Tab）。"
+            "state": "translated",
+            "value": "應用圖示上的未讀數量（Dock 與 Cmd+Tab）。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "앱 아이콘(Dock 및 Cmd+Tab)에 읽지 않은 수를 표시합니다."
+            "state": "translated",
+            "value": "앱 아이콘(Dock 및 Cmd+Tab)의 읽지 않은 수."
           }
         },
         "de": {
@@ -44073,8 +44373,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Показывать количество непрочитанных на значке приложения (Dock и Cmd+Tab)."
+            "state": "translated",
+            "value": "Количество непрочитанных на значке приложения (Dock и Cmd+Tab)."
           }
         },
         "bs": {
@@ -44112,6 +44412,12 @@
             "state": "needs_review",
             "value": "Uygulama simgesinde (Dock ve Cmd+Tab) okunmamış sayısını göster."
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кількість непрочитаних на значку застосунку (Dock і Cmd+Tab)."
+          }
         }
       }
     },
@@ -44143,8 +44449,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "操作ボタンを常に表示します。"
+            "state": "translated",
+            "value": "操作ボタンは表示されたままです。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "동작 버튼이 계속 표시됩니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作按钮始终可见。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作按鈕持續顯示。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопки действий остаются видимыми."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопки дій залишаються видимими."
           }
         }
       }
@@ -44160,8 +44496,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "操作ボタンはホバー時のみ表示します。"
+            "state": "translated",
+            "value": "操作ボタンはホバー時に現れます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "동작 버튼이 호버 시 나타납니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作按钮悬停时显示。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作按鈕於懸停時出現。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопки действий появляются при наведении."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кнопки дій з'являються при наведенні."
           }
         }
       }
@@ -44194,8 +44560,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "下のトグル設定に従って、ワークスペースの補助情報を表示します。"
+            "state": "translated",
+            "value": "ワークスペースの補助情報は下のトグルに従います。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "작업 공간의 보조 세부 정보는 아래 토글을 따릅니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次要工作区详情跟随下方开关。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次要工作區詳細資訊依下方開關顯示。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дополнительные сведения рабочего пространства подчиняются переключателям ниже."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Додаткові деталі робочих просторів залежать від перемикачів нижче."
           }
         }
       }
@@ -44211,8 +44607,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "ワークスペースのタイトル行だけを表示します。下の詳細トグルより優先されます。"
+            "state": "translated",
+            "value": "ワークスペースのタイトル行のみ表示します。下のトグルより優先されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "작업 공간 제목 행만 표시됩니다. 아래 토글을 재정의합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅显示工作区标题行。覆盖下方开关。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅顯示工作區標題列。凌駕於下方開關。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывается только строка заголовка рабочего пространства. Переопределяет переключатели ниже."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показується лише рядок назви робочого простору. Перевизначає перемикачі нижче."
           }
         }
       }
@@ -44816,8 +45242,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "標準のワークスペースタイトルバーと操作を使います。"
+            "state": "translated",
+            "value": "標準のワークスペースタイトルバーと操作。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "표준 작업 공간 제목 표시줄과 컨트롤."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "标准工作区标题栏与控件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "標準工作區標題列與控制項。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стандартная строка заголовка и элементы управления рабочего пространства."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стандартна смуга заголовка і елементи керування робочого простору."
           }
         }
       }
@@ -44833,8 +45289,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "ワークスペースのタイトルバーを隠し、ワークスペース操作をサイドバーに移動します。"
+            "state": "translated",
+            "value": "ワークスペースのタイトルバーを隠し、操作はサイドバーへ移動します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "작업 공간 제목 표시줄을 숨기고, 작업 공간 컨트롤은 사이드바로 이동합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏工作区标题栏；工作区控件移入侧边栏。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隱藏工作區標題列;工作區控制項移入側邊欄。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Скрывает строку заголовка рабочего пространства; элементы управления переезжают в боковую панель."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приховує смугу заголовка робочого простору; елементи керування переходять у бічну панель."
           }
         }
       }
@@ -45189,25 +45675,25 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "クリックするとc11ブラウザ内で開きます。"
+            "state": "translated",
+            "value": "クリックすると c11 ブラウザ内で開きます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "点击在 c11 浏览器中打开。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "點擊會在 c11 瀏覽器中開啟。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "클릭하면 c11 브라우저에서 열립니다."
           }
         },
@@ -45249,8 +45735,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Ссылки открываются во встроенном браузере c11."
+            "state": "translated",
+            "value": "Клики открываются в браузере c11."
           }
         },
         "bs": {
@@ -45287,6 +45773,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Tıklamalar c11 tarayıcısında açılır."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кліки відкриваються всередині браузера c11."
           }
         }
       }
@@ -45754,26 +46246,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "通知を受け取ったワークスペースを一番上に移動します。ショートカット位置を固定するには無効にしてください。"
+            "state": "translated",
+            "value": "ワークスペースは呼びかけると先頭へジャンプします。ショートカット位置を固定するには無効に。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "收到通知时将工作区移至顶部。禁用以保持快捷键位置稳定。"
+            "state": "translated",
+            "value": "工作区叩你时跳至顶部。禁用以保持快捷键位置稳定。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "收到通知時將工作區移至最上方。停用此選項可維持穩定的快捷鍵位置。"
+            "state": "translated",
+            "value": "工作區被叩時跳至最上方。停用以保持快捷鍵位置穩定。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "알림을 받은 작업 공간을 맨 위로 이동합니다. 단축키 위치를 고정하려면 비활성화하세요."
+            "state": "translated",
+            "value": "작업 공간은 울릴 때 맨 위로 올라옵니다. 단축키 위치를 고정하려면 비활성화하세요."
           }
         },
         "de": {
@@ -45814,8 +46306,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Перемещать рабочие пространства наверх при получении уведомления. Отключите для стабильных позиций сочетаний клавиш."
+            "state": "translated",
+            "value": "Рабочие пространства всплывают наверх, когда звенят. Отключите для стабильных позиций сочетаний клавиш."
           }
         },
         "bs": {
@@ -45852,6 +46344,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Bildirim aldıklarında çalışma alanlarını en üste taşı. Sabit kısayol konumları için devre dışı bırakın."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Робочі простори стрибають угору, коли гукають. Вимкніть для сталих позицій скорочень."
           }
         }
       }
@@ -46116,8 +46614,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "未読通知の確認やクイック操作のために、c11をメニューバーに表示します。"
+            "state": "translated",
+            "value": "未読数とクイック操作のため、c11 をメニューバーに表示します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "읽지 않은 수와 빠른 동작을 위해 c11을 메뉴 막대에 유지합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将 c11 保留在菜单栏，便于查看未读计数和使用快捷操作。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在選單列保留 c11,顯示未讀數量與快速操作。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Держит c11 в строке меню для счётчиков непрочитанных и быстрых действий."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тримає c11 у рядку меню для лічильників непрочитаного та швидких дій."
           }
         }
       }
@@ -46246,26 +46774,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "最新の命令型ログ/ステータスメッセージを表示します。"
+            "state": "translated",
+            "value": "最新のログまたはステータスメッセージを表示します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "显示最新的命令式日志/状态消息。"
+            "state": "translated",
+            "value": "显示最新的日志或状态消息。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "顯示最新的命令式記錄或狀態訊息。"
+            "state": "translated",
+            "value": "顯示最新的記錄或狀態訊息。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "최신 명령형 로그/상태 메시지를 표시합니다."
+            "state": "translated",
+            "value": "최신 로그 또는 상태 메시지를 표시합니다."
           }
         },
         "de": {
@@ -46306,8 +46834,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Отображать последнее служебное сообщение журнала/статуса."
+            "state": "translated",
+            "value": "Показывает последнее сообщение журнала или статуса."
           }
         },
         "bs": {
@@ -46344,6 +46872,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Son zorunlu günlük/durum mesajını göster."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показує останнє повідомлення журналу або статусу."
           }
         }
       }
@@ -46472,26 +47006,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "report_meta/set_statusおよびreport_meta_blockからのカスタムメタデータを表示します。"
+            "state": "translated",
+            "value": "report_meta、set_status、report_meta_block からのカスタムメタデータを表示します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "显示来自 report_meta/set_status 和 report_meta_block 的自定义元数据。"
+            "state": "translated",
+            "value": "显示来自 report_meta、set_status 和 report_meta_block 的自定义元数据。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "顯示來自 report_meta/set_status 和 report_meta_block 的自訂中繼資料。"
+            "state": "translated",
+            "value": "顯示來自 report_meta、set_status 和 report_meta_block 的自訂中繼資料。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "report_meta/set_status 및 report_meta_block의 사용자 지정 메타데이터를 표시합니다."
+            "state": "translated",
+            "value": "report_meta, set_status 및 report_meta_block의 사용자 지정 메타데이터를 표시합니다."
           }
         },
         "de": {
@@ -46532,8 +47066,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Отображать пользовательские метаданные из report_meta/set_status и report_meta_block."
+            "state": "translated",
+            "value": "Показывает пользовательские метаданные из report_meta, set_status и report_meta_block."
           }
         },
         "bs": {
@@ -46571,6 +47105,12 @@
             "state": "needs_review",
             "value": "report_meta/set_status ve report_meta_block'tan özel üst veriyi göster."
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показує власні метадані з report_meta, set_status і report_meta_block."
+          }
         }
       }
     },
@@ -46602,8 +47142,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "ワークスペース名の下に最新の通知メッセージを表示します。"
+            "state": "translated",
+            "value": "ワークスペースタイトルの下に最新の通知を表示します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "작업 공간 제목 아래에 최신 알림을 표시합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在工作区标题下显示最新通知。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在工作區標題下方顯示最新通知。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывает последнее уведомление под заголовком рабочего пространства."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показує останнє сповіщення під заголовком робочого простору."
           }
         }
       }
@@ -46619,26 +47189,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "サイドバーにリスニングポートを表示"
+            "state": "translated",
+            "value": "サイドバーに開いているポートを表示"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "在侧边栏显示监听端口"
+            "state": "translated",
+            "value": "在侧边栏显示开放端口"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "在側邊欄顯示監聽連接埠"
+            "state": "translated",
+            "value": "在側邊欄顯示開放的連接埠"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "사이드바에 수신 대기 포트 표시"
+            "state": "translated",
+            "value": "사이드바에 열린 포트 표시"
           }
         },
         "de": {
@@ -46679,8 +47249,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Показывать прослушиваемые порты в боковой панели"
+            "state": "translated",
+            "value": "Показывать открытые порты в боковой панели"
           }
         },
         "bs": {
@@ -46718,6 +47288,12 @@
             "state": "needs_review",
             "value": "Kenar Çubuğunda Dinlenen Portları Göster"
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показувати відкриті порти в бічній панелі"
+          }
         }
       }
     },
@@ -46732,26 +47308,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "アクティブなワークスペースで検出されたリスニングポートを表示します。"
+            "state": "translated",
+            "value": "このワークスペースの開いているポートを表示します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "显示活动工作区检测到的监听端口。"
+            "state": "translated",
+            "value": "显示当前工作区的开放端口。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "顯示使用中工作區偵測到的監聽連接埠。"
+            "state": "translated",
+            "value": "顯示此工作區的開放連接埠。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "활성 작업 공간에서 감지된 수신 대기 포트를 표시합니다."
+            "state": "translated",
+            "value": "이 작업 공간의 열린 포트를 표시합니다."
           }
         },
         "de": {
@@ -46792,8 +47368,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Отображать обнаруженные прослушиваемые порты для активного рабочего пространства."
+            "state": "translated",
+            "value": "Показывает открытые порты этого рабочего пространства."
           }
         },
         "bs": {
@@ -46830,6 +47406,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Etkin çalışma alanı için algılanan dinlenen portları göster."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показує відкриті порти цього робочого простору."
           }
         }
       }
@@ -47190,26 +47772,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "ステータス、番号、クリック可能なリンク付きのレビュー項目（PR/MRなど）を表示します。"
+            "state": "translated",
+            "value": "レビュー項目（PR、MR など）をステータス、番号、リンク付きで表示します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "显示包含状态、编号和可点击链接的审查项（PR/MR 等）。"
+            "state": "translated",
+            "value": "显示审查项（PR、MR 等），附带状态、编号与链接。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "顯示審查項目（PR/MR 等），包含狀態、編號和可點擊的連結。"
+            "state": "translated",
+            "value": "顯示審查項目（PR、MR 等）,含狀態、編號和連結。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "상태, 번호 및 클릭 가능한 링크가 있는 리뷰 항목(PR/MR 등)을 표시합니다."
+            "state": "translated",
+            "value": "상태, 번호 및 링크가 있는 리뷰 항목(PR, MR 등)을 표시합니다."
           }
         },
         "de": {
@@ -47250,8 +47832,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Отображать элементы проверки (PR/MR и т.д.) со статусом, номером и ссылкой."
+            "state": "translated",
+            "value": "Показывает элементы проверки (PR, MR и т.д.) со статусом, номером и ссылкой."
           }
         },
         "bs": {
@@ -47289,6 +47871,12 @@
             "state": "needs_review",
             "value": "Durum, numara ve tıklanabilir bağlantıyla inceleme öğelerini (PR/MR/vb.) göster."
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показує елементи рев'ю (PR, MR тощо) зі статусом, номером і посиланням."
+          }
         }
       }
     },
@@ -47320,8 +47908,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "リモートワークスペースのSSHターゲットを専用の行に表示します。"
+            "state": "translated",
+            "value": "リモートワークスペースの SSH ターゲットを専用の行に表示します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "원격 작업 공간의 SSH 대상을 자체 행에 표시합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "远程工作区的 SSH 目标单独占一行显示。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在獨立一列顯示遠端工作區的 SSH 目標。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывает SSH-адрес удалённых рабочих пространств в отдельной строке."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показує ціль SSH віддалених робочих просторів окремим рядком."
           }
         }
       }
@@ -47727,26 +48345,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "縦: 各ブランチがそれぞれの行に表示されます。"
+            "state": "translated",
+            "value": "縦: 各ブランチを1行ずつ表示。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "垂直：每个分支独占一行。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "垂直：每個分支獨立一行。"
+            "state": "translated",
+            "value": "垂直:每個分支獨立一行。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "세로: 각 브랜치가 별도의 줄에 표시됩니다."
+            "state": "translated",
+            "value": "세로: 브랜치당 한 줄."
           }
         },
         "de": {
@@ -47787,7 +48405,7 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Вертикально: каждая ветка на отдельной строке."
           }
         },
@@ -47825,6 +48443,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Dikey: her dal kendi satırında görünür."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вертикально: кожна гілка на своєму рядку."
           }
         }
       }
@@ -47953,26 +48577,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "匿名のテレメトリを送信"
+            "state": "translated",
+            "value": "匿名のテレメトリ"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "发送匿名遥测数据"
+            "state": "translated",
+            "value": "匿名遥测数据"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "傳送匿名遙測資料"
+            "state": "translated",
+            "value": "匿名遙測資料"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "익명 원격 측정 전송"
+            "state": "translated",
+            "value": "익명 원격 측정"
           }
         },
         "de": {
@@ -48013,8 +48637,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Отправлять анонимную телеметрию"
+            "state": "translated",
+            "value": "Анонимная телеметрия"
           }
         },
         "bs": {
@@ -48052,6 +48676,12 @@
             "state": "needs_review",
             "value": "Anonim telemetri gönder"
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Анонімна телеметрія"
+          }
         }
       }
     },
@@ -48066,25 +48696,25 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "c11の改善に役立てるため、匿名化されたクラッシュおよび使用状況データを共有します。"
+            "state": "translated",
+            "value": "c11 を改善するため、匿名化されたクラッシュと使用状況データを共有します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "分享匿名的崩溃和使用数据，帮助改进 c11。"
+            "state": "translated",
+            "value": "分享匿名的崩溃和使用数据以改进 c11。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "分享匿名的當機與使用資料，以協助改善 c11。"
+            "state": "translated",
+            "value": "分享匿名的當機與使用資料來改善 c11。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "c11 개선을 위해 익명화된 충돌 및 사용 데이터를 공유합니다."
           }
         },
@@ -48126,8 +48756,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Делиться анонимными данными о сбоях и использовании для улучшения c11."
+            "state": "translated",
+            "value": "Отправляет анонимные данные о сбоях и использовании для улучшения c11."
           }
         },
         "bs": {
@@ -48165,6 +48795,12 @@
             "state": "needs_review",
             "value": "c11'u iyileştirmek için anonimleştirilmiş çökme ve kullanım verilerini paylaş."
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ділиться анонімізованими даними про збої та використання, щоб покращити c11."
+          }
         }
       }
     },
@@ -48179,26 +48815,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "変更は次回起動時に反映されます。"
+            "state": "translated",
+            "value": "次回起動時に反映されます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "更改将在下次启动时生效。"
+            "state": "translated",
+            "value": "下次启动时生效。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "變更將在下次啟動時生效。"
+            "state": "translated",
+            "value": "下次啟動時生效。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "변경 사항은 다음 실행 시 적용됩니다."
+            "state": "translated",
+            "value": "다음 실행 시 적용됩니다."
           }
         },
         "de": {
@@ -48239,8 +48875,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Изменение вступит в силу при следующем запуске."
+            "state": "translated",
+            "value": "Вступит в силу при следующем запуске."
           }
         },
         "bs": {
@@ -48277,6 +48913,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Değişiklik bir sonraki başlatmada geçerli olur."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Набуде чинності при наступному запуску."
           }
         }
       }
@@ -48518,26 +49160,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cmd+Qで確認なしにすぐ終了します。"
+            "state": "translated",
+            "value": "Cmd+Q ですぐに終了します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cmd+Q 直接退出，无需确认。"
+            "state": "translated",
+            "value": "Cmd+Q 直接退出。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cmd+Q 會立即結束，不顯示確認提示。"
+            "state": "translated",
+            "value": "Cmd+Q 會立即結束。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cmd+Q를 누르면 확인 없이 즉시 종료됩니다."
+            "state": "translated",
+            "value": "Cmd+Q를 누르면 즉시 종료됩니다."
           }
         },
         "de": {
@@ -48578,8 +49220,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cmd+Q завершает приложение немедленно без подтверждения."
+            "state": "translated",
+            "value": "Cmd+Q закрывает приложение сразу."
           }
         },
         "bs": {
@@ -48617,6 +49259,12 @@
             "state": "needs_review",
             "value": "Cmd+Q onay olmadan hemen çıkar."
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cmd+Q закриває миттєво."
+          }
         }
       }
     },
@@ -48631,26 +49279,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cmd+Qで終了する前に確認を表示します。"
+            "state": "translated",
+            "value": "Cmd+Q は終了前に確認します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "使用 Cmd+Q 退出前显示确认对话框。"
+            "state": "translated",
+            "value": "Cmd+Q 退出前先询问。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "使用 Cmd+Q 結束前顯示確認提示。"
+            "state": "translated",
+            "value": "Cmd+Q 結束前先詢問。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Cmd+Q로 종료하기 전에 확인 대화상자를 표시합니다."
+            "state": "translated",
+            "value": "Cmd+Q는 종료 전에 확인합니다."
           }
         },
         "de": {
@@ -48691,8 +49339,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Показывать подтверждение перед выходом по Cmd+Q."
+            "state": "translated",
+            "value": "Cmd+Q спросит перед выходом."
           }
         },
         "bs": {
@@ -48729,6 +49377,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Cmd+Q ile çıkmadan önce onay göster."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cmd+Q питає перед закриттям."
           }
         }
       }
@@ -56926,8 +57580,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "c11 がペインを強調表示するときに短い青いアウトラインを表示します。"
+            "state": "translated",
+            "value": "c11 がペインを強調表示するとき、青いアウトラインを点滅させます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11이 페인을 강조할 때 파란 윤곽선을 깜빡입니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 高亮面板时闪现蓝色轮廓。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 強調窗格時閃爍藍色外框。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Мигает синим контуром, когда c11 выделяет панель."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блимає синім контуром, коли c11 підсвічує панель."
           }
         }
       }
@@ -56960,8 +57644,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "未読の通知があるペインの周囲に青いリングを表示します。"
+            "state": "translated",
+            "value": "未読ペインに青で呼びかけます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "읽지 않은 페인을 파랗게 울립니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为未读面板叩上蓝环。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以藍環叩響未讀窗格。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звенит синим на непрочитанных панелях."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Гукає непрочитані панелі синім кільцем."
           }
         }
       }
@@ -57170,8 +57884,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "通知用の準備ができました。"
+            "state": "translated",
+            "value": "準備完了。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "준비됨."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就绪。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就緒。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово."
           }
         }
       }
@@ -57187,8 +57931,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "通知用に準備しました（CAFに変換）。"
+            "state": "translated",
+            "value": "準備完了（CAFに変換）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "준비됨 (CAF로 변환됨)."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就绪（已转为 CAF）。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就緒（已轉為 CAF）。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово (преобразовано в CAF)."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово (конвертовано в CAF)."
           }
         }
       }
@@ -57204,8 +57978,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "通知を受信したときに再生するサウンドです。"
+            "state": "translated",
+            "value": "通知が呼びかけるときに再生します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알림이 울릴 때 재생됩니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知叩响时播放。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知叩響時播放。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звучит, когда звенит уведомление."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Звучить, коли сповіщення гукає."
           }
         }
       }
@@ -60614,25 +61418,25 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "サイドバーの外観をデフォルトに戻す。"
+            "state": "translated",
+            "value": "サイドバーの外観をデフォルトに戻します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "恢复默认侧边栏外观。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "恢復預設側邊欄外觀。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "사이드바 모양을 기본값으로 복원합니다."
           }
         },
@@ -60674,8 +61478,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Восстановить внешний вид боковой панели по умолчанию."
+            "state": "translated",
+            "value": "Восстанавливает внешний вид боковой панели по умолчанию."
           }
         },
         "bs": {
@@ -60712,6 +61516,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Varsayılan kenar çubuğu görünümünü geri yükle."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відновлює типовий вигляд бічної панелі."
           }
         }
       }
@@ -60953,26 +61763,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "ダーク表示時のサイドバーのティントカラー。"
+            "state": "translated",
+            "value": "ダークモード時のサイドバーのティント。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "使用深色外观时侧边栏的色调颜色。"
+            "state": "translated",
+            "value": "深色模式下的侧边栏色调。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "使用深色外觀時側邊欄的色調顏色。"
+            "state": "translated",
+            "value": "深色模式下的側邊欄色調。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "다크 모양 사용 시 사이드바 색조 색상."
+            "state": "translated",
+            "value": "다크 모드의 사이드바 색조."
           }
         },
         "de": {
@@ -61013,8 +61823,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Цвет оттенка боковой панели в тёмном режиме."
+            "state": "translated",
+            "value": "Оттенок боковой панели в тёмном режиме."
           }
         },
         "bs": {
@@ -61051,6 +61861,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Koyu görünüm kullanılırken kenar çubuğu renk tonu."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відтінок бічної панелі в темному режимі."
           }
         }
       }
@@ -61292,26 +62108,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "ライト表示時のサイドバーのティントカラー。"
+            "state": "translated",
+            "value": "ライトモード時のサイドバーのティント。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "使用浅色外观时侧边栏的色调颜色。"
+            "state": "translated",
+            "value": "浅色模式下的侧边栏色调。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "使用淺色外觀時側邊欄的色調顏色。"
+            "state": "translated",
+            "value": "淺色模式下的側邊欄色調。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "라이트 모양 사용 시 사이드바 색조 색상."
+            "state": "translated",
+            "value": "라이트 모드의 사이드바 색조."
           }
         },
         "de": {
@@ -61352,8 +62168,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Цвет оттенка боковой панели в светлом режиме."
+            "state": "translated",
+            "value": "Оттенок боковой панели в светлом режиме."
           }
         },
         "bs": {
@@ -61390,6 +62206,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Açık görünüm kullanılırken kenar çubuğu renk tonu."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відтінок бічної панелі у світлому режимі."
           }
         }
       }
@@ -61518,26 +62340,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "サイドバーの素材上にティントカラーがどの程度表示されるか。"
+            "state": "translated",
+            "value": "サイドバー素材を通してティントがどの程度見えるか。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "色调颜色在侧边栏材质上的显示强度。"
+            "state": "translated",
+            "value": "色调透过侧边栏材质的显示强度。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "色調顏色在側邊欄材質上的顯示強度。"
+            "state": "translated",
+            "value": "色調穿透側邊欄材質的強度。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "사이드바 재질 위에 색조 색상이 표시되는 강도."
+            "state": "translated",
+            "value": "색조가 사이드바 재질을 통해 비치는 강도."
           }
         },
         "de": {
@@ -61578,8 +62400,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Насколько сильно оттенок виден на материале боковой панели."
+            "state": "translated",
+            "value": "Насколько сильно оттенок проступает сквозь материал боковой панели."
           }
         },
         "bs": {
@@ -61616,6 +62438,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Renk tonunun kenar çubuğu materyali üzerinde ne kadar güçlü göründüğü."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наскільки сильно відтінок проступає крізь матеріал бічної панелі."
           }
         }
       }
@@ -62546,26 +63374,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "カスタムカラー: まだありません。ワークスペースのコンテキストメニューから「カスタムカラーを選択…」を使用してください。"
+            "state": "translated",
+            "value": "カスタムカラーはまだありません。ワークスペースのコンテキストメニュー →「カスタムカラーを選択…」から選べます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "自定义颜色：暂无。请从工作区右键菜单中使用「选取自定义颜色...」。"
+            "state": "translated",
+            "value": "暂无自定义颜色。从工作区右键菜单 → 「选取自定义颜色...」中选择。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "自訂顏色：尚無。請從工作區右鍵選單中使用「選擇自訂顏色...」。"
+            "state": "translated",
+            "value": "尚無自訂顏色。從工作區右鍵選單 →「選擇自訂顏色...」挑一個。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "사용자 지정 색상: 아직 없습니다. 작업 공간 컨텍스트 메뉴에서 \"사용자 지정 색상 선택...\"을 사용하세요."
+            "state": "translated",
+            "value": "아직 사용자 지정 색상이 없습니다. 작업 공간 컨텍스트 메뉴 → \"사용자 지정 색상 선택...\"에서 선택하세요."
           }
         },
         "de": {
@@ -62606,8 +63434,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Пользовательские цвета: пока нет. Используйте «Выбрать пользовательский цвет...» из контекстного меню рабочего пространства."
+            "state": "translated",
+            "value": "Пользовательских цветов пока нет. Выберите в контекстном меню рабочего пространства → «Выбрать пользовательский цвет...»"
           }
         },
         "bs": {
@@ -62645,6 +63473,12 @@
             "state": "needs_review",
             "value": "Özel renkler: henüz yok. Bir çalışma alanı bağlam menüsünden \"Özel Renk Seç...\" seçeneğini kullanın."
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поки що немає своїх кольорів. Оберіть через контекстне меню робочого простору → «Обрати свій колір...»"
+          }
         }
       }
     },
@@ -62659,26 +63493,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "サイドバー > ワークスペースカラーで使用するカラーパレットをカスタマイズできます。「カスタムカラーを選択…」のエントリは以下に保存されます。"
+            "state": "translated",
+            "value": "サイドバー > ワークスペースカラーに表示されるパレットをカスタマイズします。「カスタムカラーを選択…」のエントリは下に保存されます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "自定义「侧边栏 > 工作区颜色」中使用的工作区调色板。「选取自定义颜色...」的条目将保存在下方。"
+            "state": "translated",
+            "value": "自定义「侧边栏 > 工作区颜色」中显示的调色板。「选取自定义颜色...」的条目保留在下方。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "自訂側邊欄 > 工作區顏色使用的色板。「選擇自訂顏色...」的項目會保存在下方。"
+            "state": "translated",
+            "value": "自訂側邊欄 > 工作區顏色下顯示的色板。「選擇自訂顏色...」的項目保存於下方。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "사이드바 > 작업 공간 색상에서 사용하는 작업 공간 색상 팔레트를 사용자 지정합니다. \"사용자 지정 색상 선택...\" 항목은 아래에 저장됩니다."
+            "state": "translated",
+            "value": "사이드바 > 작업 공간 색상에 표시되는 팔레트를 사용자 지정합니다. \"사용자 지정 색상 선택...\" 항목은 아래에 유지됩니다."
           }
         },
         "de": {
@@ -62719,8 +63553,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Настройте палитру цветов рабочих пространств, используемую в Боковая панель > Цвет рабочего пространства. Записи «Выбрать пользовательский цвет...» сохраняются ниже."
+            "state": "translated",
+            "value": "Настройте палитру, отображаемую в Боковая панель > Цвет рабочего пространства. Записи «Выбрать пользовательский цвет...» хранятся ниже."
           }
         },
         "bs": {
@@ -62757,6 +63591,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Kenar Çubuğu > Çalışma Alanı Rengi tarafından kullanılan çalışma alanı renk paletini özelleştirin. \"Özel Renk Seç...\" girişleri aşağıda saklanır."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Налаштуйте палітру під Бічна панель > Колір робочого простору. Записи «Обрати свій колір...» зберігаються нижче."
           }
         }
       }
@@ -63111,26 +63951,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "組み込みのデフォルトに戻し、すべてのカスタムカラーをクリアします。"
+            "state": "translated",
+            "value": "デフォルトに戻し、カスタムカラーをクリアします。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "恢复内置默认值并清除所有自定义颜色。"
+            "state": "translated",
+            "value": "恢复默认值并清除自定义颜色。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "恢復內建預設值並清除所有自訂顏色。"
+            "state": "translated",
+            "value": "恢復預設值並清除自訂顏色。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "기본 제공 값을 복원하고 모든 사용자 지정 색상을 지웁니다."
+            "state": "translated",
+            "value": "기본값을 복원하고 사용자 지정 색상을 지웁니다."
           }
         },
         "de": {
@@ -63171,8 +64011,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Восстановить встроенные значения по умолчанию и удалить все пользовательские цвета."
+            "state": "translated",
+            "value": "Восстанавливает значения по умолчанию и удаляет пользовательские цвета."
           }
         },
         "bs": {
@@ -63209,6 +64049,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Yerleşik varsayılanları geri yükle ve tüm özel renkleri temizle."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відновлює типові значення і очищує свої кольори."
           }
         }
       }
