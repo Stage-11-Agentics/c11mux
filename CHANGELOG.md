@@ -4,6 +4,31 @@ All notable changes to c11 (and, before the fork, cmux) are documented here.
 
 Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the 0.38.0 section for the rename.
 
+## [0.39.0] - 2026-04-22
+
+### Added
+- Settings now exposes separate Light and Dark c11 theme slots, each with its own preview and picker. — thanks @BenevolentFutures!
+- Agent Skills onboarding now detects existing c11 skills, defaults detected agents into the install/update flow, handles shared skill folders safely, offers Finder reveal for exact skill files, and uses a clearer "Skillify Your Agent" flow. ([#46](https://github.com/Stage-11-Agentics/c11/pull/46)) — thanks @BenevolentFutures!
+
+### Changed
+- Workspace sidebar cards now keep the workspace name primary, wrap it up to two lines, move agent identity chips below it, and name new default workspaces `Workspace N`. ([#41](https://github.com/Stage-11-Agentics/c11/pull/41)) — thanks @BenevolentFutures!
+- The bottom status-bar notification jump control is larger, labeled, and badge-aware; the sidebar help menu now points to c11-owned GitHub, docs, and changelog links. ([#42](https://github.com/Stage-11-Agentics/c11/pull/42)) — thanks @BenevolentFutures!
+- Default pane tabs are narrower, giving dense multi-agent workspaces more room. ([#44](https://github.com/Stage-11-Agentics/c11/pull/44)) — thanks @BenevolentFutures!
+- Theme CLI naming now distinguishes c11 chrome themes from Ghostty terminal themes: `c11 themes` manages chrome themes, and `c11 terminal-theme` manages terminal themes. ([#47](https://github.com/Stage-11-Agentics/c11/pull/47)) — thanks @BenevolentFutures!
+- The bundled Phosphor c11 theme is now a bright day chrome option. — thanks @BenevolentFutures!
+- Welcome terminal and license surfaces now use current c11 branding. — thanks @BenevolentFutures!
+- Tagged dev launches now default to a single-pane workspace unless the default pane grid is enabled. ([#46](https://github.com/Stage-11-Agentics/c11/pull/46)) — thanks @BenevolentFutures!
+
+### Fixed
+- The initial main-window chrome layout now reconciles titlebar, sidebar, and content padding during first layout and resize. — thanks @BenevolentFutures!
+- Pane close-confirmation dialogs keep keyboard focus so Return, arrows, and Esc control the dialog instead of leaking into browser or terminal panes. ([#43](https://github.com/Stage-11-Agentics/c11/pull/43)) — thanks @BenevolentFutures!
+- Custom workspace color chrome now keeps the sidebar background neutral, refreshes tab indicators when colors change, and keeps the workspace outline continuous around hosted terminal and browser surfaces. ([#45](https://github.com/Stage-11-Agentics/c11/pull/45)) — thanks @BenevolentFutures!
+- c11 theme lookup now uses the renamed bundled `c11-themes` directory and `Application Support/c11` user theme directory. — thanks @BenevolentFutures!
+
+### Thanks to 1 contributor!
+
+[@BenevolentFutures](https://github.com/BenevolentFutures)
+
 ## [0.38.0] - 2026-04-21
 
 ### Changed
