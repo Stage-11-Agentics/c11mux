@@ -7130,6 +7130,7 @@ final class GhosttySurfaceScrollView: NSView {
     @discardableResult
     func safeMakeTerminalFirstResponder(reason: String) -> Bool {
         if isPaneInteractionSuppressingFocus {
+            _ = paneInteractionOverlay?.requestKeyboardFocus(reason: "suppressTerminalFocus.\(reason)")
 #if DEBUG
             let surfaceShort = surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
             dlog("focus.suppressed surface=\(surfaceShort) reason=\(reason)")

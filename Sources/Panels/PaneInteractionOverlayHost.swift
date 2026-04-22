@@ -88,11 +88,9 @@ final class PaneInteractionOverlayHost: NSView {
     override func mouseUp(with event: NSEvent) { /* swallow */ }
     override func rightMouseDown(with event: NSEvent) { /* swallow */ }
 
-    // Arrow / Tab / Return routing for `.confirm` cards. SwiftUI `onKeyPress`
-    // inside the hosted card never fires because this NSView owns first
-    // responder (the card has no focused SwiftUI anchor). Esc + Space still
-    // flow through `.keyboardShortcut` on the buttons via AppKit's command
-    // chain, so only the keys without shortcut bindings need handling here.
+    // Arrow / Tab / Return / Escape routing for pane-interaction cards. SwiftUI
+    // `onKeyPress` inside the hosted card never fires because this NSView owns
+    // first responder (the card has no focused SwiftUI anchor).
     //
     // keyCode values: left=123, right=124, tab=48, return=36, numpad enter=76.
     override func keyDown(with event: NSEvent) {
@@ -100,41 +98,14 @@ final class PaneInteractionOverlayHost: NSView {
             super.keyDown(with: event)
             return
         }
-        switch runtime.active[panelId] {
-        case .confirm?:
-            switch Int(event.keyCode) {
-            case 123:
-                runtime.moveConfirmSelection(panelId: panelId, direction: .left)
-            case 124:
-                runtime.moveConfirmSelection(panelId: panelId, direction: .right)
-            case 48:
-                runtime.moveConfirmSelection(panelId: panelId, direction: .toggle)
-            case 36, 76:
-                runtime.acceptSelectedConfirm(panelId: panelId)
-            default:
-                super.keyDown(with: event)
-            }
-        case .textInput?:
-            // This path only fires when the overlay host has first responder
-            // (selection is .cancel or .confirm). The text field intercepts
-            // Tab itself to leave `.field`; keys while .field-focused go to
-            // the field's editor, not here.
-            let shift = event.modifierFlags.contains(.shift)
-            switch Int(event.keyCode) {
-            case 123:
-                runtime.moveTextInputSelection(panelId: panelId, direction: .left)
-            case 124:
-                runtime.moveTextInputSelection(panelId: panelId, direction: .right)
-            case 48:
-                runtime.cycleTextInputSelection(panelId: panelId, backward: shift)
-            case 36, 76:
-                runtime.acceptSelectedTextInput(panelId: panelId)
-            default:
-                super.keyDown(with: event)
-            }
-        default:
-            super.keyDown(with: event)
+        if runtime.handleKeyDown(
+            panelId: panelId,
+            keyCode: Int(event.keyCode),
+            shift: event.modifierFlags.contains(.shift)
+        ) {
+            return
         }
+        super.keyDown(with: event)
     }
 
     // MARK: - Content
@@ -162,11 +133,10 @@ final class PaneInteractionOverlayHost: NSView {
                 // restore it when the overlay hides. Don't overwrite on
                 // subsequent `apply` calls (queue advance) — we want the
                 // responder from before the FIRST card appeared.
-                if wasHidden, priorFirstResponder == nil,
-                   let prior = window.firstResponder, prior !== self {
-                    priorFirstResponder = prior
+                if wasHidden {
+                    capturePriorFirstResponderIfNeeded(in: window)
                 }
-                forciblyAcquireFirstResponder(in: window)
+                requestKeyboardFocus(reason: "apply")
             }
         } else {
             isHidden = true
@@ -184,6 +154,14 @@ final class PaneInteractionOverlayHost: NSView {
             }
             priorFirstResponder = nil
             lastTextInputSelection = nil
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil, !isHidden, runtime.active[panelId] != nil else { return }
+        DispatchQueue.main.async { [weak self] in
+            self?.requestKeyboardFocus(reason: "viewDidMoveToWindow")
         }
     }
 
@@ -219,6 +197,52 @@ final class PaneInteractionOverlayHost: NSView {
         }
     }
 
+    private func capturePriorFirstResponderIfNeeded(in window: NSWindow) {
+        guard priorFirstResponder == nil,
+              let prior = window.firstResponder,
+              prior !== self
+        else { return }
+        if let hostingView,
+           let priorView = prior as? NSView,
+           priorView.isDescendant(of: hostingView) {
+            return
+        }
+        if let hostingView,
+           let textField = (prior as? NSTextView)?.delegate as? NSTextField,
+           textField.isDescendant(of: hostingView) {
+            return
+        }
+        priorFirstResponder = prior
+    }
+
+    /// Ensure the visible interaction owns the relevant keyboard target. Confirm
+    /// cards use the overlay host itself; text-input cards keep the field editor
+    /// as first responder while `.field` is selected.
+    @discardableResult
+    func requestKeyboardFocus(reason: String) -> Bool {
+        guard !isHidden, runtime.active[panelId] != nil, let window else { return false }
+        capturePriorFirstResponderIfNeeded(in: window)
+        if case .textInput? = runtime.active[panelId],
+           runtime.textInputSelection[panelId] == .field,
+           let textField = findTextField(in: hostingView) {
+            if window.firstResponder === textField ||
+                ((window.firstResponder as? NSTextView)?.delegate as? NSTextField) === textField {
+                return true
+            }
+            return window.makeFirstResponder(textField)
+        }
+        forciblyAcquireFirstResponder(in: window)
+#if DEBUG
+        if window.firstResponder !== self {
+            dlog(
+                "paneInteraction.focus requestFailed reason=\(reason) responder=" +
+                String(describing: window.firstResponder.map { type(of: $0) })
+            )
+        }
+#endif
+        return window.firstResponder === self
+    }
+
     /// Mirror the runtime's textInput selection into AppKit responder state.
     /// `.field`  → find the embedded NSTextField and make it first responder.
     /// `.cancel` / `.confirm` → take responder ourselves so keyDown routes
@@ -231,14 +255,11 @@ final class PaneInteractionOverlayHost: NSView {
         guard case .textInput? = runtime.active[panelId], !isHidden else { return }
         if lastTextInputSelection == selection { return }
         lastTextInputSelection = selection
-        guard let window else { return }
         switch selection {
         case .field:
-            if let textField = findTextField(in: hostingView) {
-                window.makeFirstResponder(textField)
-            }
+            _ = requestKeyboardFocus(reason: "textInputSelection.field")
         case .cancel, .confirm:
-            forciblyAcquireFirstResponder(in: window)
+            _ = requestKeyboardFocus(reason: "textInputSelection.button")
         }
     }
 

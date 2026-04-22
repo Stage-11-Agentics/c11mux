@@ -1816,6 +1816,7 @@ final class WindowBrowserSlotView: NSView {
                 // would otherwise cover the modal card.
                 addSubview(existing, positioned: .above, relativeTo: nil)
                 existing.frame = bounds
+                _ = existing.requestKeyboardFocus(reason: "browserPortal.reraise")
                 return
             }
             existing.removeFromSuperview()
@@ -1830,6 +1831,7 @@ final class WindowBrowserSlotView: NSView {
         overlay.autoresizingMask = [.width, .height]
         addSubview(overlay, positioned: .above, relativeTo: nil)
         paneInteractionOverlay = overlay
+        _ = overlay.requestKeyboardFocus(reason: "browserPortal.create")
     }
 
     @discardableResult
