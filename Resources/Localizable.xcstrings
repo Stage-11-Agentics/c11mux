@@ -10385,26 +10385,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "/usr/local/binへの書き込みに管理者権限が必要でした。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "写入 /usr/local/bin 需要管理员权限。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "寫入 /usr/local/bin 需要管理者權限。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "/usr/local/bin에 기록하기 위해 관리자 권한이 필요합니다."
+            "state": "translated",
+            "value": "/usr/local/bin에 쓰려면 관리자 권한이 필요했습니다."
           }
         },
         "de": {
@@ -10445,7 +10445,7 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Для записи в /usr/local/bin потребовались права администратора."
           }
         },
@@ -10483,6 +10483,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "/usr/local/bin dizinine yazmak için yönetici ayrıcalıkları gerekiyordu."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для запису в /usr/local/bin потрібні права адміністратора."
           }
         }
       }
@@ -10837,26 +10843,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "/usr/local/binの変更に管理者権限が必要でした。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "修改 /usr/local/bin 需要管理员权限。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "修改 /usr/local/bin 需要管理者權限。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "/usr/local/bin을 수정하기 위해 관리자 권한이 필요합니다."
+            "state": "translated",
+            "value": "/usr/local/bin을 수정하려면 관리자 권한이 필요했습니다."
           }
         },
         "de": {
@@ -10897,7 +10903,7 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Для изменения /usr/local/bin потребовались права администратора."
           }
         },
@@ -10936,6 +10942,12 @@
             "state": "needs_review",
             "value": "/usr/local/bin dizinini değiştirmek için yönetici ayrıcalıkları gerekiyordu."
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для зміни /usr/local/bin потрібні права адміністратора."
+          }
         }
       }
     },
@@ -10950,25 +10962,25 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@にc11 CLIのシンボリックリンクが見つかりませんでした。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "在 %@ 处未找到 c11 CLI 符号链接。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "在 %@ 找不到 c11 CLI 的符號連結。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "%@에서 c11 CLI 심볼릭 링크를 찾을 수 없습니다."
           }
         },
@@ -11010,7 +11022,7 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "Символическая ссылка c11 CLI не найдена по пути %@."
           }
         },
@@ -11048,6 +11060,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "%@ konumunda c11 CLI sembolik bağı bulunamadı."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Символічне посилання c11 CLI не знайдено за шляхом %@."
           }
         }
       }
@@ -29903,8 +29921,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "ブラウザーツールバーのメニューと見比べながら、プロファイルポップオーバーの余白をライブで調整します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "브라우저 툴바 메뉴와 비교하면서 프로필 팝오버 패딩을 실시간으로 조정합니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在与浏览器工具栏菜单对比时,实时调整个人资料弹出框的边距。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "即時調整個人檔案彈出視窗的內距，同時對照瀏覽器工具列選單。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настраивайте отступы всплывающего меню профиля вживую, сравнивая с меню панели инструментов браузера."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Налаштовуйте відступи спливного вікна профілю наживо, порівнюючи з меню панелі браузера."
           }
         }
       }
@@ -34120,26 +34168,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "クリップボードからフォルダパスを読み込めませんでした。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "无法从剪贴板加载文件夹路径。"
+            "state": "translated",
+            "value": "无法从剪贴板读取文件夹路径。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "無法從剪貼簿載入資料夾路徑。"
+            "state": "translated",
+            "value": "無法從剪貼簿讀取資料夾路徑。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "클립보드에서 폴더 경로를 불러올 수 없습니다."
+            "state": "translated",
+            "value": "클립보드에서 폴더 경로를 읽을 수 없습니다."
           }
         },
         "de": {
@@ -34180,8 +34228,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Не удалось загрузить путь к папке из буфера обмена."
+            "state": "translated",
+            "value": "Не удалось прочитать путь к папке из буфера обмена."
           }
         },
         "bs": {
@@ -34218,6 +34266,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Panodan herhangi bir klasör yolu yüklenemedi."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не вдалося прочитати шлях до теки з буфера обміну."
           }
         }
       }
@@ -72968,8 +73022,38 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "次の通知へ移動"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다음 알림으로 이동"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "转到下一条通知"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前往下一則通知"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти к следующему уведомлению"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перейти до наступного сповіщення"
           }
         }
       }
@@ -75599,26 +75683,26 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "自動アップデートの設定"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "配置自动更新偏好设置"
+            "state": "translated",
+            "value": "配置自动更新"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "設定自動更新偏好"
+            "state": "translated",
+            "value": "設定自動更新"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "자동 업데이트 환경설정 구성"
+            "state": "translated",
+            "value": "자동 업데이트 구성"
           }
         },
         "de": {
@@ -75659,8 +75743,8 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "Настроить параметры автоматических обновлений"
+            "state": "translated",
+            "value": "Настроить автоматические обновления"
           }
         },
         "bs": {
@@ -75697,6 +75781,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Otomatik güncelleme tercihlerini yapılandır"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Налаштувати автоматичні оновлення"
           }
         }
       }
@@ -82335,25 +82425,25 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "needs_review",
-            "value": "現在の後"
+            "state": "translated",
+            "value": "現在の次"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "当前之后"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "目前之後"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "현재 다음"
           }
         },
@@ -82395,7 +82485,7 @@
         },
         "ru": {
           "stringUnit": {
-            "state": "needs_review",
+            "state": "translated",
             "value": "После текущего"
           }
         },
@@ -82433,6 +82523,12 @@
           "stringUnit": {
             "state": "needs_review",
             "value": "Geçerli sonrasına"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Після поточного"
           }
         }
       }
