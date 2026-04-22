@@ -1653,6 +1653,23 @@
         }
       }
     },
+    "agentSkills.onboarding.alreadyInstalledVersioned": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already installed and up to date (%@)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インストール済み・最新の状態です（%@）。"
+          }
+        }
+      }
+    },
     "agentSkills.onboarding.body": {
       "extractionState": "manual",
       "localizations": {
@@ -1666,6 +1683,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "c11 の CLI やサイドバー情報は、c11 スキルファイルを読み込んだエージェントだけが理解します。スキルを入れるエージェントを選んでください。設定 → エージェントスキル からいつでも変更できます。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.copyReviewPrompt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Review Prompt"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "レビュープロンプトをコピー"
           }
         }
       }
@@ -1693,13 +1727,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Install"
+            "value": "Install Now"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "インストール"
+            "value": "今すぐインストール"
           }
         }
       }
@@ -1710,13 +1744,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Later"
+            "value": "Install Later"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "あとで"
+            "value": "あとでインストール"
           }
         }
       }
@@ -1738,6 +1772,91 @@
         }
       }
     },
+    "agentSkills.onboarding.partialInstalled": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partially installed. Install Now completes the current skill set."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一部のみインストール済みです。今すぐインストールすると現在のスキルセットを補完します。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.partialInstalledVersioned": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partially installed. Install Now completes %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一部のみインストール済みです。今すぐインストールすると %@ を補完します。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.reviewPrompt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please review the c11 skill at %@ before I install it. Tell me what it instructs agents to do, what files or settings it may touch, and flag anything unsafe or surprising."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インストールする前に、%@ にある c11 スキルをレビューしてください。エージェントに何を指示しているか、どのファイルや設定に触れる可能性があるか、危険または予想外に見える内容がないかを教えてください。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.reviewPromptCopied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied review prompt to clipboard."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "レビュープロンプトをクリップボードにコピーしました。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.showSkill": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Skill in Finder"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finderでスキルを表示"
+          }
+        }
+      }
+    },
     "agentSkills.onboarding.title": {
       "extractionState": "manual",
       "localizations": {
@@ -1751,6 +1870,57 @@
           "stringUnit": {
             "state": "translated",
             "value": "エージェントに c11 を伝える"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.updateAvailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Older c11 skill installed. Install Now updates it."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "古い c11 スキルがインストールされています。今すぐインストールすると更新します。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.updateAvailableVersioned": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Older c11 skill installed. Install Now updates it to %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "古い c11 スキルがインストールされています。今すぐインストールすると %@ に更新します。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.transparency": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trust should be inspectable. The c11 skill is plain text; open it in Finder or copy a review prompt and hand it to any coding agent before installing."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信頼は確認できるべきものです。c11 スキルはプレーンテキストです。インストール前に Finder で開くか、レビュープロンプトをコピーして任意のコーディングエージェントに渡せます。"
           }
         }
       }

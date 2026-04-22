@@ -18,11 +18,19 @@ final class AgentSkillsModel: ObservableObject {
         var hasOutdated: Bool {
             packages.contains { $0.state == .installedOutdated || $0.state == .installedNoManifest || $0.state == .schemaMismatch }
         }
+        var needsInstallOrUpdate: Bool {
+            !packages.isEmpty && packages.contains { $0.state == .notInstalled || $0.state == .installedOutdated }
+        }
         var anyInstalled: Bool {
             packages.contains { $0.state != .notInstalled }
         }
         var allCurrent: Bool {
             !packages.isEmpty && packages.allSatisfy { $0.state == .installedCurrent }
+        }
+        var sourceVersionLabel: String? {
+            let versions = Set(packages.map { $0.package.version }.filter { !$0.isEmpty && $0 != "0" })
+            guard !versions.isEmpty else { return nil }
+            return versions.sorted().map { "v\($0)" }.joined(separator: ", ")
         }
     }
 
@@ -157,6 +165,37 @@ final class AgentSkillsModel: ObservableObject {
 
     func revealInFinder(url: URL) {
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    var primarySkillURL: URL? {
+        guard let sourceDir else { return nil }
+        let skillFile = sourceDir
+            .appendingPathComponent("c11", isDirectory: true)
+            .appendingPathComponent("SKILL.md", isDirectory: false)
+        if fileManager.fileExists(atPath: skillFile.path) {
+            return skillFile
+        }
+        return sourceDir
+    }
+
+    func revealPrimarySkillInFinder() {
+        guard let url = primarySkillURL else { return }
+        revealInFinder(url: url)
+    }
+
+    func copySkillReviewPromptToPasteboard() {
+        guard let url = primarySkillURL else { return }
+        let format = String(
+            localized: "agentSkills.onboarding.reviewPrompt",
+            defaultValue: "Please review the c11 skill at %@ before I install it. Tell me what it instructs agents to do, what files or settings it may touch, and flag anything unsafe or surprising."
+        )
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(String(format: format, url.path), forType: .string)
+        lastActionMessage = String(
+            localized: "agentSkills.onboarding.reviewPromptCopied",
+            defaultValue: "Copied review prompt to clipboard."
+        )
     }
 
     /// Snippet the operator copies to the clipboard to install skills via
@@ -538,18 +577,19 @@ private struct AgentSkillsRow: View {
 
 // MARK: - First-run onboarding sheet
 
-/// Sheet shown once, after the welcome flow, when c11 detects Claude Code
-/// but has never offered a skill install. User can consent, skip (this run),
-/// or defer forever (don't ask again). Settings exposes the same controls, so
-/// "don't ask again" is not a dead-end.
+/// Sheet shown once, after the welcome flow, when c11 detects an agent
+/// environment that is missing or running an older c11 skill set. User can
+/// consent, skip (this run), or defer forever (don't ask again). Settings
+/// exposes the same controls, so "don't ask again" is not a dead-end.
 struct AgentSkillsOnboardingSheet: View {
     let onDismiss: () -> Void
     @StateObject private var model = AgentSkillsModel()
 
-    @State private var claudeOptIn: Bool = true
+    @State private var claudeOptIn: Bool = false
     @State private var codexOptIn: Bool = false
     @State private var kimiOptIn: Bool = false
     @State private var opencodeOptIn: Bool = false
+    @State private var initializedDefaultOptIns: Bool = false
 
     init(onDismiss: @escaping () -> Void = {}) {
         self.onDismiss = onDismiss
@@ -577,36 +617,71 @@ struct AgentSkillsOnboardingSheet: View {
                     .foregroundColor(.secondary)
             }
 
+            transparencyControls
+
             HStack(spacing: 8) {
+                Spacer()
+
                 Button(String(localized: "agentSkills.onboarding.dontAsk", defaultValue: "Don't ask again")) {
                     UserDefaults.standard.set(true, forKey: AgentSkillsOnboarding.sheetShownKey)
                     onDismiss()
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
 
-                Spacer()
-
-                Button(String(localized: "agentSkills.onboarding.later", defaultValue: "Later")) {
+                Button(String(localized: "agentSkills.onboarding.later", defaultValue: "Install Later")) {
                     AgentSkillsOnboarding.markDismissedThisLaunch()
                     onDismiss()
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
 
-                Button(String(localized: "agentSkills.onboarding.install", defaultValue: "Install")) {
+                Button(String(localized: "agentSkills.onboarding.install", defaultValue: "Install Now")) {
                     applySelection()
                 }
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(minWidth: 132, minHeight: 34)
                 .disabled(!anySelected)
             }
         }
         .padding(20)
-        .frame(width: 520)
+        .frame(width: 560)
         .onAppear { model.refresh() }
+        .onReceive(model.$rows) { rows in
+            guard !initializedDefaultOptIns, !rows.isEmpty else { return }
+            applyDefaultOptIns(rows: rows)
+            initializedDefaultOptIns = true
+        }
     }
 
     private var anySelected: Bool {
-        claudeOptIn || codexOptIn || kimiOptIn || opencodeOptIn
+        initializedDefaultOptIns && (claudeOptIn || codexOptIn || kimiOptIn || opencodeOptIn)
+    }
+
+    private var transparencyControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "agentSkills.onboarding.transparency", defaultValue: "Trust should be inspectable. The c11 skill is plain text; open it in Finder or copy a review prompt and hand it to any coding agent before installing."))
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Button(String(localized: "agentSkills.onboarding.showSkill", defaultValue: "Show Skill in Finder")) {
+                    model.revealPrimarySkillInFinder()
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.primarySkillURL == nil)
+
+                Button(String(localized: "agentSkills.onboarding.copyReviewPrompt", defaultValue: "Copy Review Prompt")) {
+                    model.copySkillReviewPromptToPasteboard()
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.primarySkillURL == nil)
+            }
+            .controlSize(.regular)
+        }
     }
 
     @ViewBuilder
@@ -634,9 +709,42 @@ struct AgentSkillsOnboardingSheet: View {
             )
         }
         if row.allCurrent {
+            if let version = row.sourceVersionLabel {
+                let format = String(
+                    localized: "agentSkills.onboarding.alreadyInstalledVersioned",
+                    defaultValue: "Already installed and up to date (%@)."
+                )
+                return String(format: format, version)
+            }
             return String(
                 localized: "agentSkills.onboarding.alreadyInstalled",
                 defaultValue: "Already installed and up to date."
+            )
+        }
+        if row.hasOutdated {
+            if let version = row.sourceVersionLabel {
+                let format = String(
+                    localized: "agentSkills.onboarding.updateAvailableVersioned",
+                    defaultValue: "Older c11 skill installed. Install Now updates it to %@."
+                )
+                return String(format: format, version)
+            }
+            return String(
+                localized: "agentSkills.onboarding.updateAvailable",
+                defaultValue: "Older c11 skill installed. Install Now updates it."
+            )
+        }
+        if row.anyInstalled {
+            if let version = row.sourceVersionLabel {
+                let format = String(
+                    localized: "agentSkills.onboarding.partialInstalledVersioned",
+                    defaultValue: "Partially installed. Install Now completes %@."
+                )
+                return String(format: format, version)
+            }
+            return String(
+                localized: "agentSkills.onboarding.partialInstalled",
+                defaultValue: "Partially installed. Install Now completes the current skill set."
             )
         }
         return row.destinationDir.path
@@ -665,6 +773,14 @@ struct AgentSkillsOnboardingSheet: View {
         UserDefaults.standard.set(true, forKey: AgentSkillsOnboarding.sheetShownKey)
         onDismiss()
     }
+
+    private func applyDefaultOptIns(rows: [AgentSkillsModel.TargetRow]) {
+        let defaults = AgentSkillsOnboarding.defaultOptIns(for: rows)
+        claudeOptIn = defaults[.claude] ?? false
+        codexOptIn = defaults[.codex] ?? false
+        kimiOptIn = defaults[.kimi] ?? false
+        opencodeOptIn = defaults[.opencode] ?? false
+    }
 }
 
 // MARK: - Onboarding plumbing
@@ -689,9 +805,25 @@ enum AgentSkillsOnboarding {
         _dismissedThisLaunch
     }
 
-    /// Should the onboarding sheet be offered on this launch? True iff a
-    /// claude config dir exists AND at least one bundled package is not yet
-    /// installed in it AND the user hasn't already dismissed the sheet.
+    static func defaultOptIns(for rows: [AgentSkillsModel.TargetRow]) -> [SkillInstallerTarget: Bool] {
+        var result = Dictionary(uniqueKeysWithValues: SkillInstallerTarget.allCases.map { ($0, false) })
+        for row in rows {
+            result[row.target] = row.detected
+        }
+        return result
+    }
+
+    static func shouldOffer(for rows: [AgentSkillsModel.TargetRow]) -> Bool {
+        rows.contains { $0.detected && $0.needsInstallOrUpdate }
+    }
+
+    static func shouldOffer(for statuses: [SkillInstallerPackageStatus]) -> Bool {
+        !statuses.isEmpty && statuses.contains { $0.state == .notInstalled || $0.state == .installedOutdated }
+    }
+
+    /// Should the onboarding sheet be offered on this launch? True iff at
+    /// least one detected agent environment is missing the current bundled
+    /// skill set, and the user hasn't already dismissed the sheet.
     @MainActor static func shouldPresent(
         home: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         defaults: UserDefaults = .standard,
@@ -699,12 +831,18 @@ enum AgentSkillsOnboarding {
     ) -> Bool {
         if defaults.bool(forKey: sheetShownKey) { return false }
         if _dismissedThisLaunch { return false }
-        let target = SkillInstallerTarget.claude
-        guard target.isDetected(home: home, fileManager: fileManager) else { return false }
         guard let source = SkillInstaller.defaultSourceURL(executableURL: Bundle.main.executableURL) else { return false }
-        guard let statuses = try? SkillInstaller.status(for: target, home: home, sourceDir: source, fileManager: fileManager) else {
-            return false
+        for target in SkillInstallerTarget.allCases where target.isDetected(home: home, fileManager: fileManager) {
+            guard let statuses = try? SkillInstaller.status(
+                for: target,
+                home: home,
+                sourceDir: source,
+                fileManager: fileManager
+            ) else {
+                continue
+            }
+            if shouldOffer(for: statuses) { return true }
         }
-        return statuses.contains { $0.state == .notInstalled || $0.state == .installedOutdated }
+        return false
     }
 }
