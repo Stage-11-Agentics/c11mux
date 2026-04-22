@@ -44205,12 +44205,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Link interception changes where terminal URL actions land. Sidebar PR links are controlled on Workspace & Sidebar."
+            "value": "Link interception decides where terminal URL actions land. Sidebar PR links live on Workspace & Sidebar."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "リンクのインターセプトはターミナルのURL操作の行き先を変えます。サイドバーのPRリンクは「ワークスペースとサイドバー」で制御します。"
           }
         }
@@ -44222,12 +44222,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anonymous crash and usage data leaves this Mac only when this is on."
+            "value": "Anonymous crash and usage data leaves this Mac only when on."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "これがオンのときだけ、匿名のクラッシュデータと使用状況データがこのMacから送信されます。"
           }
         }
@@ -50304,108 +50304,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When enabled, c11 wraps the claude command to inject session tracking and notification hooks. Disable if you prefer to manage Claude Code hooks yourself."
+            "value": "Wraps the claude command to inject session tracking and notification hooks. Turn off to manage Claude Code hooks yourself."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "有効にすると、c11はclaudeコマンドをラップしてセッション追跡と通知フックを挿入します。Claude Codeのフックを自分で管理する場合は無効にしてください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "启用后，c11 会包装 claude 命令以注入会话跟踪和通知钩子。如果您希望自行管理 Claude Code 钩子，请禁用此选项。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "啟用後，c11 會包裝 claude 指令以注入工作階段追蹤和通知掛鉤。如果您偏好自行管理 Claude Code 掛鉤，請停用此選項。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "활성화하면 c11가 claude 명령을 래핑하여 세션 추적 및 알림 훅을 삽입합니다. Claude Code 훅을 직접 관리하려면 비활성화하세요."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Wenn aktiviert, umhüllt c11 den claude-Befehl, um Sitzungsverfolgung und Benachrichtigungs-Hooks einzufügen. Deaktivieren Sie dies, wenn Sie Claude Code-Hooks selbst verwalten möchten."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cuando está activado, c11 envuelve el comando claude para inyectar seguimiento de sesión y hooks de notificación. Desactiva si prefieres gestionar los hooks de Claude Code tú mismo."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Lorsque cette option est activée, c11 encapsule la commande claude pour injecter le suivi de session et les hooks de notification. Désactivez si vous préférez gérer les hooks Claude Code vous-même."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Quando abilitato, c11 avvolge il comando claude per iniettare il tracciamento della sessione e gli hook di notifica. Disabilita se preferisci gestire gli hook di Claude Code manualmente."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Når aktiveret, wrapper c11 claude-kommandoen for at injicere sessionssporing og notifikationshooks. Deaktiver, hvis du foretrækker at administrere Claude Code-hooks selv."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Po włączeniu c11 opakowuje polecenie claude, aby wstrzyknąć śledzenie sesji i hooki powiadomień. Wyłącz, jeśli wolisz samodzielnie zarządzać hookami Claude Code."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "При включении c11 оборачивает команду claude для отслеживания сеансов и уведомлений. Отключите, если предпочитаете управлять хуками Claude Code самостоятельно."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kada je omogućeno, c11 omotava naredbu claude kako bi ubacio praćenje sesije i zakačke za obavještenja. Onemogućite ako preferirate sami upravljati Claude Code zakačkama."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "عند التفعيل، يغلّف c11 أمر claude لحقن تتبع الجلسة وخطافات الإشعارات. قم بالتعطيل إذا كنت تفضل إدارة خطافات Claude Code بنفسك."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Når aktivert, pakker c11 inn claude-kommandoen for å injisere sesjonssporing og varslingsmekanismer. Deaktiver hvis du foretrekker å håndtere Claude Code-mekanismer selv."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Quando ativado, o c11 encapsula o comando claude para injetar rastreamento de sessão e hooks de notificação. Desative se preferir gerenciar os hooks do Claude Code você mesmo."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "เมื่อเปิดใช้งาน c11 จะห่อคำสั่ง claude เพื่อเพิ่มการติดตามเซสชันและตะขอการแจ้งเตือน ปิดใช้งานหากคุณต้องการจัดการตะขอ Claude Code ด้วยตัวเอง"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Etkinleştirildiğinde, c11 oturum izleme ve bildirim kancaları eklemek için claude komutunu sarar. Claude Code kancalarını kendiniz yönetmeyi tercih ediyorsanız devre dışı bırakın."
           }
         }
@@ -50869,108 +50869,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This disables ancestry and password checks and opens the socket to all local users. Only enable when you understand the risk."
+            "value": "Disables ancestry and password checks. Opens the socket to every local user on this Mac. Only enable if you understand the risk."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "これにより、祖先プロセスチェックとパスワードチェックが無効になり、すべてのローカルユーザーにソケットが公開されます。リスクを理解した上で有効にしてください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "这将禁用祖先和密码检查，并向所有本地用户开放套接字。请确保您了解其中的风险后再启用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "這將停用來源驗證和密碼檢查，並將 Socket 開放給所有本機使用者。請確認您了解風險後再啟用。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "이 설정은 출처 확인 및 비밀번호 검사를 비활성화하고 모든 로컬 사용자에게 소켓을 개방합니다. 위험을 이해한 경우에만 활성화하세요."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dies deaktiviert Abstammungs- und Passwortprüfungen und öffnet den Socket für alle lokalen Benutzer. Aktivieren Sie dies nur, wenn Sie das Risiko verstehen."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Esto desactiva las verificaciones de ascendencia y contraseña, y abre el socket a todos los usuarios locales. Activa solo si comprendes el riesgo."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cela désactive les vérifications de parenté et de mot de passe et ouvre le socket à tous les utilisateurs locaux. N'activez que si vous comprenez les risques."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Questa operazione disabilita i controlli di discendenza e password e apre il socket a tutti gli utenti locali. Abilita solo se comprendi il rischio."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dette deaktiverer herkomst- og adgangskodekontrol og åbner socketen for alle lokale brugere. Aktiver kun, når du forstår risikoen."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "To wyłącza sprawdzanie pochodzenia i hasła oraz otwiera gniazdo dla wszystkich lokalnych użytkowników. Włączaj tylko wtedy, gdy rozumiesz ryzyko."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Это отключает проверку происхождения и пароля и открывает сокет для всех локальных пользователей. Включайте только если понимаете риски."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Ovo onemogućava provjere porijekla i lozinke i otvara utičnicu svim lokalnim korisnicima. Omogućite samo kada razumijete rizik."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "يؤدي هذا إلى تعطيل فحوصات النسب وكلمة المرور ويفتح المقبس لجميع المستخدمين المحليين. قم بالتفعيل فقط عندما تفهم المخاطر."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dette deaktiverer opphavs- og passordkontroller og åpner socketen for alle lokale brukere. Aktiver bare når du forstår risikoen."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Isto desativa verificações de ancestralidade e senha e abre o socket para todos os usuários locais. Ative somente quando entender os riscos."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "การดำเนินการนี้จะปิดใช้งานการตรวจสอบสายสืบทอดและรหัสผ่าน และเปิดซ็อกเก็ตให้ผู้ใช้ในเครื่องทุกคน เปิดใช้งานเฉพาะเมื่อคุณเข้าใจความเสี่ยง"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Bu, soy ve parola denetimlerini devre dışı bırakır ve soketi tüm yerel kullanıcılara açar. Yalnızca riski anladığınızda etkinleştirin."
           }
         }
@@ -51095,108 +51095,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Warning: Full open access makes the control socket world-readable/writable on this Mac and disables auth checks. Use only for local debugging."
+            "value": "Warning: Full open access makes the control socket world-readable/writable on this Mac and disables auth checks. Local debugging only."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "警告: フルオープンアクセスにすると、このMac上の制御ソケットが誰でも読み書き可能になり、認証チェックが無効になります。ローカルデバッグ用途にのみ使用してください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "警告：完全开放访问将使控制套接字在此 Mac 上对所有用户可读/可写，并禁用身份验证检查。仅用于本地调试。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "警告：完全開放存取會讓控制 Socket 在此 Mac 上可被所有人讀寫，並停用驗證檢查。僅供本機除錯使用。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "경고: 전체 개방 접근은 이 Mac에서 제어 소켓을 누구나 읽고 쓸 수 있게 하며 인증 검사를 비활성화합니다. 로컬 디버깅 전용으로만 사용하세요."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Warnung: Vollständiger offener Zugriff macht den Steuerungs-Socket auf diesem Mac für alle les- und schreibbar und deaktiviert Authentifizierungsprüfungen. Nur für lokales Debugging verwenden."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Advertencia: El acceso abierto completo hace que el socket de control sea legible/escribible para todos en este Mac y desactiva las verificaciones de autenticación. Usa solo para depuración local."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Attention : l'accès ouvert complet rend le socket de contrôle lisible/inscriptible par tous sur ce Mac et désactive les vérifications d'authentification. À utiliser uniquement pour le débogage local."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Attenzione: l'accesso aperto completo rende il socket di controllo leggibile/scrivibile da tutti su questo Mac e disabilita i controlli di autenticazione. Usa solo per il debug locale."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Advarsel: Fuld åben adgang gør kontrolsocketen læsbar/skrivbar for alle på denne Mac og deaktiverer autentifikationskontrol. Brug kun til lokal fejlsøgning."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Ostrzeżenie: Pełny otwarty dostęp czyni gniazdo sterujące odczytywalnym/zapisywalnym dla wszystkich na tym Macu i wyłącza sprawdzanie uwierzytelniania. Używaj tylko do lokalnego debugowania."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Внимание: полный открытый доступ делает управляющий сокет доступным для чтения и записи всем пользователям на этом Mac и отключает проверку авторизации. Используйте только для локальной отладки."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Upozorenje: Potpuni otvoreni pristup čini kontrolnu utičnicu čitljivom/zapisivom za sve na ovom Macu i onemogućava provjere autentikacije. Koristite samo za lokalno debugiranje."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "تحذير: الوصول المفتوح الكامل يجعل مقبس التحكم قابلاً للقراءة والكتابة من الجميع على هذا الـ Mac ويعطل فحوصات المصادقة. استخدم فقط لأغراض التصحيح المحلي."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Advarsel: Full åpen tilgang gjør kontrollsocketen lese-/skrivbar for alle på denne Mac-en og deaktiverer autentiseringskontroller. Bruk kun for lokal feilsøking."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Aviso: O acesso aberto total torna o socket de controle legível/gravável por todos neste Mac e desativa verificações de autenticação. Use apenas para depuração local."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "คำเตือน: การเข้าถึงเปิดแบบเต็มทำให้ซ็อกเก็ตควบคุมอ่าน/เขียนได้จากทุกผู้ใช้บน Mac นี้และปิดใช้งานการตรวจสอบสิทธิ์ ใช้สำหรับการดีบักในเครื่องเท่านั้น"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Uyarı: Tam açık erişim, kontrol soketini bu Mac'te herkes tarafından okunabilir/yazılabilir yapar ve kimlik doğrulama denetimlerini devre dışı bırakır. Yalnızca yerel hata ayıklama için kullanın."
           }
         }
@@ -51208,108 +51208,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Each workspace gets CMUX_PORT and CMUX_PORT_END env vars with a dedicated port range. New terminals inherit these values."
+            "value": "Each workspace gets a dedicated port range via CMUX_PORT and CMUX_PORT_END. New terminals inherit them."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "各ワークスペースにはCMUX_PORTとCMUX_PORT_END環境変数で専用のポート範囲が割り当てられます。新しいターミナルはこれらの値を継承します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "每个工作区会获得 CMUX_PORT 和 CMUX_PORT_END 环境变量，包含专用的端口范围。新终端会继承这些值。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "每個工作區都會取得包含專用連接埠範圍的 CMUX_PORT 和 CMUX_PORT_END 環境變數。新終端機會繼承這些值。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "각 작업 공간에 전용 포트 범위가 있는 CMUX_PORT 및 CMUX_PORT_END 환경 변수가 할당됩니다. 새 터미널은 이 값을 상속합니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Jeder Arbeitsbereich erhält CMUX_PORT- und CMUX_PORT_END-Umgebungsvariablen mit einem dedizierten Portbereich. Neue Terminals erben diese Werte."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cada espacio de trabajo recibe las variables de entorno CMUX_PORT y CMUX_PORT_END con un rango de puertos dedicado. Los nuevos terminales heredan estos valores."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Chaque espace de travail reçoit les variables d'environnement CMUX_PORT et CMUX_PORT_END avec une plage de ports dédiée. Les nouveaux terminaux héritent de ces valeurs."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Ogni area di lavoro riceve le variabili d'ambiente CMUX_PORT e CMUX_PORT_END con un intervallo di porte dedicato. I nuovi terminali ereditano questi valori."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Hvert arbejdsområde får CMUX_PORT og CMUX_PORT_END miljøvariabler med et dedikeret portområde. Nye terminaler arver disse værdier."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Każda przestrzeń robocza otrzymuje zmienne środowiskowe CMUX_PORT i CMUX_PORT_END z dedykowanym zakresem portów. Nowe terminale dziedziczą te wartości."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Каждое рабочее пространство получает переменные окружения CMUX_PORT и CMUX_PORT_END с выделенным диапазоном портов. Новые терминалы наследуют эти значения."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Svaki radni prostor dobija CMUX_PORT i CMUX_PORT_END varijable okruženja sa dodijeljenim rasponom portova. Novi terminali nasljeđuju ove vrijednosti."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "تحصل كل مساحة عمل على متغيرات البيئة CMUX_PORT و CMUX_PORT_END مع نطاق منافذ مخصص. ترث الطرفيات الجديدة هذه القيم."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Hvert arbeidsområde får CMUX_PORT- og CMUX_PORT_END-miljøvariabler med et dedikert portområde. Nye terminaler arver disse verdiene."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cada área de trabalho recebe as variáveis de ambiente CMUX_PORT e CMUX_PORT_END com uma faixa de portas dedicada. Novos terminais herdam esses valores."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "แต่ละเวิร์กสเปซจะได้รับตัวแปรสภาพแวดล้อม CMUX_PORT และ CMUX_PORT_END พร้อมช่วงพอร์ตเฉพาะ เทอร์มินัลใหม่จะสืบทอดค่าเหล่านี้"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Her çalışma alanı ayrılmış bir port aralığıyla CMUX_PORT ve CMUX_PORT_END ortam değişkenlerini alır. Yeni terminaller bu değerleri devralır."
           }
         }
@@ -51434,108 +51434,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Starting port for CMUX_PORT env var."
+            "value": "Starting port for CMUX_PORT."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "CMUX_PORT環境変数の開始ポート。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "CMUX_PORT 环境变量的起始端口。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "CMUX_PORT 環境變數的起始連接埠。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "CMUX_PORT 환경 변수의 시작 포트."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Startport für die CMUX_PORT-Umgebungsvariable."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Puerto inicial para la variable de entorno CMUX_PORT."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Port de départ pour la variable d'environnement CMUX_PORT."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Porta iniziale per la variabile d'ambiente CMUX_PORT."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Startport for CMUX_PORT-miljøvariabel."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Port początkowy dla zmiennej środowiskowej CMUX_PORT."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Начальный порт для переменной окружения CMUX_PORT."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Početni port za CMUX_PORT varijablu okruženja."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "المنفذ الابتدائي لمتغير البيئة CMUX_PORT."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Startport for CMUX_PORT-miljøvariabelen."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Porta inicial para a variável de ambiente CMUX_PORT."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "พอร์ตเริ่มต้นสำหรับตัวแปรสภาพแวดล้อม CMUX_PORT"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "CMUX_PORT ortam değişkeni için başlangıç portu."
           }
         }
@@ -51660,108 +51660,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Number of ports per workspace."
+            "value": "Ports per workspace."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ワークスペースあたりのポート数。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "每个工作区的端口数量。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "每個工作區的連接埠數量。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "작업 공간당 포트 수."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Anzahl der Ports pro Arbeitsbereich."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Número de puertos por espacio de trabajo."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Nombre de ports par espace de travail."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Numero di porte per area di lavoro."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Antal porte pr. arbejdsområde."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Liczba portów na przestrzeń roboczą."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Количество портов на рабочее пространство."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Broj portova po radnom prostoru."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "عدد المنافذ لكل مساحة عمل."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Antall porter per arbeidsområde."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Número de portas por área de trabalho."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "จำนวนพอร์ตต่อเวิร์กสเปซ"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Çalışma alanı başına port sayısı."
           }
         }
@@ -51886,108 +51886,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Socket modes decide which local processes can drive c11. Automation and password modes widen access beyond c11-launched processes."
+            "value": "Socket modes decide which local processes can drive c11. Automation and password widen access beyond c11-launched processes."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ソケットモードは、どのローカルプロセスがc11を操作できるかを決めます。オートメーションモードとパスワードモードは、c11から起動したプロセス以外にもアクセスを広げます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "控制本地 Unix 套接字的访问权限，用于程序化控制。请选择与您的安全需求匹配的模式。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "控制本機 Unix Socket 的程式化控制存取。選擇符合您安全需求的模式。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "프로그래밍 방식 제어를 위한 로컬 Unix 소켓 접근을 제어합니다. 보안 모델에 맞는 모드를 선택하세요."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Steuert den Zugriff auf den lokalen Unix-Socket für programmatische Steuerung. Wählen Sie einen Modus, der Ihrem Bedrohungsmodell entspricht."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Controla el acceso al socket Unix local para control programático. Elige un modo que coincida con tu modelo de amenazas."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Contrôle l'accès au socket Unix local pour le contrôle programmatique. Choisissez un mode adapté à votre modèle de menace."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Controlla l'accesso al socket Unix locale per il controllo programmatico. Scegli una modalità adeguata al tuo modello di rischio."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Styrer adgangen til den lokale Unix-socket til programmatisk kontrol. Vælg en tilstand, der passer til din trusselsmodel."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kontroluje dostęp do lokalnego gniazda Unix do programowego sterowania. Wybierz tryb odpowiadający Twojemu modelowi zagrożeń."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Управляет доступом к локальному Unix-сокету для программного управления. Выберите режим, соответствующий вашей модели угроз."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kontroliše pristup lokalnoj Unix utičnici za programsku kontrolu. Odaberite režim koji odgovara vašem modelu prijetnji."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "يتحكم بالوصول إلى مقبس Unix المحلي للتحكم البرمجي. اختر الوضع الذي يتناسب مع نموذج التهديد الخاص بك."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Styrer tilgang til den lokale Unix-socketen for programmatisk kontroll. Velg en modus som passer til din trusselmodell."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Controla o acesso ao socket Unix local para controle programático. Escolha um modo que corresponda ao seu modelo de ameaça."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ควบคุมการเข้าถึงซ็อกเก็ต Unix ในเครื่องสำหรับการควบคุมแบบโปรแกรม เลือกโหมดที่ตรงกับรูปแบบภัยคุกคามของคุณ"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Programatik kontrol için yerel Unix soketine erişimi kontrol eder. Tehdit modelinize uyan bir mod seçin."
           }
         }
@@ -53355,108 +53355,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No password set. External clients will be blocked until one is configured."
+            "value": "No password set. External clients stay blocked until one is configured."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "パスワードが設定されていません。設定するまで外部クライアントはブロックされます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "未设置密码。外部客户端将被阻止，直到配置密码为止。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "尚未設定密碼。外部用戶端將被封鎖，直到設定密碼為止。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "비밀번호가 설정되지 않았습니다. 비밀번호를 구성하기 전까지 외부 클라이언트가 차단됩니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kein Passwort festgelegt. Externe Clients werden blockiert, bis eines konfiguriert ist."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "No se ha establecido contraseña. Los clientes externos serán bloqueados hasta que se configure una."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Aucun mot de passe défini. Les clients externes seront bloqués tant qu'un mot de passe n'aura pas été configuré."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Nessuna password impostata. I client esterni verranno bloccati finché non ne viene configurata una."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Ingen adgangskode angivet. Eksterne klienter blokeres, indtil en er konfigureret."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Hasło nie jest ustawione. Klienty zewnętrzne będą blokowane, dopóki nie zostanie skonfigurowane."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Пароль не установлен. Внешние клиенты будут заблокированы, пока он не будет настроен."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Lozinka nije postavljena. Vanjski klijenti će biti blokirani dok se ne konfiguriše."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "لم يتم تعيين كلمة مرور. سيتم حظر العملاء الخارجيين حتى يتم تكوين واحدة."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Ingen passord angitt. Eksterne klienter vil bli blokkert inntil et passord er konfigurert."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Nenhuma senha definida. Clientes externos serão bloqueados até que uma seja configurada."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ยังไม่ได้ตั้งรหัสผ่าน ไคลเอ็นต์ภายนอกจะถูกบล็อกจนกว่าจะกำหนดค่า"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Parola ayarlanmadı. Bir parola yapılandırılana kadar harici istemciler engellenecek."
           }
         }
@@ -53841,108 +53841,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Applies to terminal link clicks and intercepted `open https://...` calls. One rule per line. Plain text matches any URL substring, or prefix with `re:` for regex (for example: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
+            "value": "Applies to terminal link clicks and intercepted `open https://...` calls. One rule per line. Plain text matches any URL substring; prefix with `re:` for regex (example: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ターミナルのリンククリックおよびインターセプトされた`open https://...`呼び出しに適用されます。1行に1ルール。プレーンテキストはURL部分文字列に一致し、`re:`プレフィックスで正規表現を使用できます（例: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage)）。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "适用于终端中的链接点击和拦截的 `open https://...` 调用。每行一条规则。纯文本匹配任意 URL 子串，或使用 `re:` 前缀表示正则表达式（例如：openai.com/usage、re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage)）。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "套用於終端機連結點擊和攔截的 `open https://...` 呼叫。每行一條規則。純文字會比對 URL 的任何子字串，或加上 `re:` 前綴使用正規表示式（例如：openai.com/usage、re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage)）。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "터미널 링크 클릭 및 인터셉트된 `open https://...` 호출에 적용됩니다. 한 줄에 하나의 규칙. 일반 텍스트는 URL의 하위 문자열을 일치시키며, `re:` 접두사로 정규식을 사용할 수 있습니다 (예: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Gilt für Klicks auf Terminal-Links und abgefangene `open https://...`-Aufrufe. Eine Regel pro Zeile. Klartext stimmt mit jedem URL-Teilstring überein, oder verwenden Sie das Präfix `re:` für Regex (zum Beispiel: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Se aplica a clics en enlaces del terminal y llamadas interceptadas de `open https://...`. Una regla por línea. El texto plano coincide con cualquier subcadena de URL, o usa el prefijo `re:` para regex (por ejemplo: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "S'applique aux clics sur les liens du terminal et aux appels `open https://...` interceptés. Une règle par ligne. Le texte brut correspond à toute sous-chaîne d'URL, ou préfixez par `re:` pour une expression régulière (par exemple : openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Si applica ai clic sui link nel terminale e alle chiamate intercettate `open https://...`. Una regola per riga. Il testo semplice corrisponde a qualsiasi sottostringa dell'URL, oppure usa il prefisso `re:` per le regex (ad esempio: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Gælder for terminallinksklik og opfangede `open https://...`-kald. Én regel pr. linje. Almindelig tekst matcher enhver URL-delstreng, eller brug `re:` som præfiks for regex (f.eks.: openai.com/usage, re:^https?://[^/]*\\.example\\.com/(billing|usage))."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dotyczy kliknięć linków w terminalu i przechwyconych wywołań `open https://...`. Jedna reguła na wiersz. Zwykły tekst dopasowuje dowolny fragment URL, lub użyj prefiksu `re:` dla wyrażeń regularnych (na przykład: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Применяется к нажатиям на ссылки в терминале и перехваченным вызовам `open https://...`. Одно правило на строку. Обычный текст совпадает с любой подстрокой URL, или используйте префикс `re:` для регулярных выражений (например: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Primjenjuje se na klikove linkova u terminalu i presretnute `open https://...` pozive. Jedno pravilo po redu. Običan tekst odgovara bilo kojem dijelu URL-a, ili dodajte prefiks `re:` za regex (na primjer: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ينطبق على نقرات الروابط في الطرفية واستدعاءات `open https://...` المعترضة. قاعدة واحدة لكل سطر. النص العادي يطابق أي جزء من URL، أو ابدأ بـ `re:` للتعبيرات النمطية (مثال: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Gjelder for terminallenkeklikk og avlyttede `open https://...`-kall. Én regel per linje. Ren tekst matcher enhver del av URL-en, eller prefiks med `re:` for regulære uttrykk (for eksempel: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Aplica-se a cliques em links do terminal e chamadas interceptadas de `open https://...`. Uma regra por linha. Texto simples corresponde a qualquer substring de URL, ou prefixe com `re:` para regex (por exemplo: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ใช้กับการคลิกลิงก์ในเทอร์มินัลและการดักจับคำสั่ง `open https://...` กฎหนึ่งข้อต่อบรรทัด ข้อความธรรมดาจะจับคู่กับส่วนใดก็ได้ของ URL หรือนำหน้าด้วย `re:` สำหรับ regex (ตัวอย่าง: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Terminal bağlantı tıklamalarına ve yakalanan `open https://...` çağrılarına uygulanır. Satır başına bir kural. Düz metin herhangi bir URL alt dizesiyle eşleşir veya regex için `re:` ön ekini kullanın (örneğin: openai.com/usage, re:^https?://[^/]*\\\\.example\\\\.com/(billing|usage))."
           }
         }
@@ -54406,108 +54406,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This removes visited-page suggestions from the browser omnibar."
+            "value": "Removes visited-page suggestions from the omnibar."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ブラウザのオムニバーから訪問済みページの候補が削除されます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "这将从浏览器地址栏中移除已访问页面的建议。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "這會移除瀏覽器網址列中已造訪頁面的建議。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "브라우저 옴니바에서 방문 페이지 제안을 제거합니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dies entfernt Vorschläge für besuchte Seiten aus der Browser-Adressleiste."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Esto elimina las sugerencias de páginas visitadas de la barra de direcciones del navegador."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cela supprime les suggestions de pages visitées de la barre d'adresse du navigateur."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Questa operazione rimuove i suggerimenti delle pagine visitate dalla barra degli indirizzi del browser."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dette fjerner besøgte sideforslag fra browserens omnibar."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Spowoduje to usunięcie podpowiedzi odwiedzonych stron z paska adresu przeglądarki."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Это удалит подсказки посещенных страниц из адресной строки браузера."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Ovo uklanja prijedloge posjećenih stranica iz omnibar preglednika."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "يؤدي هذا إلى إزالة اقتراحات الصفحات المزارة من شريط عنوان المتصفح."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dette fjerner forslag basert på besøkte sider fra nettleserens adressefelt."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Isto remove as sugestões de páginas visitadas da barra de endereço do navegador."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "การดำเนินการนี้จะลบคำแนะนำหน้าที่เยี่ยมชมจากแถบที่อยู่เบราว์เซอร์"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Bu, tarayıcı çok amaçlı çubuğundan ziyaret edilen sayfa önerilerini kaldırır."
           }
         }
@@ -55084,108 +55084,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Applies to terminal link clicks and intercepted `open https://...` calls. Only these hosts open in c11. Others open in your default browser. One host or wildcard per line (for example: example.com, *.internal.example). Leave empty to open all hosts in c11."
+            "value": "Applies to terminal link clicks and intercepted `open https://...` calls. Only these hosts open in c11; the rest go to your default browser. One host or wildcard per line (example: example.com, *.internal.example). Leave empty to open every host in c11."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ターミナルのリンククリックおよびインターセプトされた`open https://...`呼び出しに適用されます。これらのホストのみc11で開きます。その他はデフォルトブラウザで開きます。1行に1つのホストまたはワイルドカード（例: example.com, *.internal.example）。空欄にするとすべてのホストをc11で開きます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "适用于终端中的链接点击和拦截的 `open https://...` 调用。仅这些主机在 c11 中打开，其他主机在默认浏览器中打开。每行一个主机或通配符（例如：example.com、*.internal.example）。留空则在 c11 中打开所有主机。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "套用於終端機連結點擊和攔截的 `open https://...` 呼叫。僅這些主機會在 c11 中開啟，其他主機會在您的預設瀏覽器中開啟。每行一個主機或萬用字元（例如：example.com、*.internal.example）。留空則在 c11 中開啟所有主機。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "터미널 링크 클릭 및 인터셉트된 `open https://...` 호출에 적용됩니다. 이 호스트만 c11에서 열립니다. 나머지는 기본 브라우저에서 열립니다. 한 줄에 하나의 호스트 또는 와일드카드 (예: example.com, *.internal.example). 비워두면 모든 호스트가 c11에서 열립니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Gilt für Klicks auf Terminal-Links und abgefangene `open https://...`-Aufrufe. Nur diese Hosts werden in c11 geöffnet. Andere werden in Ihrem Standardbrowser geöffnet. Ein Host oder Platzhalter pro Zeile (zum Beispiel: example.com, *.internal.example). Leer lassen, um alle Hosts in c11 zu öffnen."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Se aplica a clics en enlaces del terminal y llamadas interceptadas de `open https://...`. Solo estos hosts se abren en c11. Los demás se abren en tu navegador predeterminado. Un host o comodín por línea (por ejemplo: example.com, *.internal.example). Déjalo vacío para abrir todos los hosts en c11."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "S'applique aux clics sur les liens du terminal et aux appels `open https://...` interceptés. Seuls ces hôtes s'ouvrent dans c11. Les autres s'ouvrent dans votre navigateur par défaut. Un hôte ou caractère générique par ligne (par exemple : example.com, *.internal.example). Laissez vide pour ouvrir tous les hôtes dans c11."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Si applica ai clic sui link nel terminale e alle chiamate intercettate `open https://...`. Solo questi host si aprono in c11. Gli altri si aprono nel browser predefinito. Un host o wildcard per riga (ad esempio: example.com, *.internal.example). Lascia vuoto per aprire tutti gli host in c11."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Gælder for terminallinksklik og opfangede `open https://...`-kald. Kun disse værter åbnes i c11. Andre åbnes i din standardbrowser. Én vært eller wildcard pr. linje (f.eks.: example.com, *.internal.example). Lad stå tomt for at åbne alle værter i c11."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dotyczy kliknięć linków w terminalu i przechwyconych wywołań `open https://...`. Tylko te hosty otwierają się w c11. Pozostałe otwierają się w domyślnej przeglądarce. Jeden host lub wzorzec na wiersz (na przykład: example.com, *.internal.example). Pozostaw puste, aby otwierać wszystkie hosty w c11."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Применяется к нажатиям на ссылки в терминале и перехваченным вызовам `open https://...`. Только эти хосты открываются в c11. Остальные открываются в браузере по умолчанию. Один хост или шаблон на строку (например: example.com, *.internal.example). Оставьте пустым, чтобы открывать все хосты в c11."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Primjenjuje se na klikove linkova u terminalu i presretnute `open https://...` pozive. Samo se ovi hostovi otvaraju u c11. Ostali se otvaraju u podrazumijevanom pregledniku. Jedan host ili zamjenski znak po redu (na primjer: example.com, *.internal.example). Ostavite prazno da otvorite sve hostove u c11."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ينطبق على نقرات الروابط في الطرفية واستدعاءات `open https://...` المعترضة. فقط هؤلاء المضيفون يفتحون في c11. البقية تفتح في متصفحك الافتراضي. مضيف واحد أو حرف بدل لكل سطر (مثال: example.com, *.internal.example). اتركه فارغًا لفتح جميع المضيفين في c11."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Gjelder for terminallenkeklikk og avlyttede `open https://...`-kall. Bare disse vertene åpnes i c11. Andre åpnes i standard nettleser. Én vert eller jokertegn per linje (for eksempel: example.com, *.internal.example). La stå tom for å åpne alle verter i c11."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Aplica-se a cliques em links do terminal e chamadas interceptadas de `open https://...`. Apenas estes hosts abrem no c11. Outros abrem no seu navegador padrão. Um host ou curinga por linha (por exemplo: example.com, *.internal.example). Deixe vazio para abrir todos os hosts no c11."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ใช้กับการคลิกลิงก์ในเทอร์มินัลและการดักจับคำสั่ง `open https://...` เฉพาะโฮสต์เหล่านี้เท่านั้นที่จะเปิดใน c11 โฮสต์อื่นจะเปิดในเบราว์เซอร์เริ่มต้นของคุณ โฮสต์หรือ wildcard หนึ่งรายการต่อบรรทัด (ตัวอย่าง: example.com, *.internal.example) เว้นว่างเพื่อเปิดโฮสต์ทั้งหมดใน c11"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Terminal bağlantı tıklamalarına ve yakalanan `open https://...` çağrılarına uygulanır. Yalnızca bu ana bilgisayarlar c11'ta açılır. Diğerleri varsayılan tarayıcınızda açılır. Satır başına bir ana bilgisayar veya joker karakter (örneğin: example.com, *.internal.example). Tüm ana bilgisayarları c11'ta açmak için boş bırakın."
           }
         }
@@ -55310,108 +55310,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Controls which HTTP (non-HTTPS) hosts can open in c11 without a warning prompt. Defaults include localhost, 127.0.0.1, ::1, 0.0.0.0, and *.localtest.me."
+            "value": "Which HTTP (non-HTTPS) hosts open in c11 without a warning. Defaults: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "警告プロンプトなしでc11で開けるHTTP（非HTTPS）ホストを制御します。デフォルトにはlocalhost、127.0.0.1、::1、0.0.0.0、*.localtest.meが含まれます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "控制哪些 HTTP（非 HTTPS）主机可以在 c11 中打开而不显示警告提示。默认包括 localhost、127.0.0.1、::1、0.0.0.0 和 *.localtest.me。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "控制哪些 HTTP（非 HTTPS）主機可以在 c11 中開啟而不顯示警告提示。預設包含 localhost、127.0.0.1、::1、0.0.0.0 和 *.localtest.me。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "c11에서 경고 없이 열 수 있는 HTTP(비HTTPS) 호스트를 제어합니다. 기본값에는 localhost, 127.0.0.1, ::1, 0.0.0.0 및 *.localtest.me가 포함됩니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Steuert, welche HTTP-Hosts (nicht HTTPS) ohne Warnhinweis in c11 geöffnet werden können. Standardmäßig enthalten: localhost, 127.0.0.1, ::1, 0.0.0.0 und *.localtest.me."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Controla qué hosts HTTP (no HTTPS) pueden abrirse en c11 sin un mensaje de advertencia. Los valores predeterminados incluyen localhost, 127.0.0.1, ::1, 0.0.0.0 y *.localtest.me."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Contrôle quels hôtes HTTP (non HTTPS) peuvent s'ouvrir dans c11 sans avertissement. Les valeurs par défaut incluent localhost, 127.0.0.1, ::1, 0.0.0.0 et *.localtest.me."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Controlla quali host HTTP (non HTTPS) possono aprirsi in c11 senza un avviso. I valori predefiniti includono localhost, 127.0.0.1, ::1, 0.0.0.0 e *.localtest.me."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Styrer hvilke HTTP-værter (ikke-HTTPS) der kan åbnes i c11 uden advarselsmeddelelse. Standardindstillinger inkluderer localhost, 127.0.0.1, ::1, 0.0.0.0 og *.localtest.me."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Określa, które hosty HTTP (inne niż HTTPS) mogą być otwierane w c11 bez ostrzeżenia. Domyślnie uwzględniono localhost, 127.0.0.1, ::1, 0.0.0.0 i *.localtest.me."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Определяет, какие HTTP (не HTTPS) хосты могут открываться в c11 без предупреждения. По умолчанию включены localhost, 127.0.0.1, ::1, 0.0.0.0 и *.localtest.me."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kontroliše koji HTTP (ne-HTTPS) hostovi mogu biti otvoreni u c11 bez upozorenja. Podrazumijevani uključuju localhost, 127.0.0.1, ::1, 0.0.0.0 i *.localtest.me."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "يتحكم في مضيفي HTTP (غير HTTPS) الذين يمكنهم الفتح في c11 بدون رسالة تحذير. الافتراضيات تشمل localhost و 127.0.0.1 و ::1 و 0.0.0.0 و *.localtest.me."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Styrer hvilke HTTP-verter (ikke HTTPS) som kan åpnes i c11 uten advarselsmelding. Standardverdier inkluderer localhost, 127.0.0.1, ::1, 0.0.0.0 og *.localtest.me."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Controla quais hosts HTTP (não HTTPS) podem abrir no c11 sem um aviso. Os padrões incluem localhost, 127.0.0.1, ::1, 0.0.0.0 e *.localtest.me."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ควบคุมว่าโฮสต์ HTTP (ไม่ใช่ HTTPS) ใดที่สามารถเปิดใน c11 โดยไม่ต้องแสดงคำเตือน ค่าเริ่มต้นรวมถึง localhost, 127.0.0.1, ::1, 0.0.0.0 และ *.localtest.me"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Hangi HTTP (HTTPS olmayan) ana bilgisayarlarının c11'ta uyarı istemi olmadan açılabileceğini kontrol eder. Varsayılanlar localhost, 127.0.0.1, ::1, 0.0.0.0 ve *.localtest.me içerir."
           }
         }
@@ -55423,108 +55423,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One host or wildcard per line (for example: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
+            "value": "One host or wildcard per line (example: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "1行に1つのホストまたはワイルドカード（例: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me）。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "每行一个主机或通配符（例如：localhost、127.0.0.1、::1、0.0.0.0、*.localtest.me）。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "每行一個主機或萬用字元（例如：localhost、127.0.0.1、::1、0.0.0.0、*.localtest.me）。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "한 줄에 하나의 호스트 또는 와일드카드 (예: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Ein Host oder Platzhalter pro Zeile (zum Beispiel: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Un host o comodín por línea (por ejemplo: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Un hôte ou caractère générique par ligne (par exemple : localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Un host o wildcard per riga (ad esempio: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Én vært eller wildcard pr. linje (f.eks.: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Jeden host lub wzorzec na wiersz (na przykład: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Один хост или шаблон на строку (например: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Jedan host ili zamjenski znak po redu (na primjer: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "مضيف واحد أو حرف بدل لكل سطر (مثال: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Én vert eller jokertegn per linje (for eksempel: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Um host ou curinga por linha (por exemplo: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "โฮสต์หรือ wildcard หนึ่งรายการต่อบรรทัด (ตัวอย่าง: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Satır başına bir ana bilgisayar veya joker karakter (örneğin: localhost, 127.0.0.1, ::1, 0.0.0.0, *.localtest.me)."
           }
         }
@@ -55706,12 +55706,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Blank tabs are currently using Settings only mode from the debug window."
+            "value": "Blank tabs are on Settings-only mode from the debug window."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "現在、空タブはデバッグウィンドウの「設定のみ」モードになっています。"
           }
         }
@@ -55887,108 +55887,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When off, `open https://...` and `open http://...` always use your default browser."
+            "value": "Off: `open https://...` and `open http://...` go to your default browser."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "オフの場合、`open https://...`および`open http://...`は常にデフォルトブラウザを使用します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "关闭后，`open https://...` 和 `open http://...` 始终使用默认浏览器。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "關閉時，`open https://...` 和 `open http://...` 一律使用您的預設瀏覽器。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "비활성화하면 `open https://...` 및 `open http://...`가 항상 기본 브라우저를 사용합니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Wenn deaktiviert, verwenden `open https://...` und `open http://...` immer Ihren Standardbrowser."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cuando está desactivado, `open https://...` y `open http://...` siempre usan tu navegador predeterminado."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Lorsque désactivé, `open https://...` et `open http://...` utilisent toujours votre navigateur par défaut."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Quando disattivato, `open https://...` e `open http://...` usano sempre il browser predefinito."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Når deaktiveret, bruger `open https://...` og `open http://...` altid din standardbrowser."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Po wyłączeniu `open https://...` i `open http://...` zawsze używają domyślnej przeglądarki."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "При отключении `open https://...` и `open http://...` всегда используют браузер по умолчанию."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kada je isključeno, `open https://...` i `open http://...` uvijek koriste podrazumijevani preglednik."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "عند التعطيل، يستخدم `open https://...` و `open http://...` دائمًا متصفحك الافتراضي."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Når av, bruker `open https://...` og `open http://...` alltid standard nettleser."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Quando desativado, `open https://...` e `open http://...` sempre usam seu navegador padrão."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "เมื่อปิด `open https://...` และ `open http://...` จะใช้เบราว์เซอร์เริ่มต้นของคุณเสมอ"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kapalıyken, `open https://...` ve `open http://...` her zaman varsayılan tarayıcınızı kullanır."
           }
         }
@@ -56113,108 +56113,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When off, links clicked in terminal output open in your default browser."
+            "value": "Off: terminal-output links open in your default browser."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "オフの場合、ターミナル出力のリンクはデフォルトブラウザで開きます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "关闭后，终端输出中点击的链接在默认浏览器中打开。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "關閉時，終端機輸出中點擊的連結會在您的預設瀏覽器中開啟。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "비활성화하면 터미널 출력에서 클릭한 링크가 기본 브라우저에서 열립니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Wenn deaktiviert, werden im Terminal angeklickte Links in Ihrem Standardbrowser geöffnet."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cuando está desactivado, los enlaces en la salida del terminal se abren en tu navegador predeterminado."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Lorsque désactivé, les liens cliqués dans la sortie du terminal s'ouvrent dans votre navigateur par défaut."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Quando disattivato, i link cliccati nell'output del terminale si aprono nel browser predefinito."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Når deaktiveret, åbnes links, der klikkes i terminaloutput, i din standardbrowser."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Po wyłączeniu linki kliknięte w terminalu otwierają się w domyślnej przeglądarce."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "При отключении ссылки из терминала открываются в браузере по умолчанию."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kada je isključeno, linkovi kliknuti u izlazu terminala se otvaraju u podrazumijevanom pregledniku."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "عند التعطيل، تفتح الروابط المنقورة في مخرجات الطرفية في متصفحك الافتراضي."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Når av, åpnes lenker som klikkes i terminalutdata i standard nettleser."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Quando desativado, links clicados na saída do terminal abrem no seu navegador padrão."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "เมื่อปิด ลิงก์ที่คลิกในเอาต์พุตเทอร์มินัลจะเปิดในเบราว์เซอร์เริ่มต้นของคุณ"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kapalıyken, terminal çıktısında tıklanan bağlantılar varsayılan tarayıcınızda açılır."
           }
         }
@@ -56339,108 +56339,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Used by the browser address bar when input is not a URL."
+            "value": "Used when address-bar input isn't a URL."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ブラウザのアドレスバーで入力がURLでない場合に使用されます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "浏览器地址栏中输入非 URL 内容时使用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "當瀏覽器網址列的輸入不是 URL 時使用。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "입력이 URL이 아닌 경우 브라우저 주소 표시줄에서 사용됩니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Wird von der Browser-Adressleiste verwendet, wenn die Eingabe keine URL ist."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Usado por la barra de direcciones del navegador cuando la entrada no es una URL."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Utilisé par la barre d'adresse du navigateur lorsque la saisie n'est pas une URL."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Utilizzato dalla barra degli indirizzi del browser quando l'input non è un URL."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Bruges af browserens adresselinje, når input ikke er en URL."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Używana przez pasek adresu przeglądarki, gdy dane wejściowe nie są adresem URL."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Используется адресной строкой браузера, когда ввод не является URL."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Koristi se u adresnoj traci preglednika kada unos nije URL."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "يُستخدم بواسطة شريط عنوان المتصفح عندما لا يكون الإدخال URL."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Brukes av adressefeltet i nettleseren når inndataen ikke er en URL."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Usado pela barra de endereço do navegador quando a entrada não é uma URL."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ใช้โดยแถบที่อยู่เบราว์เซอร์เมื่ออินพุตไม่ใช่ URL"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Giriş bir URL olmadığında tarayıcı adres çubuğu tarafından kullanılır."
           }
         }
@@ -56678,108 +56678,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ forces that color scheme for compatible pages."
+            "value": "%@ forces that color scheme on compatible pages."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@は対応ページにそのカラースキームを強制します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ 为兼容页面强制使用该配色方案。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ 會為相容的頁面強制套用該色彩配置。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@은(는) 호환 페이지에 해당 색상 구성표를 강제 적용합니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ erzwingt dieses Farbschema für kompatible Seiten."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ fuerza ese esquema de colores para las páginas compatibles."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ impose ce jeu de couleurs aux pages compatibles."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ impone quello schema di colori per le pagine compatibili."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ tvinger det farveskema for kompatible sider."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ wymusza ten schemat kolorów dla zgodnych stron."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ принудительно применяет эту цветовую схему для совместимых страниц."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ nameće tu shemu boja za kompatibilne stranice."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ يفرض نظام الألوان هذا للصفحات المتوافقة."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ tvinger det fargeskjemaet for kompatible sider."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ força esse esquema de cores para páginas compatíveis."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ บังคับใช้โทนสีนั้นสำหรับหน้าที่รองรับ"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ uyumlu sayfalar için bu renk şemasını zorlar."
           }
         }
@@ -56791,108 +56791,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "System follows app and macOS appearance."
+            "value": "System follows the app and macOS appearance."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "システムはアプリとmacOSの外観に従います。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "系统跟随应用和 macOS 外观。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "「系統」會跟隨 App 和 macOS 外觀。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "시스템은 앱 및 macOS 외관을 따릅니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "System folgt der App- und macOS-Darstellung."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Sistema sigue la apariencia de la app y macOS."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Système suit l'apparence de l'app et de macOS."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Sistema segue l'aspetto dell'app e di macOS."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "System følger app- og macOS-udseende."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Systemowy podąża za wyglądem aplikacji i macOS."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Системная тема следует за оформлением приложения и macOS."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Sistemski prati izgled aplikacije i macOS."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "النظام يتبع مظهر التطبيق و macOS."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "System følger app- og macOS-utseende."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Sistema segue a aparência do app e do macOS."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ระบบจะตามธีมแอปและรูปลักษณ์ macOS"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Sistem, uygulama ve macOS görünümünü takip eder."
           }
         }
@@ -59966,12 +59966,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Resets language, app behavior, browser routing and import hints, notification preferences, sidebar details and tint, shortcuts, TextBox input, and workspace colors."
+            "value": "Resets language, app behavior, browser routing, import hints, notifications, sidebar detail and tint, shortcuts, TextBox input, and workspace colors."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "言語、アプリ動作、ブラウザのルーティングとインポートヒント、通知設定、サイドバー詳細と色合い、ショートカット、TextBox入力、ワークスペースカラーをリセットします。"
           }
         }
@@ -59983,12 +59983,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reset Settings does not clear c11 theme slots, port ranges, browser history, socket password files, agent skill install state, or macOS notification permission. Clear browser history above; change the rest where it lives."
+            "value": "Reset Settings leaves c11 theme slots, port ranges, browser history, socket password files, agent skill install state, and macOS notification permission alone. Clear browser history above; change the rest where it lives."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "「設定をリセット」は、c11テーマスロット、ポート範囲、ブラウザ履歴、ソケットパスワードファイル、エージェントスキルのインストール状態、macOS通知権限を消去しません。ブラウザ履歴は上で消去し、それ以外はそれぞれの場所で変更してください。"
           }
         }
@@ -61284,108 +61284,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Click a shortcut value to record a new shortcut."
+            "value": "Click a shortcut value to record a new one."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ショートカット値をクリックして新しいショートカットを記録します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "点击快捷键值以录制新快捷键。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "按一下快速鍵值以錄製新的快速鍵。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "단축키 값을 클릭하여 새 단축키를 기록하세요."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Klicken Sie auf einen Kurzbefehlswert, um einen neuen Kurzbefehl aufzunehmen."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Haz clic en un valor de atajo para grabar un nuevo atajo."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cliquez sur une valeur de raccourci pour en enregistrer un nouveau."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Fai clic su un valore di scorciatoia per registrarne una nuova."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Klik på en genvejsværdi for at optage en ny genvej."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kliknij wartość skrótu, aby nagrać nowy skrót."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Нажмите на значение сочетания, чтобы записать новое."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Kliknite na vrijednost prečice da snimite novu prečicu."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "انقر على قيمة اختصار لتسجيل اختصار جديد."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Klikk på en snarveiverdi for å ta opp en ny snarvei."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Clique em um valor de atalho para gravar um novo atalho."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "คลิกค่าทางลัดเพื่อบันทึกทางลัดใหม่"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Yeni bir kısayol kaydetmek için bir kısayol değerine tıklayın."
           }
         }
@@ -61646,108 +61646,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Holding Cmd or Ctrl keeps shortcut hint pills hidden."
+            "value": "Holding Cmd or Ctrl keeps shortcut hints hidden."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "CmdまたはCtrlを長押ししてもショートカットヒントピルは非表示のままです。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "长按 Cmd 或 Ctrl 时隐藏快捷键提示标签。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "按住 Cmd 或 Ctrl 時不顯示快速鍵提示標籤。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cmd 또는 Ctrl을 누르고 있어도 단축키 힌트 표시가 숨겨집니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Das Gedrückthalten von Cmd oder Ctrl hält die Kurzbefehlhinweise ausgeblendet."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Mantener Cmd o Ctrl mantiene ocultas las indicaciones de atajos."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Maintenir Cmd ou Ctrl garde les pastilles d'indication de raccourcis masquées."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Tenere premuto Cmd o Ctrl mantiene nascosti i suggerimenti delle scorciatoie."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "At holde Cmd eller Ctrl holder genvejstip skjulte."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Przytrzymanie Cmd lub Ctrl nie pokazuje podpowiedzi skrótów."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Удержание Cmd или Ctrl не показывает подсказки сочетаний."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Držanje Cmd ili Ctrl drži savjete za prečice skrivenim."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "الضغط المطول على Cmd أو Ctrl يبقي كبسولات التلميح مخفية."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Å holde Cmd eller Ctrl holder snarveihintpillene skjult."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Segurar Cmd ou Ctrl mantém as pílulas de dica de atalho ocultas."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "การกด Cmd หรือ Ctrl ค้างจะซ่อนป้ายคำแนะนำทางลัด"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cmd veya Ctrl basılı tutulduğunda kısayol ipucu rozetleri gizli kalır."
           }
         }
@@ -61759,108 +61759,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Holding Cmd (sidebar/titlebar) or Ctrl/Cmd (pane tabs) shows shortcut hint pills."
+            "value": "Holding Cmd (sidebar/titlebar) or Ctrl/Cmd (pane tabs) reveals shortcut hints."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cmd（サイドバー/タイトルバー）またはCtrl/Cmd（ペインタブ）を長押しするとショートカットヒントピルが表示されます。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "长按 Cmd（侧边栏/标题栏）或 Ctrl/Cmd（面板标签页）时显示快捷键提示标签。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "按住 Cmd（側邊欄/標題列）或 Ctrl/Cmd（面板標籤頁）時顯示快速鍵提示標籤。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cmd(사이드바/제목 표시줄) 또는 Ctrl/Cmd(패널 탭)를 누르고 있으면 단축키 힌트가 표시됩니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Das Gedrückthalten von Cmd (Seitenleiste/Titelleiste) oder Ctrl/Cmd (Bereichs-Tabs) zeigt Kurzbefehlhinweise an."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Mantener Cmd (barra lateral/barra de título) o Ctrl/Cmd (pestañas del panel) muestra las indicaciones de atajos."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Maintenir Cmd (barre latérale/barre de titre) ou Ctrl/Cmd (onglets de panneau) affiche les pastilles d'indication de raccourcis."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Tenere premuto Cmd (barra laterale/barra del titolo) o Ctrl/Cmd (schede pannello) mostra i suggerimenti delle scorciatoie."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "At holde Cmd (sidebjælke/titellinje) eller Ctrl/Cmd (panelfaner) viser genvejstip."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Przytrzymanie Cmd (pasek boczny/pasek tytułu) lub Ctrl/Cmd (karty panelu) pokazuje podpowiedzi skrótów."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Удержание Cmd (боковая панель/заголовок) или Ctrl/Cmd (вкладки панели) показывает подсказки сочетаний."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Držanje Cmd (bočna traka/naslovna traka) ili Ctrl/Cmd (tabovi panela) prikazuje savjete za prečice."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "الضغط المطول على Cmd (الشريط الجانبي/شريط العنوان) أو Ctrl/Cmd (ألسنة اللوحات) يعرض كبسولات التلميح."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Å holde Cmd (sidepanel/tittellinje) eller Ctrl/Cmd (panelfaner) viser snarveihintpiller."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Segurar Cmd (barra lateral/barra de título) ou Ctrl/Cmd (abas do painel) mostra pílulas de dica de atalho."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "การกด Cmd ค้าง (แถบด้านข้าง/แถบชื่อ) หรือ Ctrl/Cmd (แท็บบานหน้าต่าง) จะแสดงป้ายคำแนะนำทางลัด"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Cmd (kenar çubuğu/başlık çubuğu) veya Ctrl/Cmd (bölme sekmeleri) basılı tutulduğunda kısayol ipucu rozetleri gösterilir."
           }
         }
@@ -63607,13 +63607,13 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "Action when pressing Escape in the TextBox."
+            "state": "translated",
+            "value": "What Escape does in the TextBox."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "テキストボックスでEscapeキーを押したときの動作"
           }
         }
@@ -63663,13 +63663,13 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "Insert new line with Shift+Return"
+            "state": "translated",
+            "value": "Shift+Return inserts a newline."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Shift+Enterで改行"
           }
         }
@@ -63697,13 +63697,13 @@
       "localizations": {
         "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "Shortcut key can be changed in Keyboard Shortcuts settings."
+            "state": "translated",
+            "value": "Change the shortcut key in Keyboard Shortcuts."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ショートカット設定からキーを変更可能"
           }
         }
