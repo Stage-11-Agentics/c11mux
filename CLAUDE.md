@@ -6,6 +6,8 @@ c11 is a macOS command center for the operator:agent pair. Terminals, browsers, 
 
 Short name: **c11**. Formal long name (publicly): **c11 terminal multiplexer**. Use the short form in CLI, UI, filenames, and default prose; reach for the long form for first references in formal external contexts (press, docs landing pages, legal copy).
 
+Theme naming: in user-facing product copy, say **c11 theme** and **Light/Dark theme slots**; reserve **chrome theme** for internal code/socket disambiguation from Ghostty terminal themes.
+
 **Who it's for.** The operator running eight, ten, thirty agents at once. The one already feeling the pain of `cmd-tab` roulette across a screen full of terminal windows and wanting structure — not less work, just enough shape that the whole orchestra stays legible while the agents drive.
 
 **What that implies for this codebase.** Every surface has a handle. Every handle is scriptable from outside the process. Agents are first-class; the CLI and socket exist so they can compose their own environment without the operator in the loop for routine moves.
