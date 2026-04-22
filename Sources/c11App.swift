@@ -4801,8 +4801,8 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ScrollViewReader { proxy in
+        ScrollViewReader { proxy in
+            HStack(spacing: 0) {
                 SettingsSidebar(selectedPage: selectedPage) { page in
                     selectedPage = page
                     DispatchQueue.main.async {
