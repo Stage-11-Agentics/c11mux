@@ -95,7 +95,7 @@ final class AgentSkillsModel: ObservableObject {
         guard let source = SkillInstaller.defaultSourceURL(executableURL: executableURL) else {
             return RefreshSnapshot(
                 sourceDir: nil,
-                sourceError: String(localized: "agentSkills.error.sourceNotFound", defaultValue: "Could not locate the bundled skills directory."),
+                sourceError: String(localized: "agentSkills.error.sourceNotFound", defaultValue: "Couldn't find the bundled skills directory."),
                 rows: []
             )
         }
@@ -290,13 +290,13 @@ enum AgentSkillsLocalized {
         case .noSourceFound:
             return String(
                 localized: "agentSkills.error.sourceNotFound",
-                defaultValue: "Could not locate the bundled skills directory."
+                defaultValue: "Couldn't find the bundled skills directory."
             )
         case .sourceNotReadable:
             return String(
                 format: String(
                     localized: "agentSkills.error.sourceNotReadable",
-                    defaultValue: "Cannot read the bundled skills directory at %@."
+                    defaultValue: "Can't read the bundled skills directory at %@."
                 ),
                 path
             )
@@ -312,7 +312,7 @@ enum AgentSkillsLocalized {
             return String(
                 format: String(
                     localized: "agentSkills.error.destUnwritable",
-                    defaultValue: "Cannot write to %@. Check permissions."
+                    defaultValue: "Can't write to %@. Check permissions."
                 ),
                 path
             )
@@ -328,7 +328,7 @@ enum AgentSkillsLocalized {
             return String(
                 format: String(
                     localized: "agentSkills.error.copyFailed",
-                    defaultValue: "Could not copy the skill to %@."
+                    defaultValue: "Couldn't copy the skill to %@."
                 ),
                 path
             )

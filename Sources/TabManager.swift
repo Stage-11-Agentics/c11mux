@@ -32,17 +32,17 @@ enum NewWorkspacePlacement: String, CaseIterable, Identifiable {
         case .top:
             return String(
                 localized: "workspace.placement.top.description",
-                defaultValue: "Insert new workspaces at the top of the list."
+                defaultValue: "New workspaces drop in at the top."
             )
         case .afterCurrent:
             return String(
                 localized: "workspace.placement.afterCurrent.description",
-                defaultValue: "Insert new workspaces directly after the active workspace."
+                defaultValue: "New workspaces drop in right after the active one."
             )
         case .end:
             return String(
                 localized: "workspace.placement.end.description",
-                defaultValue: "Append new workspaces to the bottom of the list."
+                defaultValue: "New workspaces drop in at the bottom."
             )
         }
     }

@@ -9907,7 +9907,7 @@ private struct SidebarFeedbackComposerSheet: View {
             guard let attachment = try? FeedbackComposerAttachment(url: url) else {
                 firstIssue = String(
                     localized: "sidebar.help.feedback.invalidImageSelection",
-                    defaultValue: "One of the selected files could not be attached."
+                    defaultValue: "Couldn't attach one of the selected files."
                 )
                 continue
             }
@@ -9988,7 +9988,7 @@ private struct SidebarFeedbackComposerSheet: View {
         guard let submissionError = error as? FeedbackComposerSubmissionError else {
             return String(
                 localized: "sidebar.help.feedback.genericError",
-                defaultValue: "Couldn't send feedback. Please try again."
+                defaultValue: "Couldn't send feedback. Try again."
             )
         }
 
@@ -10001,12 +10001,12 @@ private struct SidebarFeedbackComposerSheet: View {
         case .invalidResponse:
             return String(
                 localized: "sidebar.help.feedback.genericError",
-                defaultValue: "Couldn't send feedback. Please try again."
+                defaultValue: "Couldn't send feedback. Try again."
             )
         case .attachmentReadFailed:
             return String(
                 localized: "sidebar.help.feedback.invalidImageSelection",
-                defaultValue: "One of the selected files could not be attached."
+                defaultValue: "Couldn't attach one of the selected files."
             )
         case .attachmentPreparationFailed:
             return String(
@@ -10022,7 +10022,7 @@ private struct SidebarFeedbackComposerSheet: View {
             }
             return String(
                 localized: "sidebar.help.feedback.genericError",
-                defaultValue: "Couldn't send feedback. Please try again."
+                defaultValue: "Couldn't send feedback. Try again."
             )
         case .rejected(let statusCode):
             switch statusCode {
@@ -10034,7 +10034,7 @@ private struct SidebarFeedbackComposerSheet: View {
             case 429:
                 return String(
                     localized: "sidebar.help.feedback.rateLimited",
-                    defaultValue: "Too many feedback attempts. Please try again later."
+                    defaultValue: "Too many feedback attempts. Try again later."
                 )
             case 500...599:
                 return String(
@@ -10215,7 +10215,7 @@ private struct SidebarHelpMenuButton: View {
     private var helpPopover: some View {
         VStack(alignment: .leading, spacing: 2) {
             helpOptionButton(
-                title: String(localized: "sidebar.help.welcome", defaultValue: "Welcome to c11!"),
+                title: String(localized: "sidebar.help.welcome", defaultValue: "Welcome to c11."),
                 action: .welcome,
                 accessibilityIdentifier: "SidebarHelpMenuOptionWelcome",
                 isExternalLink: false

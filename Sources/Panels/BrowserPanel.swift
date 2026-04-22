@@ -7261,7 +7261,7 @@ enum BrowserImportPlanRealizationError: LocalizedError {
             return String(
                 format: String(
                     localized: "browser.import.error.destinationCreateFailed",
-                    defaultValue: "c11 could not create the destination profile \"%@\"."
+                    defaultValue: "c11 couldn't create the destination profile \"%@\"."
                 ),
                 name
             )
@@ -7665,7 +7665,7 @@ private final class ChromiumCookieDecryptor {
             return String(
                 format: String(
                     localized: "browser.import.warning.keychainDecryptFailed",
-                    defaultValue: "Skipped %ld encrypted %@ cookies because %@ could not be unlocked from Keychain."
+                    defaultValue: "Skipped %ld encrypted %@ cookies — %@ couldn't be unlocked from Keychain."
                 ),
                 skippedCount,
                 browserName,
@@ -7989,7 +7989,7 @@ enum BrowserDataImporter {
         if scope == .everything {
             let unavailableWarning = String(
                 localized: "browser.import.warning.additionalDataUnavailable",
-                defaultValue: "Bookmarks, settings, and extensions import are not available yet. Imported cookies and history only."
+                defaultValue: "Bookmarks, settings, and extensions aren't supported yet — only cookies and history were imported."
             )
             if seenWarnings.insert(unavailableWarning).inserted {
                 warnings.append(unavailableWarning)
@@ -8799,7 +8799,7 @@ final class BrowserDataImportCoordinator {
             )
             alert.informativeText = String(
                 localized: "browser.import.noBrowsers.message",
-                defaultValue: "c11 could not find browser profiles to import from on this Mac."
+                defaultValue: "c11 couldn't find any browser profiles to import on this Mac."
             )
             alert.addButton(withTitle: String(localized: "common.ok", defaultValue: "OK"))
             alert.runModal()
@@ -8825,7 +8825,7 @@ final class BrowserDataImportCoordinator {
             alert.alertStyle = .warning
             alert.messageText = String(
                 localized: "browser.import.error.title",
-                defaultValue: "Import could not start"
+                defaultValue: "Couldn't start import"
             )
             alert.informativeText = error.localizedDescription
             alert.addButton(withTitle: String(localized: "common.ok", defaultValue: "OK"))

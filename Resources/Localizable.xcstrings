@@ -1489,12 +1489,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Could not copy the skill to %@."
+            "value": "Couldn't copy the skill to %@."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "スキルを %@ にコピーできませんでした。"
           }
         }
@@ -1523,12 +1523,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cannot write to %@. Check permissions."
+            "value": "Can't write to %@. Check permissions."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ に書き込めません。権限を確認してください。"
           }
         }
@@ -1574,12 +1574,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Could not locate the bundled skills directory."
+            "value": "Couldn't find the bundled skills directory."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "同梱スキルのディレクトリが見つかりませんでした。"
           }
         }
@@ -1591,12 +1591,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Cannot read the bundled skills directory at %@."
+            "value": "Can't read the bundled skills directory at %@."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "%@ の同梱スキルディレクトリを読み込めません。"
           }
         }
@@ -7753,12 +7753,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "c11 could not create the destination profile \"%@\"."
+            "value": "c11 couldn't create the destination profile \"%@\"."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "c11 は保存先プロファイル「%@」を作成できませんでした。"
           }
         }
@@ -7787,12 +7787,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Import could not start"
+            "value": "Couldn't start import"
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "インポートを開始できませんでした"
           }
         }
@@ -7957,12 +7957,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "c11 could not find browser profiles to import from on this Mac."
+            "value": "c11 couldn't find any browser profiles to import on this Mac."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "このMacでインポート元にできるブラウザープロファイルが見つかりませんでした。"
           }
         }
@@ -8314,12 +8314,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bookmarks, settings, and extensions import are not available yet. Imported cookies and history only."
+            "value": "Bookmarks, settings, and extensions aren't supported yet — only cookies and history were imported."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ブックマーク、設定、拡張機能のインポートにはまだ対応していません。Cookieと履歴のみを取り込みました。"
           }
         }
@@ -8433,12 +8433,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Skipped %ld encrypted %@ cookies because %@ could not be unlocked from Keychain."
+            "value": "Skipped %ld encrypted %@ cookies — %@ couldn't be unlocked from Keychain."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Keychain から %3$@ を開けなかったため、暗号化された %2$@ のCookieを%1$ld件スキップしました。"
           }
         }
@@ -66707,12 +66707,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Couldn't send feedback. Please try again."
+            "value": "Couldn't send feedback. Try again."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "フィードバックを送信できませんでした。もう一度お試しください。"
           }
         }
@@ -66758,12 +66758,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "One of the selected files could not be attached."
+            "value": "Couldn't attach one of the selected files."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "選択したファイルのうち1つを添付できませんでした。"
           }
         }
@@ -66843,12 +66843,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Too many feedback attempts. Please try again later."
+            "value": "Too many feedback attempts. Try again later."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "フィードバックの送信回数が多すぎます。しばらくしてからもう一度お試しください。"
           }
         }
@@ -67013,12 +67013,12 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Welcome to c11!"
+            "value": "Welcome to c11."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "c11へようこそ！"
           }
         }
@@ -79340,108 +79340,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Insert new workspaces directly after the active workspace."
+            "value": "New workspaces drop in right after the active one."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "アクティブなワークスペースの直後に新しいワークスペースを挿入します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "在活动工作区之后插入新工作区。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "將新工作區插入目前使用中工作區的後方。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "활성 작업 공간 바로 다음에 새 작업 공간을 삽입합니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Neue Arbeitsbereiche direkt nach dem aktiven Arbeitsbereich einfügen."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Insertar nuevos espacios de trabajo justo después del espacio de trabajo activo."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Insérer les nouveaux espaces de travail juste après l'espace de travail actif."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Inserisci le nuove aree di lavoro subito dopo quella attiva."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Indsæt nye arbejdsområder direkte efter det aktive arbejdsområde."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Wstaw nowe przestrzenie robocze bezpośrednio po aktywnej."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Вставлять новые рабочие пространства сразу после активного."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Umetnite nove radne prostore odmah nakon aktivnog radnog prostora."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "إدراج مساحات العمل الجديدة مباشرة بعد مساحة العمل النشطة."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Sett inn nye arbeidsområder rett etter det aktive arbeidsområdet."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Inserir novas áreas de trabalho diretamente após a área de trabalho ativa."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "แทรกเวิร์กสเปซใหม่หลังเวิร์กสเปซที่ใช้งานอยู่โดยตรง"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Yeni çalışma alanlarını etkin çalışma alanının hemen sonrasına ekle."
           }
         }
@@ -79566,108 +79566,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Append new workspaces to the bottom of the list."
+            "value": "New workspaces drop in at the bottom."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "新しいワークスペースをリストの末尾に追加します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "将新工作区添加到列表底部。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "將新工作區附加到列表底部。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "목록 하단에 새 작업 공간을 추가합니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Neue Arbeitsbereiche am Ende der Liste anfügen."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Agregar nuevos espacios de trabajo al final de la lista."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Ajouter les nouveaux espaces de travail en bas de la liste."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Aggiungi le nuove aree di lavoro in fondo alla lista."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Tilføj nye arbejdsområder nederst på listen."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dodaj nowe przestrzenie robocze na dole listy."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Добавлять новые рабочие пространства в конец списка."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Dodajte nove radne prostore na kraj liste."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "إلحاق مساحات العمل الجديدة في أسفل القائمة."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Legg til nye arbeidsområder nederst i listen."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Adicionar novas áreas de trabalho ao final da lista."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "เพิ่มเวิร์กสเปซใหม่ที่ด้านล่างของรายการ"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Yeni çalışma alanlarını listenin sonuna ekle."
           }
         }
@@ -79792,108 +79792,108 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Insert new workspaces at the top of the list."
+            "value": "New workspaces drop in at the top."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "新しいワークスペースをリストの先頭に挿入します。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "在列表顶部插入新工作区。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "將新工作區插入列表最上方。"
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "목록 맨 위에 새 작업 공간을 삽입합니다."
           }
         },
         "de": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Neue Arbeitsbereiche oben in der Liste einfügen."
           }
         },
         "es": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Insertar nuevos espacios de trabajo al inicio de la lista."
           }
         },
         "fr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Insérer les nouveaux espaces de travail en haut de la liste."
           }
         },
         "it": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Inserisci le nuove aree di lavoro in cima alla lista."
           }
         },
         "da": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Indsæt nye arbejdsområder øverst på listen."
           }
         },
         "pl": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Wstaw nowe przestrzenie robocze na górze listy."
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Вставлять новые рабочие пространства в начало списка."
           }
         },
         "bs": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Umetnite nove radne prostore na vrh liste."
           }
         },
         "ar": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "إدراج مساحات العمل الجديدة في أعلى القائمة."
           }
         },
         "nb": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Sett inn nye arbeidsområder øverst i listen."
           }
         },
         "pt-BR": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Inserir novas áreas de trabalho no topo da lista."
           }
         },
         "th": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "แทรกเวิร์กสเปซใหม่ที่ด้านบนของรายการ"
           }
         },
         "tr": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Yeni çalışma alanlarını listenin en üstüne ekle."
           }
         }
