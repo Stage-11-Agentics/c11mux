@@ -4804,12 +4804,8 @@ struct SettingsView: View {
         ScrollViewReader { proxy in
             HStack(spacing: 0) {
                 SettingsSidebar(selectedPage: selectedPage) { page in
+                    proxy.scrollTo(SettingsScrollAnchor.pageTop, anchor: .top)
                     selectedPage = page
-                    DispatchQueue.main.async {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            proxy.scrollTo(SettingsScrollAnchor.pageTop, anchor: .top)
-                        }
-                    }
                 }
 
                 Rectangle()
@@ -4827,7 +4823,6 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .id(SettingsScrollAnchor.pageTop)
                         .padding(.bottom, 4)
 
                         selectedPageContent
@@ -4835,6 +4830,7 @@ struct SettingsView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 48)
                     .padding(.bottom, 20)
+                    .id(SettingsScrollAnchor.pageTop)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: SettingsNavigationRequest.notificationName)) { notification in
                     guard let target = SettingsNavigationRequest.target(from: notification) else { return }
