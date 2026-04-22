@@ -239,6 +239,8 @@ The operator is running parallel work and context-switching between surfaces; ti
 
 **Batch with the open command.** When you `c11 new-pane --type markdown --file …` or `--type browser --url …` for the operator, set title + description as the immediate next calls — don't defer. A surface that lives even briefly without a description is one the operator will have to re-derive context for when they tab over.
 
+**Multiple artifacts in one session → one pane, not many tabs.** If the work produces more than one markdown artifact for the operator to review, consolidate them: either append to a single trail file with sections, or add subsequent files as **tabs of the same pane** with `c11 new-surface --type markdown --file <path> --pane <pane-ref>`. Three top-level markdown tabs make the operator do navigation work c11 is supposed to remove. See the c11-markdown skill's *Producing artifacts the operator will return to* section for the full pattern.
+
 ### Lineage in titles and descriptions
 
 For panes spawned downstream of another — sub-agents, reviews, fixes rooted in earlier output — lineage goes in **both** fields:
