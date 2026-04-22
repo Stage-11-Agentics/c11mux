@@ -7,6 +7,8 @@ import ObjectiveC
 import UniformTypeIdentifiers
 import WebKit
 
+private var initialMainWindowGeometryReconcileKey: UInt8 = 0
+
 private extension Color {
     init?(hex: String) {
         let hex = hex.trimmingCharacters(in: .init(charactersIn: "#"))
@@ -2822,6 +2824,7 @@ struct ContentView: View {
                   window === observedWindow else { return }
             clampSidebarWidthIfNeeded(availableWidth: window.contentView?.bounds.width ?? window.contentLayoutRect.width)
             updateSidebarResizerBandState()
+            updateTitlebarPadding(from: window)
         })
 
         view = AnyView(view.onChange(of: sidebarWidth) { _ in
@@ -2879,15 +2882,10 @@ struct ContentView: View {
         })
 
         view = AnyView(view.background(WindowAccessor { [sidebarBlendMode, bgGlassEnabled, bgGlassTintHex, bgGlassTintOpacity] window in
-            window.identifier = NSUserInterfaceItemIdentifier(windowIdentifier)
-            window.titlebarAppearsTransparent = true
-            // Do not make the entire background draggable; it interferes with drag gestures
-            // like sidebar tab reordering in multi-window mode.
-            window.isMovableByWindowBackground = false
-            // Keep the window immovable by default so titlebar controls (like the folder icon)
-            // cannot accidentally initiate native window drags.
-            window.isMovable = false
-            window.styleMask.insert(.fullSizeContentView)
+            let didChangeChrome = applyMainWindowChrome(to: window)
+            if didChangeChrome {
+                performMainWindowLayoutPass(for: window)
+            }
 
             // Track this window for fullscreen notifications
             if observedWindow !== window {
@@ -2900,16 +2898,9 @@ struct ContentView: View {
                     updateSidebarResizerBandState()
                 }
             }
+            scheduleInitialMainWindowGeometryReconcile(for: window)
 
-            // Keep content below the titlebar so drags on Bonsplit's tab bar don't
-            // get interpreted as window drags.
-            let computedTitlebarHeight = window.frame.height - window.contentLayoutRect.height
-            let nextPadding = max(28, min(72, computedTitlebarHeight))
-            if abs(titlebarPadding - nextPadding) > 0.5 {
-                DispatchQueue.main.async {
-                    titlebarPadding = nextPadding
-                }
-            }
+            updateTitlebarPadding(from: window)
 #if DEBUG
             if ProcessInfo.processInfo.environment["CMUX_UI_TEST_MODE"] == "1" {
                 UpdateLogStore.shared.append("ui test window accessor: id=\(windowIdentifier) visible=\(window.isVisible)")
@@ -3198,6 +3189,106 @@ struct ContentView: View {
         guard let window = NSApp.windows.first(where: { $0.identifier?.rawValue == windowIdentifier }) else { return }
         let tintColor = (NSColor(hex: bgGlassTintHex) ?? .black).withAlphaComponent(bgGlassTintOpacity)
         WindowGlassEffect.updateTint(to: window, color: tintColor)
+    }
+
+    @discardableResult
+    private func applyMainWindowChrome(to window: NSWindow) -> Bool {
+        var didChange = false
+
+        let identifier = NSUserInterfaceItemIdentifier(windowIdentifier)
+        if window.identifier != identifier {
+            window.identifier = identifier
+            didChange = true
+        }
+
+        if window.title != "" {
+            window.title = ""
+            didChange = true
+        }
+
+        if window.titleVisibility != .hidden {
+            window.titleVisibility = .hidden
+            didChange = true
+        }
+
+        if !window.titlebarAppearsTransparent {
+            window.titlebarAppearsTransparent = true
+            didChange = true
+        }
+
+        // Do not make the entire background draggable; it interferes with drag gestures
+        // like sidebar tab reordering in multi-window mode.
+        if window.isMovableByWindowBackground {
+            window.isMovableByWindowBackground = false
+            didChange = true
+        }
+
+        // Keep the window immovable by default so titlebar controls (like the folder icon)
+        // cannot accidentally initiate native window drags.
+        if window.isMovable {
+            window.isMovable = false
+            didChange = true
+        }
+
+        if !window.styleMask.contains(.fullSizeContentView) {
+            window.styleMask.insert(.fullSizeContentView)
+            didChange = true
+        }
+
+        return didChange
+    }
+
+    private func performMainWindowLayoutPass(for window: NSWindow) {
+        applyMainWindowChrome(to: window)
+        window.contentView?.superview?.needsLayout = true
+        window.contentView?.superview?.layoutSubtreeIfNeeded()
+        window.contentView?.needsLayout = true
+        window.contentView?.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+    }
+
+    private func reconcileMainWindowGeometry(for window: NSWindow) {
+        performMainWindowLayoutPass(for: window)
+
+        let availableWidth = window.contentView?.bounds.width ?? window.contentLayoutRect.width
+        clampSidebarWidthIfNeeded(availableWidth: availableWidth)
+        updateSidebarResizerBandState()
+        TerminalWindowPortalRegistry.scheduleExternalGeometrySynchronize(for: window)
+
+        updateTitlebarPadding(from: window)
+    }
+
+    private func scheduleInitialMainWindowGeometryReconcile(for window: NSWindow) {
+        guard objc_getAssociatedObject(window, &initialMainWindowGeometryReconcileKey) == nil else { return }
+        objc_setAssociatedObject(
+            window,
+            &initialMainWindowGeometryReconcileKey,
+            NSNumber(value: true),
+            .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+        )
+
+        // First launch can apply full-size content chrome after SwiftUI's first layout,
+        // especially when AppKit restores/moves the window between displays.
+        performMainWindowLayoutPass(for: window)
+        DispatchQueue.main.async { [weak window] in
+            guard let window else { return }
+            reconcileMainWindowGeometry(for: window)
+            DispatchQueue.main.async { [weak window] in
+                guard let window else { return }
+                reconcileMainWindowGeometry(for: window)
+            }
+        }
+    }
+
+    private func updateTitlebarPadding(from window: NSWindow) {
+        // Keep content below the titlebar so drags on Bonsplit's tab bar don't
+        // get interpreted as window drags.
+        let computedTitlebarHeight = window.frame.height - window.contentLayoutRect.height
+        let nextPadding = max(28, min(72, computedTitlebarHeight))
+        guard abs(titlebarPadding - nextPadding) > 0.5 else { return }
+        DispatchQueue.main.async {
+            titlebarPadding = nextPadding
+        }
     }
 
     private func setTitlebarControlsHidden(_ hidden: Bool, in window: NSWindow) {
