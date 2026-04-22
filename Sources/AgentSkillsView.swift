@@ -15,11 +15,12 @@ final class AgentSkillsModel: ObservableObject {
         let destinationDir: URL
         let packages: [SkillInstallerPackageStatus]
         let statusError: String?
+        let sharedWithTarget: SkillInstallerTarget?
         var hasOutdated: Bool {
             packages.contains { $0.state == .installedOutdated || $0.state == .installedNoManifest || $0.state == .schemaMismatch }
         }
         var needsInstallOrUpdate: Bool {
-            !packages.isEmpty && packages.contains { $0.state == .notInstalled || $0.state == .installedOutdated }
+            !isSharedDestination && !packages.isEmpty && packages.contains { $0.state == .notInstalled || $0.state == .installedOutdated }
         }
         var anyInstalled: Bool {
             packages.contains { $0.state != .notInstalled }
@@ -31,6 +32,9 @@ final class AgentSkillsModel: ObservableObject {
             let versions = Set(packages.map { $0.package.version }.filter { !$0.isEmpty && $0 != "0" })
             guard !versions.isEmpty else { return nil }
             return versions.sorted().map { "v\($0)" }.joined(separator: ", ")
+        }
+        var isSharedDestination: Bool {
+            sharedWithTarget != nil
         }
     }
 
@@ -96,6 +100,22 @@ final class AgentSkillsModel: ObservableObject {
             )
         }
         var newRows: [TargetRow] = []
+        var sharedOwnersByTarget: [SkillInstallerTarget: SkillInstallerTarget] = [:]
+        var ownerByResolvedDestination: [String: SkillInstallerTarget] = [:]
+        for target in SkillInstallerTarget.allCases {
+            guard target.isDetected(home: home, fileManager: fileManager) else { continue }
+            let destination = target.skillsDir(home: home)
+            var isDir: ObjCBool = false
+            guard fileManager.fileExists(atPath: destination.path, isDirectory: &isDir), isDir.boolValue else {
+                continue
+            }
+            let resolvedPath = destination.resolvingSymlinksInPath().standardizedFileURL.path
+            if let owner = ownerByResolvedDestination[resolvedPath] {
+                sharedOwnersByTarget[target] = owner
+            } else {
+                ownerByResolvedDestination[resolvedPath] = target
+            }
+        }
         for target in SkillInstallerTarget.allCases {
             let detected = target.isDetected(home: home, fileManager: fileManager)
             var packages: [SkillInstallerPackageStatus] = []
@@ -120,7 +140,8 @@ final class AgentSkillsModel: ObservableObject {
                 detected: detected,
                 destinationDir: target.skillsDir(home: home),
                 packages: packages,
-                statusError: statusError
+                statusError: statusError,
+                sharedWithTarget: sharedOwnersByTarget[target]
             ))
         }
         return RefreshSnapshot(sourceDir: source, sourceError: nil, rows: newRows)
@@ -168,56 +189,12 @@ final class AgentSkillsModel: ObservableObject {
     }
 
     var primarySkillURL: URL? {
-        guard let sourceDir else { return nil }
-        let skillFile = sourceDir
-            .appendingPathComponent("c11", isDirectory: true)
-            .appendingPathComponent("SKILL.md", isDirectory: false)
-        if fileManager.fileExists(atPath: skillFile.path) {
-            return skillFile
-        }
-        return sourceDir
+        sourceDir
     }
 
     func revealPrimarySkillInFinder() {
         guard let url = primarySkillURL else { return }
         revealInFinder(url: url)
-    }
-
-    func copySkillReviewPromptToPasteboard() {
-        guard let url = primarySkillURL else { return }
-        let format = String(
-            localized: "agentSkills.onboarding.reviewPrompt",
-            defaultValue: "Please review the c11 skill at %@ before I install it. Tell me what it instructs agents to do, what files or settings it may touch, and flag anything unsafe or surprising."
-        )
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(String(format: format, url.path), forType: .string)
-        lastActionMessage = String(
-            localized: "agentSkills.onboarding.reviewPromptCopied",
-            defaultValue: "Copied review prompt to clipboard."
-        )
-    }
-
-    /// Snippet the operator copies to the clipboard to install skills via
-    /// the managed c11 CLI path. Pure function so tests can lock down the
-    /// exact shape without mounting NSPasteboard.
-    static func manualInstallCommandSnippet(target: SkillInstallerTarget) -> String {
-        "c11 skill install --tool \(target.rawValue)"
-    }
-
-    func copyManualCommandToPasteboard(target: SkillInstallerTarget) {
-        // Route through the managed installer so the operator copies the
-        // same allowlisted + manifested install path c11 itself uses —
-        // no unmanaged rsync over the whole bundled `skills/` tree (which
-        // would also copy maintainer-only packages).
-        let snippet = Self.manualInstallCommandSnippet(target: target)
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setString(snippet, forType: .string)
-        lastActionMessage = String(
-            localized: "agentSkills.action.copied",
-            defaultValue: "Copied install command to clipboard."
-        )
     }
 
     private func formatInstallMessage(result: SkillInstallerApplyResult) -> String {
@@ -441,7 +418,7 @@ private struct AgentSkillsRow: View {
                         .font(.system(size: 13, weight: .medium))
                     statusChip
                 }
-                Text(row.destinationDir.path)
+                Text(rowDetailText)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -479,6 +456,9 @@ private struct AgentSkillsRow: View {
         if !row.detected {
             return (String(localized: "agentSkills.status.notDetected", defaultValue: "not detected"), .secondary)
         }
+        if row.isSharedDestination {
+            return (String(localized: "agentSkills.status.shared", defaultValue: "shared"), .green)
+        }
         if row.hasOutdated {
             return (String(localized: "agentSkills.status.updateAvailable", defaultValue: "update available"), .orange)
         }
@@ -489,6 +469,17 @@ private struct AgentSkillsRow: View {
             return (String(localized: "agentSkills.status.partial", defaultValue: "partial"), .orange)
         }
         return (String(localized: "agentSkills.status.notInstalled", defaultValue: "not installed"), .secondary)
+    }
+
+    private var rowDetailText: String {
+        if let sharedWithTarget = row.sharedWithTarget {
+            let format = String(
+                localized: "agentSkills.status.sharedWith",
+                defaultValue: "Uses the %@ skill files"
+            )
+            return String(format: format, sharedWithTarget.displayName)
+        }
+        return row.destinationDir.path
     }
 
     @ViewBuilder
@@ -503,16 +494,20 @@ private struct AgentSkillsRow: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-            } else if row.target == .claude {
-                claudeButtons
+            } else if row.isSharedDestination {
+                Button(String(localized: "agentSkills.button.revealFolder", defaultValue: "Reveal Folder")) {
+                    model.revealInFinder(url: row.destinationDir)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             } else {
-                operatorDirectedButtons
+                skillManagementButtons
             }
         }
     }
 
     @ViewBuilder
-    private var claudeButtons: some View {
+    private var skillManagementButtons: some View {
         if row.allCurrent {
             Button(String(localized: "agentSkills.button.refresh", defaultValue: "Refresh")) {
                 model.install(target: row.target, force: true)
@@ -540,36 +535,6 @@ private struct AgentSkillsRow: View {
                 model.install(target: row.target, force: false)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-        }
-    }
-
-    @ViewBuilder
-    private var operatorDirectedButtons: some View {
-        // For non-Claude tools, prefer operator-driven installation (clipboard
-        // snippet + Finder reveal). The user can still use the Install/Refresh
-        // buttons if they explicitly want c11 to copy into that tool's dir.
-        Button(String(localized: "agentSkills.button.copyCommand", defaultValue: "Copy Command")) {
-            model.copyManualCommandToPasteboard(target: row.target)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        if row.anyInstalled {
-            Button(String(localized: "agentSkills.button.update", defaultValue: "Update")) {
-                model.install(target: row.target, force: true)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            Button(String(localized: "agentSkills.button.remove", defaultValue: "Remove")) {
-                model.remove(target: row.target)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        } else {
-            Button(String(localized: "agentSkills.button.install", defaultValue: "Install")) {
-                model.install(target: row.target, force: false)
-            }
-            .buttonStyle(.bordered)
             .controlSize(.small)
         }
     }
@@ -632,6 +597,21 @@ struct AgentSkillsOnboardingSheet: View {
         initializedDefaultOptIns && (claudeOptIn || codexOptIn || kimiOptIn || opencodeOptIn)
     }
 
+    private var hasActionNeeded: Bool {
+        detectedRows.contains { $0.needsInstallOrUpdate }
+    }
+
+    private var primaryActionDisabled: Bool {
+        detectedRows.isEmpty || (hasActionNeeded && !anySelected)
+    }
+
+    private var primaryActionTitle: String {
+        if !detectedRows.isEmpty && !hasActionNeeded {
+            return String(localized: "agentSkills.onboarding.allSet", defaultValue: "You're Good")
+        }
+        return String(localized: "agentSkills.onboarding.install", defaultValue: "Skillify Your Agent")
+    }
+
     private var detectedRows: [AgentSkillsModel.TargetRow] {
         model.rows.filter(\.detected)
     }
@@ -647,7 +627,7 @@ struct AgentSkillsOnboardingSheet: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "agentSkills.onboarding.title", defaultValue: "Install the c11 skill"))
+            Text(String(localized: "agentSkills.onboarding.title", defaultValue: "Agentically use c11"))
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(BrandColors.whiteSwiftUI)
 
@@ -663,12 +643,12 @@ struct AgentSkillsOnboardingSheet: View {
         if detectedRows.isEmpty {
             return String(
                 localized: "agentSkills.onboarding.body.detecting",
-                defaultValue: "Looking for coding agents on this Mac. When c11 finds one, it can install a small plain-text skill that teaches the agent how to drive this workspace."
+                defaultValue: "c11 is designed to be great for agents, but they need the skill to know what to ask for. Install it so they can use panes, the browser, markdown files, statuses, and the rest of the c11 workspace."
             )
         }
         let format = String(
             localized: "agentSkills.onboarding.body.detected",
-            defaultValue: "c11 found %@. Install the skill there so your agents can use panes, browser surfaces, markdown, sidebar status, and the c11 CLI."
+            defaultValue: "c11 is designed to be great for agents, but they need the skill to know what to ask for. Install it in %@ so they can use panes, the browser, markdown files, statuses, and the rest of the c11 workspace."
         )
         return String(format: format, detectedTargetList)
     }
@@ -795,7 +775,7 @@ struct AgentSkillsOnboardingSheet: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.62))
 
-                Text(String(localized: "agentSkills.onboarding.transparency", defaultValue: "The skill is plain text. It tells agents how to use c11; it does not run code by itself. Inspect it in Finder or copy a review prompt for another agent."))
+                Text(String(localized: "agentSkills.onboarding.transparency", defaultValue: "We take developer trust seriously. The skill is plain text: inspect the exact files in Finder or hand them to your preferred model for a security review. c11 will never change your agent configuration without your permission."))
                     .font(.system(size: 12))
                     .lineSpacing(2)
                     .foregroundColor(BrandColors.whiteSwiftUI.opacity(0.66))
@@ -804,15 +784,9 @@ struct AgentSkillsOnboardingSheet: View {
 
             HStack(spacing: 8) {
                 SecondaryOnboardingButton(
-                    title: String(localized: "agentSkills.onboarding.showSkill", defaultValue: "Show Skill in Finder"),
+                    title: String(localized: "agentSkills.onboarding.showSkill", defaultValue: "Show Skill Files in Finder"),
                     disabled: model.primarySkillURL == nil,
                     action: { model.revealPrimarySkillInFinder() }
-                )
-
-                SecondaryOnboardingButton(
-                    title: String(localized: "agentSkills.onboarding.copyReviewPrompt", defaultValue: "Copy Review Prompt"),
-                    disabled: model.primarySkillURL == nil,
-                    action: { model.copySkillReviewPromptToPasteboard() }
                 )
                 Spacer(minLength: 0)
             }
@@ -838,11 +812,11 @@ struct AgentSkillsOnboardingSheet: View {
             )
 
             OnboardingActionButton(
-                title: String(localized: "agentSkills.onboarding.install", defaultValue: "Install Now"),
-                kind: .primary,
+                title: primaryActionTitle,
+                kind: hasActionNeeded ? .primary : .success,
                 isSelected: selectedAction == .install,
-                disabled: !anySelected,
-                action: applySelection
+                disabled: primaryActionDisabled,
+                action: activatePrimaryAction
             )
             .keyboardShortcut(.defaultAction)
         }
@@ -872,6 +846,15 @@ struct AgentSkillsOnboardingSheet: View {
         onDismiss()
     }
 
+    private func activatePrimaryAction() {
+        if hasActionNeeded {
+            guard anySelected else { return }
+            applySelection()
+        } else if !detectedRows.isEmpty {
+            onDismiss()
+        }
+    }
+
     private func dontAskAgain() {
         UserDefaults.standard.set(true, forKey: AgentSkillsOnboarding.sheetShownKey)
         onDismiss()
@@ -889,8 +872,7 @@ struct AgentSkillsOnboardingSheet: View {
         case .later:
             installLater()
         case .install:
-            guard anySelected else { return }
-            applySelection()
+            activatePrimaryAction()
         }
     }
 
@@ -928,6 +910,7 @@ private enum AgentSkillsOnboardingAction: CaseIterable {
 
 private enum OnboardingActionButtonKind {
     case primary
+    case success
     case secondary
 }
 
@@ -941,11 +924,11 @@ private struct OnboardingActionButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: kind == .primary ? 13 : 12, weight: .semibold))
+                .font(.system(size: isProminent ? 13 : 12, weight: .semibold))
                 .foregroundColor(foregroundColor)
                 .lineLimit(1)
-                .frame(minWidth: kind == .primary ? 126 : 108, minHeight: kind == .primary ? 34 : 28)
-                .padding(.horizontal, kind == .primary ? 10 : 6)
+                .frame(minWidth: isProminent ? 126 : 108, minHeight: isProminent ? 34 : 28)
+                .padding(.horizontal, isProminent ? 10 : 6)
                 .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -957,9 +940,13 @@ private struct OnboardingActionButton: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
+    private var isProminent: Bool {
+        kind == .primary || kind == .success
+    }
+
     private var foregroundColor: Color {
         switch kind {
-        case .primary:
+        case .primary, .success:
             return BrandColors.blackSwiftUI
         case .secondary:
             return BrandColors.whiteSwiftUI.opacity(0.9)
@@ -968,15 +955,37 @@ private struct OnboardingActionButton: View {
 
     private var background: some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(kind == .primary ? BrandColors.goldSwiftUI : BrandColors.whiteSwiftUI.opacity(0.08))
+            .fill(backgroundColor)
+    }
+
+    private var backgroundColor: Color {
+        switch kind {
+        case .primary:
+            return BrandColors.goldSwiftUI
+        case .success:
+            return Color.green.opacity(0.9)
+        case .secondary:
+            return BrandColors.whiteSwiftUI.opacity(0.08)
+        }
     }
 
     private var border: some View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .strokeBorder(
-                kind == .primary ? BrandColors.goldSwiftUI.opacity(0.9) : BrandColors.ruleSwiftUI,
+                borderColor,
                 lineWidth: 1
             )
+    }
+
+    private var borderColor: Color {
+        switch kind {
+        case .primary:
+            return BrandColors.goldSwiftUI.opacity(0.9)
+        case .success:
+            return Color.green.opacity(0.95)
+        case .secondary:
+            return BrandColors.ruleSwiftUI
+        }
     }
 }
 

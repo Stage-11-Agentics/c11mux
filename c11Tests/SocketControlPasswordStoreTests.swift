@@ -560,41 +560,6 @@ final class CmuxCLIPathInstallerTests: XCTestCase {
     }
 }
 
-final class AgentSkillsManualInstallCommandTests: XCTestCase {
-    func testSnippetUsesC11BinaryAndTargetRawValue() {
-        XCTAssertEqual(
-            AgentSkillsModel.manualInstallCommandSnippet(target: .claude),
-            "c11 skill install --tool claude"
-        )
-        XCTAssertEqual(
-            AgentSkillsModel.manualInstallCommandSnippet(target: .codex),
-            "c11 skill install --tool codex"
-        )
-        XCTAssertEqual(
-            AgentSkillsModel.manualInstallCommandSnippet(target: .kimi),
-            "c11 skill install --tool kimi"
-        )
-        XCTAssertEqual(
-            AgentSkillsModel.manualInstallCommandSnippet(target: .opencode),
-            "c11 skill install --tool opencode"
-        )
-    }
-
-    func testSnippetNeverUsesLegacyCmuxBinary() {
-        for target in SkillInstallerTarget.allCases {
-            let snippet = AgentSkillsModel.manualInstallCommandSnippet(target: target)
-            XCTAssertFalse(
-                snippet.hasPrefix("cmux "),
-                "snippet for \(target.rawValue) still starts with cmux: \(snippet)"
-            )
-            XCTAssertTrue(
-                snippet.hasPrefix("c11 "),
-                "snippet for \(target.rawValue) must start with c11: \(snippet)"
-            )
-        }
-    }
-}
-
 final class AgentSkillsOnboardingDefaultOptInTests: XCTestCase {
     func testDefaultsSelectEveryDetectedTarget() {
         let rows = SkillInstallerTarget.allCases.map { target in
@@ -640,10 +605,20 @@ final class AgentSkillsOnboardingDefaultOptInTests: XCTestCase {
         XCTAssertFalse(AgentSkillsOnboarding.shouldOffer(for: rows))
     }
 
+    func testSharedDestinationRowsAreNotActionable() {
+        let rows = [
+            makeRow(target: .claude, detected: true, states: [.installedCurrent]),
+            makeRow(target: .codex, detected: true, states: [.installedOutdated], sharedWith: .claude),
+        ]
+
+        XCTAssertFalse(AgentSkillsOnboarding.shouldOffer(for: rows))
+    }
+
     private func makeRow(
         target: SkillInstallerTarget,
         detected: Bool,
-        states: [SkillInstallerState] = []
+        states: [SkillInstallerState] = [],
+        sharedWith: SkillInstallerTarget? = nil
     ) -> AgentSkillsModel.TargetRow {
         AgentSkillsModel.TargetRow(
             id: target.rawValue,
@@ -651,7 +626,8 @@ final class AgentSkillsOnboardingDefaultOptInTests: XCTestCase {
             detected: detected,
             destinationDir: URL(fileURLWithPath: "/tmp/\(target.rawValue)", isDirectory: true),
             packages: states.map { makeStatus(target: target, state: $0) },
-            statusError: nil
+            statusError: nil,
+            sharedWithTarget: sharedWith
         )
     }
 
