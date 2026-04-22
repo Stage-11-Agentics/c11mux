@@ -1,6 +1,6 @@
 # c11
 
-<p align="center"><b><i>terminal command center for advanced hyperengineers.</i></b></p>
+<p align="center"><b><i>terminal command center for 10,000x hyperengineers</i></b></p>
 
 <p align="center">
   <a href="https://github.com/Stage-11-Agentics/c11/releases/latest/download/c11-macos.dmg">
