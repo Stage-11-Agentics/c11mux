@@ -6232,7 +6232,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             return
         }
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 390),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

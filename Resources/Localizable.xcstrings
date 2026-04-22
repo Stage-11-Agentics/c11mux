@@ -1642,13 +1642,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Already installed and up to date."
+            "value": "Already current"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "インストール済み・最新の状態です。"
+            "value": "最新です"
           }
         }
       }
@@ -1683,6 +1683,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "c11 の CLI やサイドバー情報は、c11 スキルファイルを読み込んだエージェントだけが理解します。スキルを入れるエージェントを選んでください。設定 → エージェントスキル からいつでも変更できます。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.body.detected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 found %@. Install the skill there so your agents can use panes, browser surfaces, markdown, sidebar status, and the c11 CLI."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 は %@ を検出しました。ここにスキルをインストールすると、エージェントがペイン、ブラウザサーフェス、Markdown、サイドバーの状態、c11 CLI を使えるようになります。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.body.detecting": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Looking for coding agents on this Mac. When c11 finds one, it can install a small plain-text skill that teaches the agent how to drive this workspace."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この Mac 上のコーディングエージェントを探しています。検出すると、このワークスペースの操作方法を伝える小さなプレーンテキストのスキルをインストールできます。"
           }
         }
       }
@@ -1738,6 +1772,23 @@
         }
       }
     },
+    "agentSkills.onboarding.installSection": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install into"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インストール先"
+          }
+        }
+      }
+    },
     "agentSkills.onboarding.later": {
       "extractionState": "manual",
       "localizations": {
@@ -1751,6 +1802,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "あとでインストール"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.learnMoreTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What gets installed"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インストールされるもの"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.noDetectedTools": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No supported agent config folders were detected yet. You can run this later from Settings → Agent Skills."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対応しているエージェント設定フォルダはまだ検出されていません。後で 設定 → エージェントスキル から実行できます。"
           }
         }
       }
@@ -1772,19 +1857,36 @@
         }
       }
     },
+    "agentSkills.onboarding.notDetectedSummary": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not detected: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未検出: %@"
+          }
+        }
+      }
+    },
     "agentSkills.onboarding.partialInstalled": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Partially installed. Install Now completes the current skill set."
+            "value": "Will complete the skill set"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "一部のみインストール済みです。今すぐインストールすると現在のスキルセットを補完します。"
+            "value": "スキルセットを補完します"
           }
         }
       }
@@ -1863,13 +1965,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Teach your agents about c11"
+            "value": "Install the c11 skill"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エージェントに c11 を伝える"
+            "value": "c11 スキルをインストール"
           }
         }
       }
@@ -1880,13 +1982,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Older c11 skill installed. Install Now updates it."
+            "value": "Will update the installed skill"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "古い c11 スキルがインストールされています。今すぐインストールすると更新します。"
+            "value": "インストール済みのスキルを更新します"
           }
         }
       }
@@ -1914,13 +2016,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trust should be inspectable. The c11 skill is plain text; open it in Finder or copy a review prompt and hand it to any coding agent before installing."
+            "value": "The skill is plain text. It tells agents how to use c11; it does not run code by itself. Inspect it in Finder or copy a review prompt for another agent."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "信頼は確認できるべきものです。c11 スキルはプレーンテキストです。インストール前に Finder で開くか、レビュープロンプトをコピーして任意のコーディングエージェントに渡せます。"
+            "value": "スキルはプレーンテキストです。エージェントに c11 の使い方を伝えるもので、それ自体がコードを実行することはありません。Finder で確認するか、別のエージェント用にレビュープロンプトをコピーできます。"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.willInstall": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Will install the skill"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スキルをインストールします"
           }
         }
       }

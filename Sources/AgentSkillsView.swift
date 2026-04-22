@@ -590,64 +590,36 @@ struct AgentSkillsOnboardingSheet: View {
     @State private var kimiOptIn: Bool = false
     @State private var opencodeOptIn: Bool = false
     @State private var initializedDefaultOptIns: Bool = false
+    @State private var selectedAction: AgentSkillsOnboardingAction = .install
 
     init(onDismiss: @escaping () -> Void = {}) {
         self.onDismiss = onDismiss
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(String(localized: "agentSkills.onboarding.title", defaultValue: "Teach your agents about c11"))
-                .font(.system(size: 18, weight: .semibold))
-            Text(String(localized: "agentSkills.onboarding.body", defaultValue: "Agents only know about c11's CLI and sidebar metadata when they've read the c11 skill file. Pick which agents should get it — you can change this any time in Settings → Agent Skills."))
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(model.rows) { row in
-                    onboardingRow(row: row)
-                }
-            }
-            .padding(.vertical, 2)
+        VStack(alignment: .leading, spacing: 18) {
+            header
+            installSection
 
             if let msg = model.lastActionMessage {
                 Text(msg)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(BrandColors.whiteSwiftUI.opacity(0.68))
             }
 
-            transparencyControls
-
-            HStack(spacing: 8) {
-                Spacer()
-
-                Button(String(localized: "agentSkills.onboarding.dontAsk", defaultValue: "Don't ask again")) {
-                    UserDefaults.standard.set(true, forKey: AgentSkillsOnboarding.sheetShownKey)
-                    onDismiss()
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-
-                Button(String(localized: "agentSkills.onboarding.later", defaultValue: "Install Later")) {
-                    AgentSkillsOnboarding.markDismissedThisLaunch()
-                    onDismiss()
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-
-                Button(String(localized: "agentSkills.onboarding.install", defaultValue: "Install Now")) {
-                    applySelection()
-                }
-                .keyboardShortcut(.defaultAction)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .frame(minWidth: 132, minHeight: 34)
-                .disabled(!anySelected)
-            }
+            learnMoreSection
+            footer
         }
-        .padding(20)
-        .frame(width: 560)
+        .padding(24)
+        .frame(width: 540)
+        .background(OnboardingKeyboardMonitor(
+            onMove: { direction in
+                selectedAction = AgentSkillsOnboardingAction.moved(from: selectedAction, direction: direction)
+            },
+            onActivate: { activateSelectedAction() },
+            onCancel: { installLater() }
+        ))
+        .environment(\.colorScheme, .dark)
         .onAppear { model.refresh() }
         .onReceive(model.$rows) { rows in
             guard !initializedDefaultOptIns, !rows.isEmpty else { return }
@@ -660,45 +632,116 @@ struct AgentSkillsOnboardingSheet: View {
         initializedDefaultOptIns && (claudeOptIn || codexOptIn || kimiOptIn || opencodeOptIn)
     }
 
-    private var transparencyControls: some View {
+    private var detectedRows: [AgentSkillsModel.TargetRow] {
+        model.rows.filter(\.detected)
+    }
+
+    private var notDetectedRows: [AgentSkillsModel.TargetRow] {
+        model.rows.filter { !$0.detected }
+    }
+
+    private var detectedTargetList: String {
+        let names = detectedRows.map { $0.target.displayName }
+        return ListFormatter.localizedString(byJoining: names)
+    }
+
+    private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "agentSkills.onboarding.transparency", defaultValue: "Trust should be inspectable. The c11 skill is plain text; open it in Finder or copy a review prompt and hand it to any coding agent before installing."))
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
+            Text(String(localized: "agentSkills.onboarding.title", defaultValue: "Install the c11 skill"))
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(BrandColors.whiteSwiftUI)
+
+            Text(headerBody)
+                .font(.system(size: 12, weight: .regular))
+                .lineSpacing(2)
+                .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.76))
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
 
-            HStack(spacing: 8) {
-                Button(String(localized: "agentSkills.onboarding.showSkill", defaultValue: "Show Skill in Finder")) {
-                    model.revealPrimarySkillInFinder()
-                }
-                .buttonStyle(.bordered)
-                .disabled(model.primarySkillURL == nil)
+    private var headerBody: String {
+        if detectedRows.isEmpty {
+            return String(
+                localized: "agentSkills.onboarding.body.detecting",
+                defaultValue: "Looking for coding agents on this Mac. When c11 finds one, it can install a small plain-text skill that teaches the agent how to drive this workspace."
+            )
+        }
+        let format = String(
+            localized: "agentSkills.onboarding.body.detected",
+            defaultValue: "c11 found %@. Install the skill there so your agents can use panes, browser surfaces, markdown, sidebar status, and the c11 CLI."
+        )
+        return String(format: format, detectedTargetList)
+    }
 
-                Button(String(localized: "agentSkills.onboarding.copyReviewPrompt", defaultValue: "Copy Review Prompt")) {
-                    model.copySkillReviewPromptToPasteboard()
+    private var installSection: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(String(localized: "agentSkills.onboarding.installSection", defaultValue: "Install into"))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.62))
+
+            if detectedRows.isEmpty {
+                Text(String(localized: "agentSkills.onboarding.noDetectedTools", defaultValue: "No supported agent config folders were detected yet. You can run this later from Settings → Agent Skills."))
+                    .font(.system(size: 12))
+                    .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.68))
+                    .padding(.vertical, 6)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(detectedRows.enumerated()), id: \.element.id) { index, row in
+                        onboardingRow(row: row)
+                        if index < detectedRows.count - 1 {
+                            Rectangle()
+                                .fill(BrandColors.ruleSwiftUI.opacity(0.7))
+                                .frame(height: 1)
+                                .padding(.leading, 30)
+                        }
+                    }
                 }
-                .buttonStyle(.bordered)
-                .disabled(model.primarySkillURL == nil)
             }
-            .controlSize(.regular)
+
+            if !notDetectedRows.isEmpty {
+                Text(notDetectedSummary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.48))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
     @ViewBuilder
     private func onboardingRow(row: AgentSkillsModel.TargetRow) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        HStack(alignment: .center, spacing: 10) {
             Toggle(isOn: optInBinding(for: row.target)) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(row.target.displayName)
-                        .font(.system(size: 13, weight: .medium))
-                    Text(detectionLabel(for: row))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                EmptyView()
             }
+            .labelsHidden()
             .toggleStyle(.checkbox)
             .disabled(!row.detected)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 7) {
+                    Text(row.target.displayName)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(row.detected ? BrandColors.whiteSwiftUI : BrandColors.whiteSwiftUI.opacity(0.42))
+                    if let version = row.sourceVersionLabel {
+                        Text(version)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(BrandColors.goldSwiftUI)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(BrandColors.goldFaintSwiftUI)
+                            )
+                    }
+                }
+                Text(detectionLabel(for: row))
+                    .font(.system(size: 11))
+                    .foregroundColor(BrandColors.whiteSwiftUI.opacity(0.58))
+            }
+            Spacer(minLength: 0)
         }
+        .frame(minHeight: 42)
     }
 
     private func detectionLabel(for row: AgentSkillsModel.TargetRow) -> String {
@@ -709,45 +752,100 @@ struct AgentSkillsOnboardingSheet: View {
             )
         }
         if row.allCurrent {
-            if let version = row.sourceVersionLabel {
-                let format = String(
-                    localized: "agentSkills.onboarding.alreadyInstalledVersioned",
-                    defaultValue: "Already installed and up to date (%@)."
-                )
-                return String(format: format, version)
-            }
             return String(
                 localized: "agentSkills.onboarding.alreadyInstalled",
-                defaultValue: "Already installed and up to date."
+                defaultValue: "Already current"
             )
         }
         if row.hasOutdated {
-            if let version = row.sourceVersionLabel {
-                let format = String(
-                    localized: "agentSkills.onboarding.updateAvailableVersioned",
-                    defaultValue: "Older c11 skill installed. Install Now updates it to %@."
-                )
-                return String(format: format, version)
-            }
             return String(
                 localized: "agentSkills.onboarding.updateAvailable",
-                defaultValue: "Older c11 skill installed. Install Now updates it."
+                defaultValue: "Will update the installed skill"
             )
         }
         if row.anyInstalled {
-            if let version = row.sourceVersionLabel {
-                let format = String(
-                    localized: "agentSkills.onboarding.partialInstalledVersioned",
-                    defaultValue: "Partially installed. Install Now completes %@."
-                )
-                return String(format: format, version)
-            }
             return String(
                 localized: "agentSkills.onboarding.partialInstalled",
-                defaultValue: "Partially installed. Install Now completes the current skill set."
+                defaultValue: "Will complete the skill set"
             )
         }
-        return row.destinationDir.path
+        return String(
+            localized: "agentSkills.onboarding.willInstall",
+            defaultValue: "Will install the skill"
+        )
+    }
+
+    private var notDetectedSummary: String {
+        let names = ListFormatter.localizedString(byJoining: notDetectedRows.map { $0.target.displayName })
+        let format = String(
+            localized: "agentSkills.onboarding.notDetectedSummary",
+            defaultValue: "Not detected: %@"
+        )
+        return String(format: format, names)
+    }
+
+    private var learnMoreSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Rectangle()
+                .fill(BrandColors.ruleSwiftUI.opacity(0.8))
+                .frame(height: 1)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(String(localized: "agentSkills.onboarding.learnMoreTitle", defaultValue: "What gets installed"))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.62))
+
+                Text(String(localized: "agentSkills.onboarding.transparency", defaultValue: "The skill is plain text. It tells agents how to use c11; it does not run code by itself. Inspect it in Finder or copy a review prompt for another agent."))
+                    .font(.system(size: 12))
+                    .lineSpacing(2)
+                    .foregroundColor(BrandColors.whiteSwiftUI.opacity(0.66))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(spacing: 8) {
+                SecondaryOnboardingButton(
+                    title: String(localized: "agentSkills.onboarding.showSkill", defaultValue: "Show Skill in Finder"),
+                    disabled: model.primarySkillURL == nil,
+                    action: { model.revealPrimarySkillInFinder() }
+                )
+
+                SecondaryOnboardingButton(
+                    title: String(localized: "agentSkills.onboarding.copyReviewPrompt", defaultValue: "Copy Review Prompt"),
+                    disabled: model.primarySkillURL == nil,
+                    action: { model.copySkillReviewPromptToPasteboard() }
+                )
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 8) {
+            Spacer(minLength: 0)
+
+            OnboardingActionButton(
+                title: String(localized: "agentSkills.onboarding.dontAsk", defaultValue: "Don't ask again"),
+                kind: .secondary,
+                isSelected: selectedAction == .dontAsk,
+                action: dontAskAgain
+            )
+
+            OnboardingActionButton(
+                title: String(localized: "agentSkills.onboarding.later", defaultValue: "Install Later"),
+                kind: .secondary,
+                isSelected: selectedAction == .later,
+                action: installLater
+            )
+
+            OnboardingActionButton(
+                title: String(localized: "agentSkills.onboarding.install", defaultValue: "Install Now"),
+                kind: .primary,
+                isSelected: selectedAction == .install,
+                disabled: !anySelected,
+                action: applySelection
+            )
+            .keyboardShortcut(.defaultAction)
+        }
     }
 
     private func optInBinding(for target: SkillInstallerTarget) -> Binding<Bool> {
@@ -774,12 +872,239 @@ struct AgentSkillsOnboardingSheet: View {
         onDismiss()
     }
 
+    private func dontAskAgain() {
+        UserDefaults.standard.set(true, forKey: AgentSkillsOnboarding.sheetShownKey)
+        onDismiss()
+    }
+
+    private func installLater() {
+        AgentSkillsOnboarding.markDismissedThisLaunch()
+        onDismiss()
+    }
+
+    private func activateSelectedAction() {
+        switch selectedAction {
+        case .dontAsk:
+            dontAskAgain()
+        case .later:
+            installLater()
+        case .install:
+            guard anySelected else { return }
+            applySelection()
+        }
+    }
+
     private func applyDefaultOptIns(rows: [AgentSkillsModel.TargetRow]) {
         let defaults = AgentSkillsOnboarding.defaultOptIns(for: rows)
         claudeOptIn = defaults[.claude] ?? false
         codexOptIn = defaults[.codex] ?? false
         kimiOptIn = defaults[.kimi] ?? false
         opencodeOptIn = defaults[.opencode] ?? false
+    }
+}
+
+private enum AgentSkillsOnboardingAction: CaseIterable {
+    case dontAsk
+    case later
+    case install
+
+    static func moved(
+        from current: AgentSkillsOnboardingAction,
+        direction: ConfirmMoveDirection
+    ) -> AgentSkillsOnboardingAction {
+        let order = Self.allCases
+        guard let index = order.firstIndex(of: current) else { return .install }
+        switch direction {
+        case .left:
+            return order[max(order.startIndex, index - 1)]
+        case .right:
+            return order[min(order.index(before: order.endIndex), index + 1)]
+        case .toggle:
+            let next = order.index(after: index)
+            return next == order.endIndex ? order[order.startIndex] : order[next]
+        }
+    }
+}
+
+private enum OnboardingActionButtonKind {
+    case primary
+    case secondary
+}
+
+private struct OnboardingActionButton: View {
+    let title: String
+    let kind: OnboardingActionButtonKind
+    let isSelected: Bool
+    var disabled: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: kind == .primary ? 13 : 12, weight: .semibold))
+                .foregroundColor(foregroundColor)
+                .lineLimit(1)
+                .frame(minWidth: kind == .primary ? 126 : 108, minHeight: kind == .primary ? 34 : 28)
+                .padding(.horizontal, kind == .primary ? 10 : 6)
+                .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .background(background)
+        .overlay(border)
+        .selectionBox(isActive: isSelected)
+        .opacity(disabled ? 0.45 : 1)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var foregroundColor: Color {
+        switch kind {
+        case .primary:
+            return BrandColors.blackSwiftUI
+        case .secondary:
+            return BrandColors.whiteSwiftUI.opacity(0.9)
+        }
+    }
+
+    private var background: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(kind == .primary ? BrandColors.goldSwiftUI : BrandColors.whiteSwiftUI.opacity(0.08))
+    }
+
+    private var border: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .strokeBorder(
+                kind == .primary ? BrandColors.goldSwiftUI.opacity(0.9) : BrandColors.ruleSwiftUI,
+                lineWidth: 1
+            )
+    }
+}
+
+private struct SecondaryOnboardingButton: View {
+    let title: String
+    var disabled: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(BrandColors.whiteSwiftUI.opacity(0.86))
+                .lineLimit(1)
+                .frame(minHeight: 28)
+                .padding(.horizontal, 12)
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .background(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(BrandColors.whiteSwiftUI.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(BrandColors.ruleSwiftUI, lineWidth: 1)
+        )
+        .opacity(disabled ? 0.45 : 1)
+    }
+}
+
+private struct OnboardingKeyboardMonitor: NSViewRepresentable {
+    let onMove: (ConfirmMoveDirection) -> Void
+    let onActivate: () -> Void
+    let onCancel: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onMove: onMove, onActivate: onActivate, onCancel: onCancel)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView(frame: .zero)
+        context.coordinator.view = view
+        context.coordinator.installMonitor()
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.view = nsView
+        context.coordinator.onMove = onMove
+        context.coordinator.onActivate = onActivate
+        context.coordinator.onCancel = onCancel
+        context.coordinator.installMonitor()
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.removeMonitor()
+    }
+
+    final class Coordinator {
+        weak var view: NSView?
+        var onMove: (ConfirmMoveDirection) -> Void
+        var onActivate: () -> Void
+        var onCancel: () -> Void
+        private var monitor: Any?
+
+        init(
+            onMove: @escaping (ConfirmMoveDirection) -> Void,
+            onActivate: @escaping () -> Void,
+            onCancel: @escaping () -> Void
+        ) {
+            self.onMove = onMove
+            self.onActivate = onActivate
+            self.onCancel = onCancel
+        }
+
+        func installMonitor() {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, self.shouldHandle(event: event) else { return event }
+                return self.handle(event: event) ? nil : event
+            }
+        }
+
+        func removeMonitor() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+            }
+            monitor = nil
+        }
+
+        private func shouldHandle(event: NSEvent) -> Bool {
+            guard let window = view?.window, event.window === window, window.isKeyWindow else {
+                return false
+            }
+            return true
+        }
+
+        private func handle(event: NSEvent) -> Bool {
+            switch event.keyCode {
+            case 123, 126:
+                onMove(.left)
+            case 124, 125:
+                onMove(.right)
+            case 48:
+                onMove(event.modifierFlags.contains(.shift) ? .left : .right)
+            case 36, 76, 49:
+                onActivate()
+            case 53:
+                onCancel()
+            default:
+                return false
+            }
+            return true
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func selectionBox(isActive: Bool) -> some View {
+        overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.white, lineWidth: isActive ? 2 : 0)
+                .padding(-4)
+                .animation(.easeInOut(duration: 0.12), value: isActive)
+        )
     }
 }
 
