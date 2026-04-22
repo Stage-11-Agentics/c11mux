@@ -8,6 +8,7 @@
 
 **Revision history**:
 
+- **Namespace cleanup** (2026-04-22) — Supersedes the §9.3 / §12 #5 CLI namespace decision that kept `themes` for Ghostty terminal themes. Current c11 product language is: `c11 themes` for c11 chrome themes, `c11 terminal-theme` for Ghostty terminal themes, and `c11 workspace-color` for workspace color commands.
 - **Draft v2** (2026-04-18) — Trident (nine-agent) plan review folded in: runtime-contract amendments (§3, §6.4, §6.5); M1 split into M1a/M1b and M2 into M2a/M2b/M2c (§10); `ThemeContext` struct + generic resolver (§3, §10); `WorkspaceFrameState` enum ships in M1 stub (§7.3, §10); cycle/invalid-value/unknown-key policies locked (§6.4-§6.5); schema keys reserved for M5+ (§6.5); `dividerThicknessPt` moved off `ChromeColors` onto new `DividerStyle` struct (§7.1); `ContentView.customTitlebar` explicitly in scope (§10 M1); legacy-override precedence matrix (§8); runtime-toggle vs launch-time-kill-switch split (§8.1, §9.4); bonsplit refresh trigger on `Workspace.customColor` mutation (§7.2); fuzz corpus + snapshot diff + perf regression tests added (§10 M1); new §14 Open questions post-Trident. §12 and the seven locked decisions are untouched.
 - **Draft v1.1** (2026-04-18) — Seven open questions locked with operator (§12).
 - **Draft v1** (2026-04-18) — Initial exploration.
@@ -22,12 +23,12 @@ c11 today has **no unified theme engine**. Chrome colors are scattered across at
 |---|---|---|
 | `CmuxThemeNotifications.reloadConfig` | `Sources/AppDelegate.swift:36` | DistributedNotification trigger only — no store |
 | `Workspace.bonsplitAppearance(...)` | `Sources/Workspace.swift:5084-5154` | Pushes Ghostty's background hex into `ChromeColors.backgroundHex`; **`borderHex` is never set** |
-| `AppearanceMode` | `Sources/cmuxApp.swift:3534-3583` | light/dark/system only |
+| `AppearanceMode` | `Sources/c11App.swift:3534-3583` | light/dark/system only |
 | `SidebarTint` | `@AppStorage("sidebarTintHexLight"/"Dark")` + opacity | Sidebar window-glass tint |
 | `BrowserThemeSettings` | `Sources/Panels/BrowserPanel.swift:166-196` | browser-surface only |
 | `WorkspaceTabColorSettings` | `Sources/TabManager.swift:245-443` | workspace color palette + custom colors |
 | `SidebarActiveTabIndicatorSettings` | `Sources/TabManager.swift:155-186` | `.solidFill` vs `.leftRail` sidebar render mode |
-| `Resources/ghostty/themes/` + `cmux themes` CLI | Ghostty terminal themes | **not c11 chrome** — terminal cells only |
+| `Resources/ghostty/themes/` + `c11 terminal-theme` CLI | Ghostty terminal themes | **not c11 chrome** — terminal cells only |
 
 Three symptoms follow from the scatter:
 
@@ -40,7 +41,7 @@ The goal is a **unified theme engine for c11 chrome** that:
 - Leaves Ghostty strictly alone (terminal cells, prompts, scrollback, cursor remain Ghostty-owned).
 - Makes the workspace color a first-class theme variable (`$workspaceColor`) that theme authors reference freely — so one theme definition works across every workspace and the color automatically gains prevalence wherever the author placed it.
 - Adds a new first-class primitive: an **outer workspace frame** that wraps the right-hand content area (sidebar excluded), colored by the workspace color.
-- Replaces the scattered `@AppStorage` keys with TOML theme files, with built-ins shipped in the app bundle and user themes dropped into `~/Library/Application Support/c11mux/themes/`.
+- Replaces the scattered `@AppStorage` keys with TOML theme files, with built-ins shipped in the app bundle and user themes dropped into `~/Library/Application Support/c11/themes/`.
 - Ships as an overall UI convention — future chrome decisions reference the theme's variables instead of minting new `@AppStorage` keys.
 
 ---
@@ -54,7 +55,7 @@ Locked from the exploration dialogue:
 3. **Theme engine becomes an overall UI convention.** Future chrome work references theme variables (`$workspaceColor`, `$background`, `$foreground`, `$surface`) rather than minting fresh `@AppStorage` keys. No new scattered theme systems.
 4. **Outer workspace frame is a new first-class primitive.** A thin (1-2pt) border that wraps the **right-hand content area only** (sidebar excluded and stays neutral). Colored by the workspace color. It is the logical representation of the active workspace in the content area.
 5. **Horizontal and vertical dividers are first-class theme knobs.** Color, thickness, potentially inset/opacity — all themable.
-6. **Theme files, not settings-only.** `~/Library/Application Support/c11mux/themes/*.toml` plus built-ins shipped in `Resources/c11mux-themes/`. Users drop in theme files and select them.
+6. **Theme files, not settings-only.** `~/Library/Application Support/c11/themes/*.toml` plus built-ins shipped in `Resources/c11-themes/`. Users drop in theme files and select them.
 7. **`$workspaceColor` is a first-class schema variable.** Themes reference it with opacity and mix modifiers — never hardcode workspace hexes. One theme works across every workspace.
 8. **Additive, not migratory.** Existing `@AppStorage` keys (`sidebarTintHexLight/Dark`, `sidebarActiveTabIndicatorStyleRaw`, `BrowserThemeSettings`) stay as orthogonal controls in v1; the theme engine provides defaults those keys can override. Deprecations are deferred until the engine has bedded in.
 
@@ -66,7 +67,7 @@ Locked from the exploration dialogue:
 ┌──────────────────────────────────────────────────────────────┐
 │ Discoverability (Settings picker, CLI, debug menu)           │  ← M4
 ├──────────────────────────────────────────────────────────────┤
-│ User themes (~/Library/Application Support/c11mux/themes/)   │  ← M3
+│ User themes (~/Library/Application Support/c11/themes/)      │  ← M3
 │ + file watcher + hot reload                                  │
 ├──────────────────────────────────────────────────────────────┤
 │ Workspace frame primitive (outer content-area border)        │  ← M2
@@ -127,11 +128,11 @@ public struct WorkspaceState: Sendable, Hashable {
 }
 ```
 
-Populated from per-workspace metadata: `cmux set-workspace-metadata state.environment prod` maps to `WorkspaceState.environment = "prod"`. Reserved keys live under the `state.` prefix so they don't collide with existing workspace metadata. `$workspaceColor` stays a pure color token — state is expressed via `[when.workspaceState.*]` conditional blocks, not by overloading the color.
+Populated from per-workspace metadata: `c11 set-workspace-metadata state.environment prod` maps to `WorkspaceState.environment = "prod"`. Reserved keys live under the `state.` prefix so they don't collide with existing workspace metadata. `$workspaceColor` stays a pure color token — state is expressed via `[when.workspaceState.*]` conditional blocks, not by overloading the color.
 
 **Generic resolver** (`resolve<T>`): v1 uses `T = NSColor` exclusively. The generic signature is a forward-compatibility seam for future numeric/duration/typography values. Cost: one type parameter. Benefit: M5 conditional expressions and per-state overrides land without re-plumbing callers.
 
-**ThemeRoleRegistry** (`Sources/Theme/ThemeRoleRegistry.swift`): a single compile-time source of truth enumerating every role, its default value, its owning surface file, and its fallback behavior. Prevents role sprawl; drives docs, tests, and the `cmux ui themes dump --json` output.
+**ThemeRoleRegistry** (`Sources/Theme/ThemeRoleRegistry.swift`): a single compile-time source of truth enumerating every role, its default value, its owning surface file, and its fallback behavior. Prevents role sprawl; drives docs, tests, and the `c11 themes dump --json` output.
 
 **Immutable snapshot model**: at each theme-change or file-reload event, `ThemeManager` computes a `ResolvedThemeSnapshot` (parse-time AST → evaluated values keyed by `(role, context-class)`). Views read the snapshot through per-section publishers (`sidebarPublisher`, `titleBarPublisher`, `dividerPublisher`, `framePublisher`) so unrelated theme changes don't invalidate `TabItemView`'s Equatable-gated body.
 
@@ -197,7 +198,7 @@ Every chrome surface in c11, where its color comes from today, and what M1–M3 
 
 | Surface | Today's source | File:line | M2 target |
 |---|---|---|---|
-| Browser chrome background (address bar area) | `resolvedBrowserChromeBackgroundColor(...)` — receives Ghostty theme background | `Sources/Panels/BrowserPanelView.swift:205-243` | `browserChrome.background = $ghosttyBackground` (default). Theme can override. |
+| Browser chrome background (address bar area) | `resolvedBrowserChromeBackgroundColor(...)` — receives Ghostty terminal background | `Sources/Panels/BrowserPanelView.swift:205-243` | `browserChrome.background = $ghosttyBackground` (default). Theme can override. |
 | Omnibar pill background | Darkened/blended from chrome bg | `BrowserPanelView.swift:228-243` | `browserChrome.omnibarFill = $surface.mix($background, 0.15)` (default formula preserved). |
 | `BrowserThemeSettings` (light/dark/system for web content) | `@AppStorage("browserThemeMode")` | `Sources/Panels/BrowserPanel.swift:186-196` | **Stays orthogonal** — governs content rendering (prefers-color-scheme), not chrome. Not absorbed into theme engine. |
 
@@ -231,7 +232,7 @@ Every chrome surface in c11, where its color comes from today, and what M1–M3 
 
 - Context-menu "Workspace Color" submenu (`Sources/ContentView.swift:11348-11378`) → `applyTabColor(hex, targetIds)` → `TabManager.setTabColor` → `Workspace.setCustomColor` (`Sources/Workspace.swift:5757-5763`).
 - Context-menu "Choose Custom Color…" → `promptCustomColor(targetIds)` (`ContentView.swift:12032-12059`) → validates/normalizes hex → `WorkspaceTabColorSettings.addCustomColor(...)` → `applyTabColor`.
-- Settings pane "Workspace Colors" (`Sources/cmuxApp.swift:4806-4890`) — palette overrides and custom-color management; does **not** itself set a workspace's color (per-workspace color is always via context menu).
+- Settings pane "Workspace Colors" (`Sources/c11App.swift:4806-4890`) — palette overrides and custom-color management; does **not** itself set a workspace's color (per-workspace color is always via context menu).
 - Session restore: `Workspace.setCustomColor(snapshot.customColor)` at `Sources/Workspace.swift:256`.
 
 **Persistence**:
@@ -304,10 +305,10 @@ All four are **default formulas in the built-in Stage 11 theme**. Themes (includ
 No first-class command today. `cmux` exposes workspace color **read-only** via the v2 API (`TerminalController.swift:3592`). M4 adds:
 
 ```
-cmux workspace-color set --workspace <ref> <hex>
-cmux workspace-color clear --workspace <ref>
-cmux workspace-color get --workspace <ref>
-cmux workspace-color list-palette
+c11 workspace-color set --workspace <ref> <hex>
+c11 workspace-color clear --workspace <ref>
+c11 workspace-color get --workspace <ref>
+c11 workspace-color list-palette
 ```
 
 Backed by a new socket method `workspace.set_custom_color`. The CLI is additive — context menu stays the canonical user surface.
@@ -332,8 +333,8 @@ The file extension is `.toml`. Both built-ins and user themes carry it.
 
 ### 6.2 Directory layout
 
-- **Built-ins**: bundled in `Resources/c11mux-themes/<name>.toml`. Read-only. Shipped with the app.
-- **User themes**: `~/Library/Application Support/c11mux/themes/<name>.toml`. Writable; file watcher picks up changes. User names that collide with built-ins shadow them, with a single OSLog warning on load.
+- **Built-ins**: bundled in `Resources/c11-themes/<name>.toml`. Read-only. Shipped with the app.
+- **User themes**: `~/Library/Application Support/c11/themes/<name>.toml`. Writable; file watcher picks up changes. User names that collide with built-ins shadow them, with a single OSLog warning on load.
 - **Active theme selection**: two `@AppStorage` keys per §12 #12 — `@AppStorage("theme.active.light")` and `@AppStorage("theme.active.dark")` each hold a theme `<name>`; empty/missing means the built-in default (`stage11`). The resolver picks the slot matching `ThemeContext.colorScheme`. Operators who want one theme across both modes set both keys identically (the Settings picker offers a one-click "apply to both" action per §9.1). Per §12 #14, both keys are stored in `UserDefaults(suiteName: Bundle.main.bundleIdentifier)` so production, DEV, tagged builds, and STAGING each maintain independent selections; the shared themes directory is the only cross-instance surface.
 - **Per-workspace override**: Deferred past v1 per §12 #6. Schema is forward-compatible for M5+ — `Workspace` may gain `themeOverride: String?` with a `SessionWorkspaceSnapshot` version bump.
 
@@ -347,7 +348,7 @@ The file extension is `.toml`. Both built-ins and user themes carry it.
 ### 6.3 Schema (TOML, annotated)
 
 ```toml
-# Built-in default theme, shipped at Resources/c11mux-themes/stage11.toml.
+# Built-in default theme, shipped at Resources/c11-themes/stage11.toml.
 # Theme files are TOML. Comments supported. Keys are hierarchical tables.
 
 [identity]
@@ -486,7 +487,7 @@ Locked in v2 per Trident review. All three reviewers independently flagged under
    tintOverlay = { enabled = false }           # preferred
    tintOverlay = null                           # also accepted
    ```
-   Setting `opacity(0.0)` is still valid and produces a transparent render; the structured form is preferred for diagnostics (`cmux ui themes dump` marks disabled keys explicitly).
+   Setting `opacity(0.0)` is still valid and produces a transparent render; the structured form is preferred for diagnostics (`c11 themes dump` marks disabled keys explicitly).
 7. **Color space**: all resolution is in `sRGB` space. Native P3 inputs (NSColor from system pickers, Ghostty background) are converted to `sRGB` on ingress; cross-space `.mix()` is undefined and produces a load-time error. Reviewer-flagged gap: the `WorkspaceTabColorSettings.displayNSColor` helper is audited for color-space conformance in M1.
 8. **Cache key**: the resolved-color memoization key is the full `ThemeContext` hash (§3), not a subset. Any `ThemeContext` field added in a future milestone automatically becomes part of the cache key with no code change at consumers.
 9. **Schema `version` mismatch**: see §6.5.
@@ -506,12 +507,12 @@ A *separate* extensibility axis: when a surface needs a brand-new variable name 
 - **Unknown chrome keys** (theme declares `chrome.futureSurface.foo`): **warn-and-ignore** via OSLog. Forward-compatibility for themes authored on newer cmux versions.
 - **Unknown modifier names** (`$x.unknown(0.5)`): **load-time error** (see §6.4.a #5). Unknown modifiers are typos, not forward-compatibility.
 - **Schema version mismatch**: a theme with `schema = 2` loaded by a v1 cmux **fails closed** — falls back to the built-in default theme, OSLog warning. A theme with `schema = 1` loaded by a v2 cmux runs through the one-time converter (v2's responsibility).
-- **Inheritance diagnostics**: if a user theme omits sections to inherit defaults, `cmux ui themes dump --json` surfaces this via a `"inherited_from": "stage11"` annotation per key that fell back. Aids debugging user themes without adding runtime cost.
+- **Inheritance diagnostics**: if a user theme omits sections to inherit defaults, `c11 themes dump --json` surfaces this via a `"inherited_from": "stage11"` annotation per key that fell back. Aids debugging user themes without adding runtime cost.
 
 **Reserved keys for M5+** (v2 reserves these now; parser warns-and-ignores in v1):
 
 - `[when.*]` tables — for conditional expressions (`when.workspaceHasColor`, `when.focus`). **Not reserved**: `when.appearance` — per §12 #12, light/dark handling is an operator preference (two `@AppStorage` slots) rather than an in-theme conditional block.
-- `[identity].inherits = "<parent-name>"` — **per §12 #16**, reserved for M5+ explicit theme inheritance. v1 warns-and-ignores on load; a theme that sets this key loads normally, the key has no runtime effect. M5+ implementation will add loader-level inheritance graph walk with cycle detection, and a CLI `cmux ui themes fork <parent>` verb for operator-facing forking.
+- `[identity].inherits = "<parent-name>"` — **per §12 #16**, reserved for M5+ explicit theme inheritance. v1 warns-and-ignores on load; a theme that sets this key loads normally, the key has no runtime effect. M5+ may add loader-level inheritance graph walk with cycle detection and an operator-facing forking flow in a separate feature decision.
 - `[when.workspaceState.environment]`, `[when.workspaceState.risk]`, `[when.workspaceState.mode]`, `[when.workspaceState.tag.<key>]` — **per §12 #10**, categorical workspace-state conditional blocks. v1 reserves and warns-and-ignores; v1.x point release implements. Example:
   ```toml
   [when.workspaceState.risk.high.chrome.windowFrame]
@@ -520,7 +521,7 @@ A *separate* extensibility axis: when a surface needs a brand-new variable name 
   ```
 - `chrome.windowFrame.style` — reserved for `solid | dashed | gradient` variants.
 - `chrome.dividers.insetLeadingPt`, `chrome.dividers.insetTrailingPt`, `chrome.dividers.opacity` (per §4.4 deferred M5).
-- `behavior.animateWorkspaceCrossfade` (reserved for §9.4/M5 opt-in; v1 parses, ignores, and confirms via `cmux ui themes dump` that the key is present-but-inactive).
+- `behavior.animateWorkspaceCrossfade` (reserved for §9.4/M5 opt-in; v1 parses, ignores, and confirms via `c11 themes dump` that the key is present-but-inactive).
 
 Rationale: reserving keys now means M5 (and the §12 #10 v1.x state-channel rollout) don't require schema bumps — the additive-only-within-schema=1 guarantee holds.
 
@@ -723,10 +724,10 @@ The theme engine replaces no live setting in v1. Every existing `@AppStorage` ke
 |---|---|---|
 | `sidebarTintHexLight` / `sidebarTintHexDark` / `sidebarTintHex` / `sidebarTintOpacity` (`Sources/ContentView.swift:13527-13528`) | Override theme's `chrome.sidebar.tintBase` / `tintBaseOpacity`. If either light/dark override is set, it continues to win. | Planned: remove @AppStorage keys and move user values into a "User overrides" theme file on first launch after M4 ships. Not in M1-M4. |
 | `sidebarActiveTabIndicatorStyleRaw` (`Sources/TabManager.swift:171-186`) | Orthogonal — governs `.leftRail` vs `.solidFill` structure, not colors. Theme provides colors for whichever mode is active. | **No deprecation planned.** The indicator mode is a structural choice, not a theme choice; stays as a first-class setting. |
-| `AppearanceMode` (light/dark/system — `Sources/cmuxApp.swift:3534-3583`) | Orthogonal. Themes read `colorScheme` when resolving `$workspaceColor` (brightening) and should otherwise not assume a scheme. | **No deprecation planned.** Light/dark is OS-level; themes are additive to it. |
+| `AppearanceMode` (light/dark/system — `Sources/c11App.swift:3534-3583`) | Orthogonal. Themes read `colorScheme` when resolving `$workspaceColor` (brightening) and should otherwise not assume a scheme. | **No deprecation planned.** Light/dark is OS-level; themes are additive to it. |
 | `BrowserThemeSettings` (`Sources/Panels/BrowserPanel.swift:166-196`) | Orthogonal — governs web-content `prefers-color-scheme`, not chrome. | **No deprecation planned.** Content rendering ≠ chrome. |
 | `WorkspaceTabColorSettings` (`Sources/TabManager.swift:245-443`) | Stays entirely — the palette, custom colors, and `Workspace.customColor` all feed `$workspaceColor`. | **No deprecation planned.** The theme engine consumes this; it does not replace it. |
-| `cmux themes` CLI / `Resources/ghostty/themes/` | Untouched — these govern Ghostty terminal colors, not c11 chrome. | **No deprecation planned.** Separate ownership (Ghostty) from new engine. |
+| `c11 terminal-theme` CLI / `Resources/ghostty/themes/` | Untouched — these govern Ghostty terminal colors, not c11 chrome. | **No deprecation planned.** Separate ownership (Ghostty) from new engine. |
 
 ### 8.1 Default theme selection for existing installs
 
@@ -770,7 +771,7 @@ When a surface role has values from multiple sources, resolution follows a fixed
 
 ### 9.1 Settings pane (M4)
 
-New "Appearance" section above "Workspace Colors" in `Sources/cmuxApp.swift` settings:
+New "Appearance" section above "Workspace Colors" in `Sources/c11App.swift` settings:
 
 - **Two theme pickers** (per §12 #12): "Theme (Light appearance)" and "Theme (Dark appearance)". Each is a segmented control or menu listing built-ins + user themes alphabetically; built-ins tagged with a small "Built-in" badge. Selections write to `@AppStorage("theme.active.light")` and `@AppStorage("theme.active.dark")` respectively.
 - **"Apply to both" convenience action**: a small link/button next to the Light picker that copies the Light selection to the Dark slot (and vice versa). Saves a click for the common case of one theme across both modes. Default install: both slots set to `stage11`.
@@ -789,26 +790,28 @@ Reserved: the `Workspace` model can gain `themeOverride: String?` in M5 if asked
 ### 9.3 Socket / CLI surface (M4)
 
 ```
-cmux ui themes list               # built-in + user, one per line, built-ins first                   [read]
-cmux ui themes get [--light|--dark]   # print active theme's name; optional slot per §12 #12         [read]
-cmux ui themes set <name> [--light|--dark|--both]   # switch a slot (or both); operator-only per §12 #13  [write]
-cmux ui themes clear [--light|--dark|--both]   # revert slot(s) to built-in default; operator-only   [write]
-cmux ui themes reload             # force-rescan user themes dir                                      [read]
-cmux ui themes path               # print the absolute path of the user themes dir                   [read]
-cmux ui themes dump --json        # dump the resolved theme as JSON for debugging                    [read]
-cmux workspace-color set --workspace <ref> <hex>      # see §5.6                                      [write]
-cmux workspace-color clear --workspace <ref>                                                          [write]
-cmux workspace-color get --workspace <ref>                                                            [read]
+c11 themes list                         # built-in + user, one per line, built-ins first            [read]
+c11 themes get [--slot light|dark]      # print active c11 chrome theme name; optional slot per §12 #12 [read]
+c11 themes set <name> [--slot light|dark|both] # switch a slot (or both); operator-only per §12 #13 [write]
+c11 themes clear                        # revert slots to built-in default; operator-only           [write]
+c11 themes reload                       # force-rescan user themes dir                              [read]
+c11 themes path                         # print the absolute path of the user themes dir            [read]
+c11 themes dump --json                  # dump the resolved c11 chrome theme as JSON for debugging  [read]
+c11 themes validate <path>              # validate a c11 chrome theme file                          [read]
+c11 themes diff <a> <b>                 # compare two c11 chrome themes                             [read]
+c11 workspace-color set --workspace <ref> <hex> # see §5.6                                          [write]
+c11 workspace-color clear --workspace <ref>                                                        [write]
+c11 workspace-color get --workspace <ref>                                                          [read]
 ```
 
-**Socket access policy** (per §12 #13): the `set` and `clear` verbs on `cmux ui themes` are operator-only — the CLI exposes them on the local operator's path, but the socket surface does NOT expose them to agent connections. Agents that need to signal workspace mode use `cmux set-workspace-metadata state.<key> <value>` (§12 #10); the active theme renders that state via `[when.workspaceState.*]` blocks. Read verbs (`list`, `get`, `dump`, `path`, `reload`) are safe for agent use.
+**Socket access policy** (per §12 #13): the `set` and `clear` verbs on `c11 themes` are operator-only — the CLI exposes them on the local operator's path, but the socket surface does NOT expose them to agent connections. Agents that need to signal workspace mode use `c11 set-workspace-metadata state.<key> <value>` (§12 #10); the active theme renders that state via `[when.workspaceState.*]` blocks. Read verbs (`list`, `get`, `dump`, `path`, `reload`) are safe for agent use.
 
-**CLI namespace** (locked 2026-04-18): `cmux themes` stays Ghostty — Ghostty is the king theme of the main user interface and keeps the short verb. c11 chrome themes live under `cmux ui themes …`. The top-level `cmux help` should educate:
+**CLI namespace** (superseded 2026-04-22): the 2026-04-18 decision below kept the short `themes` verb for Ghostty terminal themes. Current c11 product language reverses that collision:
 
-> `cmux themes` — Ghostty terminal themes (terminal cells, cursor, prompt colors).
-> `cmux ui themes` — c11 chrome themes (sidebar, title bars, dividers, workspace frame around the terminal).
+> `c11 themes` — c11 chrome themes (sidebar, title bars, dividers, browser chrome, markdown chrome, workspace frame).
+> `c11 terminal-theme` — Ghostty terminal themes (terminal cells, cursor, prompt colors).
 
-Alternatives considered and rejected: (a) renaming Ghostty to `cmux themes-ghostty` — inverts the principle that Ghostty is the king theme; (b) nesting chrome under `cmux appearance themes` — "appearance" implies a broader namespace we'd need to fill; (c) flag-based routing (`cmux themes --chrome`) — same verb, different semantics via flag is confusing.
+Legacy compatibility aliases remain implementation details; new docs and help should use `c11 themes ...`. Chrome theme authoring helpers such as `inherit` or `fork` remain deferred and are not part of this canonical namespace cleanup.
 
 ### 9.4 Debug menu entries
 
@@ -857,15 +860,15 @@ Each milestone is independently mergeable, independently useful, and ships as on
 - `Sources/Theme/ThemeContext.swift` — context struct (§3).
 - `Sources/Theme/ThemeRoleRegistry.swift` — single source of truth for every role, its default value, owning surface, and fallback (§3).
 - `Sources/Theme/ThemeManager.swift` — singleton `@MainActor` class; exposes `active: C11muxTheme`, `resolve<T>(_ role: ThemeRole, context: ThemeContext) -> T?`, per-section publishers, `version: UInt64`.
-- `Resources/c11mux-themes/stage11.toml` — built-in default.
+- `Resources/c11-themes/stage11.toml` — built-in default.
 - OSLog subsystem: `com.stage11.c11mux`, categories: `theme.engine`, `theme.loader`, `theme.resolver`.
-- `cmuxTests/C11muxThemeLoaderTests.swift`, `cmuxTests/ThemedValueResolutionTests.swift`, `cmuxTests/TomlSubsetParserFuzzTests.swift`, `cmuxTests/ThemeResolverBenchmarks.swift`.
+- `c11Tests/C11muxThemeLoaderTests.swift`, `c11Tests/ThemedValueResolutionTests.swift`, `c11Tests/TomlSubsetParserFuzzTests.swift`, `c11Tests/ThemeResolverBenchmarks.swift`.
 
 **Tests (M1a, all automated, CI-visible)**:
 
 1. Round-trip: load `stage11.toml`, encode as JSON, diff against a golden. Catches schema drift.
 2. Resolution: a set of fixtures — `$foreground`, `$workspaceColor.opacity(0.08)`, `$background.mix($accent, 0.5)` — each producing a specific `NSColor` deterministically (sRGB, 8-bit-per-channel).
-3. **Fuzz corpus** (v2 addition, per Trident): `cmuxTests/TomlSubsetParserFuzzTests.swift` exercises BOM, CRLF/LF, trailing whitespace, unquoted hex (`#RRGGBB` as comment foot-gun), comments-before-tables, empty tables, deeply-nested tables, duplicate keys, string-vs-number confusion. Corpus lives at `cmuxTests/Fixtures/toml-fuzz/`.
+3. **Fuzz corpus** (v2 addition, per Trident): `c11Tests/TomlSubsetParserFuzzTests.swift` exercises BOM, CRLF/LF, trailing whitespace, unquoted hex (`#RRGGBB` as comment foot-gun), comments-before-tables, empty tables, deeply-nested tables, duplicate keys, string-vs-number confusion. Corpus lives at `c11Tests/Fixtures/toml-fuzz/`.
 4. **Perf regression test** (v2 addition): 10,000 resolutions of the default theme's hottest roles against representative contexts; assert p95 <10ms total and per-lookup <1µs amortized. Gates the M1a merge.
 5. **Resolved-snapshot artifact** (v2 addition): CI job emits `stage11-snapshot.json` (resolved `ThemeManager` output for default context); PRs diff against the committed golden. Catches semantics drift before visual regressions are visible.
 6. **Cycle/invalid-value tests**: a theme with `$a → $b → $a` fails at parse time with the expected error; `opacity(1.5)` clamps to `1.0` + warning; `#GGG` is a load-time error; `unknown(0.5)` is a load-time error.
@@ -888,7 +891,7 @@ Each milestone is independently mergeable, independently useful, and ships as on
 
 **M1b acceptance criteria (v2 — concrete, per Trident standard Q14)**:
 
-- **24-dimensional sidebar snapshot test**: cross-product of {light, dark} × {`.solidFill`, `.leftRail`} × {active, inactive, multi-selected} × {has-custom-color, no-custom-color} — 24 snapshot fixtures committed under `cmuxTests/Snapshots/sidebar-m1b/`, zero pixel drift from pre-M1 baseline. Captured on both a Retina and non-Retina target.
+- **24-dimensional sidebar snapshot test**: cross-product of {light, dark} × {`.solidFill`, `.leftRail`} × {active, inactive, multi-selected} × {has-custom-color, no-custom-color} — 24 snapshot fixtures committed under `c11Tests/Snapshots/sidebar-m1b/`, zero pixel drift from pre-M1 baseline. Captured on both a Retina and non-Retina target.
 - **Titlebar snapshot test**: light/dark × {Ghostty-default-background, custom-workspace-background} — 4 fixtures.
 - **Browser-chrome snapshot test**: light/dark × 3 system appearances — 6 fixtures.
 - **Per-surface flag**: `@AppStorage("theme.m1b.\(surface).migrated", default: false)` — enables per-surface rollback if a specific migration introduces drift.
@@ -937,7 +940,7 @@ Each milestone is independently mergeable, independently useful, and ships as on
 
 **Tests**:
 
-- `cmuxTests/WorkspaceDividerColorPropagationTests.swift` — change `Workspace.customColor`, assert `applyGhosttyChrome` fires and `NSSplitView.dividerColor` reflects the new resolved value.
+- `c11Tests/WorkspaceDividerColorPropagationTests.swift` — change `Workspace.customColor`, assert `applyGhosttyChrome` fires and `NSSplitView.dividerColor` reflects the new resolved value.
 - XCUITest: set a workspace custom color, assert dividers change colour live (no restart).
 
 **Rollback**: `CMUX_DISABLE_THEME_ENGINE=1` restores pre-M2b (dividers derived from background hex).
@@ -958,7 +961,7 @@ Each milestone is independently mergeable, independently useful, and ships as on
 
 **Tests**:
 
-- `cmuxTests/WorkspaceFrameRenderTests.swift` — mounts `WorkspaceFrame` with mock workspace+theme, asserts stroke color + thickness + `allowsHitTesting(false)`.
+- `c11Tests/WorkspaceFrameRenderTests.swift` — mounts `WorkspaceFrame` with mock workspace+theme, asserts stroke color + thickness + `allowsHitTesting(false)`.
 - **Inactive-workspace frame opacity test** (v2 addition, per Trident standard review): mount two workspaces with different colors, switch active, assert the inactive frame renders at `windowFrame.inactiveOpacity` (default 0.25).
 - **Unfocused window frame opacity test**: simulate `NSWindow.didResignKey`, assert frame scales to `windowFrame.unfocusedOpacity`.
 - **Divider-thickness no-op guard test** (v2 addition): force `applyGhosttyChrome` to re-run without any theme change; assert `dividerStyle.thicknessPt` is unchanged (not reverted).
@@ -977,20 +980,20 @@ Each milestone is independently mergeable, independently useful, and ships as on
 
 ### M3 — User themes + hot reload
 
-**Deliverable**: Users drop `.toml` files in `~/Library/Application Support/c11mux/themes/` and they load. Two built-ins ship per §12 #15: Stage 11 (default) and Phosphor. Editing a theme file triggers hot reload within ≤1s. `cmux ui themes validate` is available for offline debugging (pulled forward from M4 per Trident evolutionary review).
+**Deliverable**: Users drop `.toml` files in `~/Library/Application Support/c11/themes/` and they load. Two built-ins ship per §12 #15: Stage 11 (default) and Phosphor. Editing a theme file triggers hot reload within ≤1s. `c11 themes validate` is available for offline debugging (pulled forward from M4 per Trident evolutionary review).
 
 **New files**:
 
 - `Sources/Theme/ThemeDirectoryWatcher.swift` — `DispatchSource.makeFileSystemObjectSource` watcher on the user themes dir (falls back to polling every 2s if FSEvents unavailable). Debounces to 250ms. Handles editor-save patterns (vim `.swp`, VSCode atomic rename).
-- `Sources/Theme/ThemeCanonicalizer.swift` — canonical formatter (sorted keys, consistent whitespace). Called on `cmux ui themes save` and optionally on file-watcher-detected changes.
-- `Resources/c11mux-themes/phosphor.toml`
-- `Resources/c11mux-themes/README.md` — bundled into the user themes dir on first-run creation; explains TOML subset, reserved variables, examples.
-- CLI: `cmux ui themes validate <path-or-name>` — runs the loader in error-collecting mode; prints warnings + errors; exit 0 on clean, 1 on warnings, 2 on errors. Pulled forward from M4.
+- `Sources/Theme/ThemeCanonicalizer.swift` — canonical formatter (sorted keys, consistent whitespace). Reserved for future theme authoring workflows and optionally on file-watcher-detected changes.
+- `Resources/c11-themes/phosphor.toml`
+- `Resources/c11-themes/README.md` — bundled into the user themes dir on first-run creation; explains TOML subset, reserved variables, examples.
+- CLI: `c11 themes validate <path-or-name>` — runs the loader in error-collecting mode; prints warnings + errors; exit 0 on clean, 1 on warnings, 2 on errors. Pulled forward from M4.
 
 **Modified files**:
 
 - `Sources/Theme/ThemeManager.swift` — enumerates built-ins + user themes; handles name shadowing (user wins); **atomic swap**: parses candidate fully before replacing active `ResolvedThemeSnapshot`; on parse failure, retains last-known-good and emits a sticky OSLog warning.
-- `Sources/cmuxApp.swift` — creates the user themes dir + README on first launch if absent.
+- `Sources/c11App.swift` — creates the user themes dir + README on first launch if absent.
 
 **Hot-reload contract** (v2 — per Trident):
 
@@ -1002,13 +1005,13 @@ Each milestone is independently mergeable, independently useful, and ships as on
 
 **Tests**:
 
-- `cmuxTests/ThemeDirectoryWatcherTests.swift` — write a theme file, wait for change publisher, assert new theme loads. Use a temp dir via a new `ThemeManager.pathsOverride` seam.
-- `cmuxTests/ThemeShadowingTests.swift` — built-in named "stage11", user file named "stage11.toml", assert user wins, assert revert on user file delete, **assert revert on user file deleted while active**.
-- `cmuxTests/ThemeMalformedLoadTests.swift` — malformed TOML → OSLog warning, doesn't crash, **doesn't swap active theme** (last-known-good retention).
-- `cmuxTests/ThemeAtomicSwapTests.swift` (v2) — simulate vim-style temp-file-then-rename; assert no intermediate-invalid state is ever published.
-- `cmuxTests/ThemeCanonicalizerTests.swift` — round-trip: arbitrary valid theme → canonicalize → parse → semantically equivalent.
+- `c11Tests/ThemeDirectoryWatcherTests.swift` — write a theme file, wait for change publisher, assert new theme loads. Use a temp dir via a new `ThemeManager.pathsOverride` seam.
+- `c11Tests/ThemeShadowingTests.swift` — built-in named "stage11", user file named "stage11.toml", assert user wins, assert revert on user file delete, **assert revert on user file deleted while active**.
+- `c11Tests/ThemeMalformedLoadTests.swift` — malformed TOML → OSLog warning, doesn't crash, **doesn't swap active theme** (last-known-good retention).
+- `c11Tests/ThemeAtomicSwapTests.swift` (v2) — simulate vim-style temp-file-then-rename; assert no intermediate-invalid state is ever published.
+- `c11Tests/ThemeCanonicalizerTests.swift` — round-trip: arbitrary valid theme → canonicalize → parse → semantically equivalent.
 - **Additive-schema fallback test** (v2): user theme omits `[chrome.titleBar]`; load; assert title bar values come from `stage11.toml` fallback + diagnostic annotation.
-- `tests_v2/test_theme_validate_cli.py` — `cmux ui themes validate` on good/warning/error fixtures, assert exit codes.
+- `tests_v2/test_theme_validate_cli.py` — `c11 themes validate` on good/warning/error fixtures, assert exit codes.
 
 **Risks**:
 
@@ -1021,24 +1024,24 @@ Each milestone is independently mergeable, independently useful, and ships as on
 
 ### M4 — Settings UI + CLI
 
-**Deliverable**: Theme picker with live preview in Settings. Full `cmux ui themes` and `cmux workspace-color` CLI surface. `cmux ui themes diff` and `cmux ui themes inherit` for operator ergonomics.
+**Deliverable**: Theme picker with live preview in Settings. Full `c11 themes` and `c11 workspace-color` CLI surface. `c11 themes diff` is available for operator diagnostics; explicit authoring helpers such as `inherit` or `fork` remain deferred.
 
-**v2 scope clarification** (per Trident standard review): `CLI/cmux.swift` is today a single 634KB file and `Sources/cmuxApp.swift` handles all Settings surfaces inline. M4 does **not** introduce a `CLI/commands/` or `Sources/Settings/` directory restructure — new code lands inline in the existing files. If the inline-code-size becomes an issue post-M4, a separate refactor ticket handles the reorganization.
+**v2 scope clarification** (per Trident standard review): `CLI/c11.swift` is a large single file and `Sources/c11App.swift` handles all Settings surfaces inline. M4 does **not** introduce a `CLI/commands/` or `Sources/Settings/` directory restructure — new code lands inline in the existing files. If the inline-code-size becomes an issue post-M4, a separate refactor ticket handles the reorganization.
 
 **New files** (minimal — most additions are inline):
 
-- `Sources/Theme/AppearanceThemeSection.swift` — Settings picker + preview canvas (inline SwiftUI view; called from existing Settings layout in `cmuxApp.swift`).
+- `Sources/Theme/AppearanceThemeSection.swift` — Settings picker + preview canvas (inline SwiftUI view; called from existing Settings layout in `c11App.swift`).
 - `Sources/Theme/ThemePreviewCanvas.swift` — miniature c11 diagram for Settings.
 - `Sources/Theme/ThemeSocketMethods.swift` — socket method handlers for `theme.*` and `workspace.set_custom_color`.
 
 **Modified files**:
 
-- `CLI/cmux.swift` — new `ui themes` subcommand family (inline): `list`, `get`, `set <name>`, `clear`, `reload`, `path`, `dump --json`, `validate`, `diff <a> <b>`, `inherit <parent> --as <new>`. New `workspace-color` family: `set --workspace <ref> <hex>`, `clear`, `get`, `list-palette`.
-- `Sources/cmuxApp.swift:~4806` — insert new "Appearance" section above "Workspace Colors" (inline in existing settings scene).
+- `CLI/c11.swift` — canonical `themes` subcommand family (inline): `list`, `get`, `set <name>`, `clear`, `reload`, `path`, `dump --json`, `validate`, `diff <a> <b>`. `workspace-color` family: `set --workspace <ref> <hex>`, `clear`, `get`, `list-palette`.
+- `Sources/c11App.swift:~4806` — insert new "Appearance" section above "Workspace Colors" (inline in existing settings scene).
 - `Sources/ContentView.swift` — context-menu "Workspace Color" submenu gets a tooltip so operators learn about themes organically.
 - Socket API doc `docs/socket-api-reference.md` — document new methods.
 
-**`cmux ui themes dump --json` schema** (v2 locked):
+**`c11 themes dump --json` schema** (v2 locked):
 
 ```json
 {
@@ -1065,7 +1068,7 @@ Each milestone is independently mergeable, independently useful, and ships as on
 }
 ```
 
-**Workspace reference grammar** (v2, for `cmux workspace-color --workspace <ref>`):
+**Workspace reference grammar** (v2, for `c11 workspace-color --workspace <ref>`):
 
 - `<index>` — 1-based workspace index in the sidebar.
 - `<uuid>` — workspace UUID.
@@ -1074,14 +1077,14 @@ Each milestone is independently mergeable, independently useful, and ships as on
 
 **Tests**:
 
-- `tests_v2/test_theme_cli.py` — full CRUD over CLI: list / get / set / clear / reload / dump / validate / diff / inherit.
+- `tests_v2/test_theme_cli.py` — full CRUD over CLI: list / get / set / clear / reload / dump / validate / diff.
 - `tests_v2/test_workspace_color_cli.py` — set workspace color, assert readable via `workspace.list`, assert visible in snapshot file; exercise all workspace-ref forms.
-- `cmuxTests/AppearanceSettingsTests.swift` — picker change flips `ThemeManager.active`.
-- `cmuxTests/ThemeDumpJsonSchemaTests.swift` (v2) — `cmux ui themes dump --json` output conforms to the locked schema; `inherited_from` annotations match expected fallback behaviour.
+- `c11Tests/AppearanceSettingsTests.swift` — picker change flips `ThemeManager.active`.
+- `c11Tests/ThemeDumpJsonSchemaTests.swift` (v2) — `c11 themes dump --json` output conforms to the locked schema; `inherited_from` annotations match expected fallback behaviour.
 
 **Risks**:
 
-- *Socket focus policy.* `cmux ui themes set` must not steal focus (CLAUDE.md socket focus policy). The handler runs off-main; only theme application (a no-allocation update of observed state) touches main. Audit explicit in PR.
+- *Socket focus policy.* `c11 themes set` must not steal focus (CLAUDE.md socket focus policy). The handler runs off-main; only theme application (a no-allocation update of observed state) touches main. Audit explicit in PR.
 
 **Rollback**: The CLI is purely additive. The Settings section can be gated behind `@AppStorage("settings.appearance.themeSectionEnabled", default: true)` if needed.
 
@@ -1101,7 +1104,7 @@ Each lands as its own PR, each re-justifies before work starts. None block M1-M4
 
 ## 11. Non-goals (explicit)
 
-- **Ghostty theme modification.** Terminal cells, cursor, prompt rendering, scrollback — entirely Ghostty-owned. `Resources/ghostty/themes/` and the existing `cmux themes` CLI are separate concerns.
+- **Ghostty terminal theme modification.** Terminal cells, cursor, prompt rendering, scrollback — entirely Ghostty-owned. `Resources/ghostty/themes/` and the `c11 terminal-theme` CLI are separate concerns.
 - **Terminal cell / cursor / prompt / scrollback theming.**
 - **macOS window chrome** — traffic lights, system titlebar buttons, window drop shadow. System-owned.
 - **Browser *content* theming** — `BrowserThemeSettings` controls `prefers-color-scheme` on the rendered web content and stays orthogonal.
@@ -1128,7 +1131,7 @@ All seven open questions were locked with Atin on 2026-04-18 before the Trident 
 
 4. **Workspace-colored tab-bar active indicator in default theme — LOCKED: `$workspaceColor`.** The default Stage 11 theme uses workspace color on the 2pt bottom indicator. See Appendix A.1 (`[chrome.tabBar].activeIndicator`). *Rationale*: reinforces workspace identity on a second chrome surface; subtle because the indicator is only 2pt.
 
-5. **`cmux themes` CLI namespace — LOCKED: `cmux ui themes`.** `cmux themes` stays Ghostty (Ghostty is the king theme). c11 chrome themes live at `cmux ui themes …`. See §9.3. *Rationale*: respects Ghostty's primacy in the terminal experience; `ui` is shorter than `appearance` and doesn't imply a broader namespace we'd need to fill. Help text at top-level educates the distinction.
+5. **CLI namespace — SUPERSEDED 2026-04-22.** The original lock kept `cmux themes` for Ghostty terminal themes and put c11 chrome themes under `cmux ui themes ...`. Current c11 product language is `c11 themes` for c11 chrome themes and `c11 terminal-theme` for Ghostty terminal themes. See §9.3.
 
 6. **Per-workspace theme override — LOCKED: deferred past v1.** v1 ships a single global theme. Per-workspace `customColor` already exists and gives per-workspace identity; a per-workspace theme *file* override (workspace A loads `stage11.toml`, workspace B loads `minimal.toml`) is deferred to M5 if operators ask. Schema stays forward-compatible. See §9.2.
 
@@ -1138,19 +1141,19 @@ All seven open questions were locked with Atin on 2026-04-18 before the Trident 
 
 9. **Workspace frame — LOCKED: structural primitive, per-surface addressable, animation-ready.** M2c ships the decorative baseline only (themed stroke, workspace color, thickness/opacity per §7.3). The `WorkspaceFrameState` enum carries **source attribution** (`SurfaceId?` on `dropTarget` / `notifying`; `WindowId?` on `mirroring`) so individual surfaces can signal into the frame and the frame can render directional expression (e.g., agent-in-pane-X pulse originates near pane X). All frame state transitions are **Animatable** — the SwiftUI overlay uses implicit animation on `state`, `color`, `thicknessPt`, and `opacity` so future M5+ work can layer subtle motion (sophisticated pulse curves, directional glow, breathing idle states) without re-architecting the primitive. *Rationale*: the frame is a free canvas already being rendered and themed; treating it as structural keeps the door open for agent-state signaling, drop-zone affordance, mode indicators (see §12 #10/#11 when resolved), and cross-window mirroring — all at near-zero extra cost in v1. The enum already exists per §7.3 (v2 evolutionary-unanimous add); this lock specifies that source attribution and animation-readiness are non-negotiable shape commitments. §7.3 carries the refined enum shape and animation contract. *(Resolves §14 #2, raised by Evolutionary unanimous + Claude Q2.)*
 
-10. **`$workspaceColor` scope — LOCKED: pure color token + sibling `workspaceState` channel on `ThemeContext`.** `$workspaceColor` stays a pure color token — resolves to per-workspace `NSColor` exclusively, no categorical overloading. Workspace state (environment, risk, mode, arbitrary tags) flows through a **separate** `workspaceState: WorkspaceState?` field on `ThemeContext`, reserved in v1 and implemented in a v1.x point release. v1 reserves schema keys `[when.workspaceState.environment]`, `[when.workspaceState.risk]`, `[when.workspaceState.mode]`, `[when.workspaceState.tag.<key>]` with warn-and-ignore per §6.5; v1.x lights them up. Population path: `cmux set-workspace-metadata state.<key> <value>` → `WorkspaceState` → `ThemeContext` — zero new theming syntax; reuses the existing metadata machinery. *Rationale*: `$workspaceColor` has semantically clean `NSColor`-only behavior today; overloading it with categorical semantics contaminates a surgical token and forces every modifier (`.mix`, `.opacity`) to branch on non-color cases. State tags are categorical, not chromatic — they want conditional blocks, not string interpolation. Separation also lowers the auth surface on Q7 (agents change *state*, not *theme*) and gives Q2's structural frame (`§12 #9`) a clean signal source. §3 (`ThemeContext`) and §6.5 (reserved keys) carry the body updates. *(Resolves §14 #3, raised by Evolutionary unanimous + Codex Q3 + Gemini Q2.)*
+10. **`$workspaceColor` scope — LOCKED: pure color token + sibling `workspaceState` channel on `ThemeContext`.** `$workspaceColor` stays a pure color token — resolves to per-workspace `NSColor` exclusively, no categorical overloading. Workspace state (environment, risk, mode, arbitrary tags) flows through a **separate** `workspaceState: WorkspaceState?` field on `ThemeContext`, reserved in v1 and implemented in a v1.x point release. v1 reserves schema keys `[when.workspaceState.environment]`, `[when.workspaceState.risk]`, `[when.workspaceState.mode]`, `[when.workspaceState.tag.<key>]` with warn-and-ignore per §6.5; v1.x lights them up. Population path: `c11 set-workspace-metadata state.<key> <value>` → `WorkspaceState` → `ThemeContext` — zero new theming syntax; reuses the existing metadata machinery. *Rationale*: `$workspaceColor` has semantically clean `NSColor`-only behavior today; overloading it with categorical semantics contaminates a surgical token and forces every modifier (`.mix`, `.opacity`) to branch on non-color cases. State tags are categorical, not chromatic — they want conditional blocks, not string interpolation. Separation also lowers the auth surface on Q7 (agents change *state*, not *theme*) and gives Q2's structural frame (`§12 #9`) a clean signal source. §3 (`ThemeContext`) and §6.5 (reserved keys) carry the body updates. *(Resolves §14 #3, raised by Evolutionary unanimous + Codex Q3 + Gemini Q2.)*
 
 11. **Process ceremony — LOCKED: no formal gates; normal operator workflow applies.** Stage 11 is a single-operator project driven by Atin in-session; CMUX-9 is not a multi-week staffed initiative. The Trident review's "gate" language (tagged-build gate §13.9; brand-review sign-off gate §13.6) is **softened to recommended local-verify practice**, not blocking ceremony. Concretely: local tagged builds (`./scripts/reload.sh --tag theme-<milestone>`) remain the standard pre-merge verification because CI is red, but "gate" / "sign-off" / "artifact" framing is removed — it's just how the operator works. Brand review is the operator confirming the palette before M1a merges as part of normal implementation, not a separate ceremony requiring a screenshot-diff artifact or a deputy protocol. *Rationale*: gate ceremony borrowed from enterprise project templates doesn't match a solo-operator fast-moving project; the review reflexively added process overhead where the honest answer is "operator is in the loop continuously." Removing the ceremony does not remove the underlying practice — local-verify still happens, brand coherence still matters — it just stops pretending they're formal checkpoints. *(Resolves §14 #4 and §14 #5, raised by Adversarial Claude Q47, Q51; Evolutionary Q4.)*
 
 12. **Light/dark mode — LOCKED: themes are mode-agnostic; appearance binding is an operator preference.** Theme files ship a single palette. Light/dark handling lives **one level up** in operator preferences: Settings exposes two slots — **"Theme (Light appearance)"** and **"Theme (Dark appearance)"** — each bound to any installed theme. Default ships both slots set to `stage11` (void-dominant; appears dark in both modes until the operator wires a light-oriented theme). Operators who want a single theme across both modes set both slots identically (trivial "apply one theme to both" flow). Operators who want mode-specific chrome pick e.g. `minimal` for Light and `stage11` for Dark. `ThemeContext.colorScheme` drives *which slot is selected*, not per-key resolution inside a theme. **`[when.appearance]` is NOT a reserved schema key** (removed from §6.5). *Rationale*: themes are brand expressions, not multi-mode configs. Forcing `stage11` to ship a light-palette block would either dilute its void-dominant identity or produce a half-hearted invert. Separating "which theme applies when" from "what the theme looks like" lets Stage 11 stay opinionated, lets third-party themes stay single-palette (easier authoring), and gives operators a clean composition surface. Parallels how Ghostty, VS Code, and iTerm2 handle appearance-linked theming. Storage: `@AppStorage("theme.active.light")` + `@AppStorage("theme.active.dark")`; the existing `@AppStorage("theme.active")` from v1 drafts is retired in favor of the pair (clean break, no migration burden — nothing has shipped). §3, §6.5, and §9.1 (Settings picker) carry the body updates. *(Resolves §14 #6, raised by Evolutionary Claude Q10 + Adversarial Claude Q22.)*
 
-13. **Agent socket access — LOCKED: agents signal workspace state, not themes.** Theme selection is **operator-only**. The socket API exposes *read-only* theme methods (`cmux ui themes list` / `current` / `dump`) but no `set` / `clear` / `cycle` write methods — theme writes are available only to operators invoking the CLI themselves (which already runs as the operator, not through an agent's socket connection). Agents express "this workspace is in mode X" via the **existing metadata API**: `cmux set-workspace-metadata state.<key> <value>` (§12 #10 already locks the `state.` prefix as the canonical channel). The active theme decides how to render that state via `[when.workspaceState.*]` conditional blocks. v1 keeps the metadata write path **open** — any socket consumer may set `state.*` keys; no per-client permission enforcement. The state namespace is small, the operator can clear at will, and there's no real auth infrastructure to build. Revisit only if a misuse pattern appears. *Rationale*: clean authorization boundary — agents signal, operator decides visual response. Socket focus policy from CLAUDE.md needs no new treatment because metadata writes are already non-focus-stealing. Chrome-as-notification-channel without chrome-control: agents inform the UI, but the theme author owns the visual vocabulary. Also: an agent on a shared DEV/STAGING build (Q8) can't accidentally clobber the operator's theme preference — the worst it can do is leave a stale state tag. *(Resolves §14 #7, raised by Adversarial Claude Q36 + Evolutionary Q16.)*
+13. **Agent socket access — LOCKED: agents signal workspace state, not themes.** Theme selection is **operator-only**. The socket API exposes *read-only* theme methods (`c11 themes list` / `get` / `dump`) but no `set` / `clear` / `cycle` write methods to agent socket clients — theme writes are available only to operators invoking the CLI themselves (which already runs as the operator, not through an agent's socket connection). Agents express "this workspace is in mode X" via the **existing metadata API**: `c11 set-workspace-metadata state.<key> <value>` (§12 #10 already locks the `state.` prefix as the canonical channel). The active theme decides how to render that state via `[when.workspaceState.*]` conditional blocks. v1 keeps the metadata write path **open** — any socket consumer may set `state.*` keys; no per-client permission enforcement. The state namespace is small, the operator can clear at will, and there's no real auth infrastructure to build. Revisit only if a misuse pattern appears. *Rationale*: clean authorization boundary — agents signal, operator decides visual response. Socket focus policy from CLAUDE.md needs no new treatment because metadata writes are already non-focus-stealing. Chrome-as-notification-channel without chrome-control: agents inform the UI, but the theme author owns the visual vocabulary. Also: an agent on a shared DEV/STAGING build (Q8) can't accidentally clobber the operator's theme preference — the worst it can do is leave a stale state tag. *(Resolves §14 #7, raised by Adversarial Claude Q36 + Evolutionary Q16.)*
 
-14. **Concurrent-instance state — LOCKED: per-bundle-ID `@AppStorage`, shared themes directory.** Theme *selection* is isolated per build; theme *library* is shared. Concretely: all `@AppStorage` keys in the theming system (`theme.active.light`, `theme.active.dark`, `theme.engine.disabledRuntime`) route through `UserDefaults(suiteName: Bundle.main.bundleIdentifier)` (or equivalent prefix scheme). Production `cmux`, `cmux DEV`, `cmux DEV <tag>`, and `cmux STAGING` each hold their own selection — an operator iterating on theme code in a tagged build cannot accidentally flip their daily-driver's theme. The user themes dir stays at the shared location `~/Library/Application Support/c11mux/themes/` — themes authored once are visible to every build, and the file watcher runs independently per instance. *Rationale*: matches the existing c11 isolation model for tagged builds (sockets, bundle IDs, derived data already isolate; `@AppStorage` was the missing piece). Shared library matches operator expectations and how Ghostty / Terminal.app / iTerm2 handle user assets. Cost: ~5 lines of plumbing at `@AppStorage` call sites. §6.2 (directory + selection) and §13 (instance-isolation note) carry the body updates. *(Resolves §14 #8, raised by Adversarial Claude Q35.)*
+14. **Concurrent-instance state — LOCKED: per-bundle-ID `@AppStorage`, shared themes directory.** Theme *selection* is isolated per build; theme *library* is shared. Concretely: all `@AppStorage` keys in the theming system (`theme.active.light`, `theme.active.dark`, `theme.engine.disabledRuntime`) route through `UserDefaults(suiteName: Bundle.main.bundleIdentifier)` (or equivalent prefix scheme). Production `c11`, `c11 DEV`, `c11 DEV <tag>`, and `c11 STAGING` each hold their own selection — an operator iterating on theme code in a tagged build cannot accidentally flip their daily-driver's theme. The user themes dir stays at the shared location `~/Library/Application Support/c11/themes/` — themes authored once are visible to every build, and the file watcher runs independently per instance. *Rationale*: matches the existing c11 isolation model for tagged builds (sockets, bundle IDs, derived data already isolate; `@AppStorage` was the missing piece). Shared library matches operator expectations and how Ghostty / Terminal.app / iTerm2 handle user assets. Cost: ~5 lines of plumbing at `@AppStorage` call sites. §6.2 (directory + selection) and §13 (instance-isolation note) carry the body updates. *(Resolves §14 #8, raised by Adversarial Claude Q35.)*
 
 15. **Built-in theme set — LOCKED: two built-ins ship; `stage11` + `phosphor`.** v1 ships an intentionally small built-in set: `stage11.toml` (brand default) and `phosphor.toml` (subtle matrix/CRT-phosphor aesthetic). `high-contrast-workspace.toml` and `minimal.toml` are dropped from v1 scope; their Appendix A entries are removed. The second built-in exists to **validate theme-switching end-to-end** AND to **demonstrate the engine's aesthetic range** — proving the schema and loader handle themes that are deliberately divergent from the Stage 11 palette, not just Stage 11 brand expressions. Variety beyond the two built-ins lives in **user-authored themes** in the shared themes dir, not in additional built-ins. `phosphor.toml` is **self-contained** — declares its own `[palette]` and `[variables]`; does NOT inherit from `stage11.toml` via loader fallback. The name nods to the Stage 11 Phosphor voice (`stage11/phosphor/PHOSPHOR_SOUL.md`) and to CRT-phosphor terminal nostalgia; lineage is voice-level even as the visual identity diverges. *Rationale*: small built-in set keeps brand curation tight while proving the engine supports broader aesthetic expression; operator/agent-authored themes are where variety happens, which is what the whole engine is for. Shipping three nearly-similar Stage-11-palette-inheriting themes would understate what the engine does; shipping one showcase-divergent second theme is stronger signal. Hex palette in Appendix A.2 is indicative and subject to iteration before M3 ships; the locked part is the schema shape, role assignments, and the name. §6.6 (built-ins), §A.2 (palette), and Appendix B (file list) carry the body updates. *(Resolves §14 #9, raised by Evolutionary Codex §2.8 Q9.)*
 
-16. **Explicit theme inheritance — LOCKED: deferred to M5+; schema key reserved now.** v1 does **not** ship an `inherits = "<parent-name>"` field as a functioning feature, and v1/M4 does **not** expose a `cmux ui themes inherit` (or `fork`) CLI verb. The schema key `[identity].inherits` is **reserved** in v1 with warn-and-ignore semantics (per §6.5) — forward-compatible authoring is allowed but has no runtime effect. The implicit additive-fallback-through-`stage11` mechanism from §6.5 continues to be the only inheritance surface in v1, and is itself opt-in per built-in (phosphor opts out; user themes opt in by omitting keys). M5+ may implement: (a) loader-level inheritance graph walk with parse-time cycle detection; (b) chain-aware `inherited_from` annotation in `cmux ui themes dump --json`; (c) a CLI verb named **`fork`** (not `inherit`) that concretely maps to the user mental model of "start from an existing theme." Triggered only if operator demand surfaces (multiple users asking "how do I just change the accent on stage11?"). *Rationale*: explicit inheritance is a real authoring win but ships a resolver-layer complexity (cycle detection, chain diagnostics, deprecation semantics for built-in parents) that's not yet proven necessary. v1 users fork themes via `cmux ui themes dump --json > fork.toml` + edit, which matches how Ghostty / VS Code user themes work. Keeping v1 simple preserves the hand-written subset parser's scope (§12 #7) and avoids locking in CLI semantics (`inherit` vs `fork`) before we've seen the user pattern. §6.5 (reserved keys) carries the body update. *(Resolves §14 #10, raised by Evolutionary Claude.)*
+16. **Explicit theme inheritance — LOCKED: deferred to M5+; schema key reserved now.** v1 does **not** ship an `inherits = "<parent-name>"` field as a functioning feature, and v1/M4 does **not** expose an `inherit` or `fork` CLI verb under the canonical `c11 themes` namespace. The schema key `[identity].inherits` is **reserved** in v1 with warn-and-ignore semantics (per §6.5) — forward-compatible authoring is allowed but has no runtime effect. The implicit additive-fallback-through-`stage11` mechanism from §6.5 continues to be the only inheritance surface in v1, and is itself opt-in per built-in (phosphor opts out; user themes opt in by omitting keys). M5+ may implement loader-level inheritance graph walk with parse-time cycle detection, chain-aware `inherited_from` annotation in `c11 themes dump --json`, and a separately decided operator-facing forking flow if demand surfaces. *Rationale*: explicit inheritance is a real authoring win but ships a resolver-layer complexity (cycle detection, chain diagnostics, deprecation semantics for built-in parents) that's not yet proven necessary. v1 users can start from `c11 themes dump --json` output and edit by hand, which matches how Ghostty / VS Code user themes work. Keeping v1 simple preserves the hand-written subset parser's scope (§12 #7) and avoids locking in CLI semantics before we've seen the user pattern. §6.5 (reserved keys) carries the body update. *(Resolves §14 #10, raised by Evolutionary Claude.)*
 
 ---
 
@@ -1185,7 +1188,7 @@ Every new user-facing string uses `String(localized: "key.name", defaultValue: "
 
 - Per CLAUDE.md, never run `xcodebuild test` locally — even `cmux-unit` launches host app instances. Defer all test runs to CI (`gh workflow run test-e2e.yml`).
 - Per memory `feedback_cmux_never_run_xcodebuild_test.md`, use `build` action only when verifying compilation locally.
-- `tests_v2/` Python socket tests must run against a tagged build's socket (`/tmp/cmux-debug-<tag>.sock`), not an untagged `cmux DEV.app`.
+- `tests_v2/` Python socket tests must run against a tagged build's socket (`/tmp/c11-debug-<tag>.sock`), not an untagged `c11 DEV.app`.
 
 ### 13.5 Perf budget
 
@@ -1221,7 +1224,7 @@ Per memory `project_c11mux_ci_build_runner_red.md`, the c11 CI build job is red 
 ./scripts/reload.sh --tag theme-<milestone>     # e.g. theme-m1a
 ```
 
-The tagged build launches, `cmux ui themes dump --json` is sanity-checked (M1a+), and per-milestone acceptance tests (M1b snapshot diff; M2c crossfade XCUITest) run locally. Merge uses `gh pr merge --admin` per established practice.
+The tagged build launches, `c11 themes dump --json` is sanity-checked (M1a+), and per-milestone acceptance tests (M1b snapshot diff; M2c crossfade XCUITest) run locally. Merge uses `gh pr merge --admin` per established practice.
 
 ### 13.10 Forward-only Lattice
 
@@ -1237,7 +1240,7 @@ Recorded per the review classification contract. Each entry is a finding the Tri
 4. **"Remove `behavior.animateWorkspaceCrossfade` from v1 schema until M5 implements it"** (Codex adversarial). Rejected — the key is explicitly reserved for M5 opt-in (§6.5) and v1 parses-and-ignores. Removing it now would force a schema change in M5, breaking the additive-only promise.
 5. **"Swap M3 and M4 (ship socket/CLI before the file watcher)"** (Gemini evolutionary). Rejected — hot-reload is the authoring feedback loop that the evolutionary flywheel itself depends on. Shipping CLI first trades operator experience for automation readiness; not worth the reorder.
 6. **"Adopt an external TOML parser (LebJe/toml, etc.)"** (implicit in Gemini adversarial + Claude parser-scope concern). Rejected — direct drift on §12 #7 (hand-written subset parser, zero deps). The effort-framing correction (400–600 lines, not 200) is folded into §6.1.
-7. **"Drop the additive-fallback-through-stage11.toml"** (Codex adversarial, "hidden inheritance from mutable baseline"). Rejected — the fallback is the additive extensibility mechanism. The mutable-baseline risk is mitigated by (a) the default palette being locked pre-M1, (b) the schema=1 additive-only guarantee, and (c) the `inherited_from` annotation in `cmux ui themes dump --json`.
+7. **"Drop the additive-fallback-through-stage11.toml"** (Codex adversarial, "hidden inheritance from mutable baseline"). Rejected — the fallback is the additive extensibility mechanism. The mutable-baseline risk is mitigated by (a) the default palette being locked pre-M1, (b) the schema=1 additive-only guarantee, and (c) the `inherited_from` annotation in `c11 themes dump --json`.
 8. **"Flip the env-var polarity: `CMUX_THEME_ENGINE_ENABLED=1` instead of `CMUX_DISABLE_THEME_ENGINE=1`"** (Claude adversarial, cosmetic). Rejected — current form preserves "env unset → engine enabled" (the expected default). The matching `theme.engine.disabledRuntime` AppStorage key follows the same polarity for consistency.
 9. **"Generalize resolver to `resolve<T>` in M1 — escalate decision to operator"**. **Accepted as generic `resolve<T>`** (§3); not rejected. Recorded here only because the original classification considered escalating; folded per the evolutionary unanimous recommendation.
 
@@ -1253,10 +1256,10 @@ Questions where the Trident review surfaced genuine operator judgment calls. Eac
 4. ~~**Single-operator fallback**~~ — **RESOLVED 2026-04-19 → see §12 #11.** Not a real constraint; solo-operator in-session project, no multi-week gate-fallback protocol needed.
 5. ~~**Brand-review sign-off mechanism**~~ — **RESOLVED 2026-04-19 → see §12 #11.** No gate or sign-off ceremony; operator confirms palette coherence as part of normal implementation judgment.
 6. ~~**Light-mode identity**~~ — **RESOLVED 2026-04-19 → see §12 #12.** Themes are mode-agnostic; operators bind themes to system appearance via two Settings slots (`theme.active.light`, `theme.active.dark`). Default: both = `stage11`. No per-theme `[when.appearance]` block.
-7. ~~**Agent-mediated theme changes via socket**~~ — **RESOLVED 2026-04-19 → see §12 #13.** No; agents signal workspace state via `cmux set-workspace-metadata state.*`, and the active theme renders that state via `[when.workspaceState.*]` blocks. Theme selection stays operator-only.
+7. ~~**Agent-mediated theme changes via socket**~~ — **RESOLVED 2026-04-19 → see §12 #13.** No; agents signal workspace state via `c11 set-workspace-metadata state.*`, and the active theme renders that state via `[when.workspaceState.*]` blocks. Theme selection stays operator-only.
 8. ~~**Concurrent-instance state**~~ — **RESOLVED 2026-04-19 → see §12 #14.** Per-bundle-ID `@AppStorage` isolation (each build holds its own selection); shared user themes directory (library is shared across all builds).
 9. ~~**Built-in theme family cohesion**~~ — **RESOLVED 2026-04-19 → see §12 #15.** Two built-ins ship (`stage11` + `phosphor`); scope reduced from three. `phosphor` is intentionally divergent, self-contained, and validates theme-switching end-to-end. Variety beyond the built-in set lives in user-authored themes.
-10. ~~**Future `cmux ui themes inherit` schema**~~ — **RESOLVED 2026-04-19 → see §12 #16.** Deferred to M5+; `[identity].inherits` key reserved with warn-and-ignore in v1; CLI verb renamed `fork` for M5+ operator-facing ergonomics.
+10. ~~**Future explicit theme inheritance schema**~~ — **RESOLVED 2026-04-19 → see §12 #16.** Deferred to M5+; `[identity].inherits` key reserved with warn-and-ignore in v1; any operator-facing CLI helper remains a separate feature decision.
 
 ---
 
@@ -1440,9 +1443,9 @@ animateWorkspaceCrossfade = false
 | `Sources/Theme/AppearanceThemeSection.swift` | M4 | Settings picker (inline SwiftUI, not new directory) |
 | `Sources/Theme/ThemePreviewCanvas.swift` | M4 | Settings preview |
 | `Sources/Theme/ThemeSocketMethods.swift` | M4 | Socket handlers |
-| `Resources/c11mux-themes/stage11.toml` | M1a | Default built-in (brand) |
-| `Resources/c11mux-themes/phosphor.toml` | M3 | Built-in (Phosphor — matrix/CRT-phosphor aesthetic, §12 #15) |
-| `Resources/c11mux-themes/README.md` | M3 | First-run doc bundled into user themes dir |
+| `Resources/c11-themes/stage11.toml` | M1a | Default built-in (brand) |
+| `Resources/c11-themes/phosphor.toml` | M3 | Built-in (Phosphor — matrix/CRT-phosphor aesthetic, §12 #15) |
+| `Resources/c11-themes/README.md` | M3 | First-run doc bundled into user themes dir |
 
 ### Modified files (across M1-M4, v2)
 
@@ -1454,8 +1457,8 @@ animateWorkspaceCrossfade = false
 | `Sources/SurfaceTitleBarView.swift` | M1b | Background / border / foreground through theme |
 | `Sources/Panels/BrowserPanelView.swift` | M1b | Chrome background / omnibar through theme |
 | `Sources/Panels/MarkdownPanelView.swift` | M1b | Panel background through theme |
-| `Sources/cmuxApp.swift` | M3, M4 | Create themes dir + README; insert Appearance settings section inline |
-| `CLI/cmux.swift` | M3, M4 | Inline `ui themes` + `workspace-color` subcommands (no CLI restructure) |
+| `Sources/c11App.swift` | M3, M4 | Create themes dir + README; insert Appearance settings section inline |
+| `CLI/c11.swift` | M3, M4 | Inline `themes` + `workspace-color` subcommands (no CLI restructure) |
 | `vendor/bonsplit/Sources/Bonsplit/Public/BonsplitConfiguration.swift` | M2a | `DividerStyle` sibling struct (not on `ChromeColors`) |
 | `vendor/bonsplit/Sources/Bonsplit/Internal/Views/SplitContainerView.swift` | M2a | Override `dividerThickness`; read `dividerStyle.thicknessPt` |
 | `docs/socket-api-reference.md` | M4 | Document new `theme.*` and `workspace.set_custom_color` methods |

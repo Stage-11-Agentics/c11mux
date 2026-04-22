@@ -1,6 +1,6 @@
-# c11mux themes
+# c11 themes
 
-Drop a `.toml` file in this folder to add a chrome theme to c11mux. The app watches
+Drop a `.toml` file in this folder to add a c11 chrome theme. The app watches
 this directory and hot-reloads themes within ~1 second of a save.
 
 Two slots exist in Settings → Theme:
@@ -61,10 +61,10 @@ inactiveOpacity  = 0.25
 
 ### Debugging
 
-```
-cmux ui themes validate path/to/mytheme.toml
-cmux ui themes list
-cmux ui themes dump --json
+```bash
+c11 themes validate path/to/mytheme.toml
+c11 themes list
+c11 themes dump --json
 ```
 
 Malformed themes are retained at their last-known-good contents while a diagnostic

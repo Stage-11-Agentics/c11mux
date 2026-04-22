@@ -89,7 +89,7 @@ Each pane's sidebar entry shows the detected-or-declared agent with a small icon
 
 - Custom app icon aligned with the void/gold aesthetic from `company/brand/visual-aesthetic.md`.
 - Custom bundle name (`c11mux`, bundle ID `com.stage11.c11mux` — sibling agent is handling the rename mechanics).
-- Default color palette tuned for Stage 11 look. Users can still apply their own Ghostty themes; the c11 default gives Stage 11 operators the intended look for free.
+- Default color palette tuned for Stage 11 look. Users can still apply their own Ghostty terminal themes; the c11 default gives Stage 11 operators the intended look for free.
 
 ### 6. Markdown surface polish
 

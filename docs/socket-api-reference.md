@@ -190,33 +190,35 @@ variable is **app-launch-scope only** — setting it on a `cmux` CLI
 invocation has no effect, because the CLI is a separate process from
 the running app.
 
-### Themes (CMUX-35)
+### c11 Chrome Themes (CMUX-35)
 
-Chrome-theme lifecycle lives under the `theme.*` method family. Read-only
+c11 chrome theme lifecycle lives under the `theme.*` method family. Read-only
 methods are safe to call unauthenticated; mutating methods are gated by
 the normal socket auth chain.
 
+Ghostty terminal themes are separate from this socket family and use the
+explicit `c11 terminal-theme` CLI namespace.
+
 | CLI | Method | Description |
 | --- | ------ | ----------- |
-| `cmux ui themes list` | `theme.list` | Enumerate built-in + user themes with active-slot flags and load warnings. |
-| `cmux ui themes get [--slot light\|dark]` | `theme.get` | Read the active theme for one or both slots. |
-| `cmux ui themes set <name> [--slot ...]` | `theme.set_active` | Set active theme. `slot` defaults to `both`; `light`/`dark` narrow it. |
-| `cmux ui themes clear` | `theme.clear_active` | Clear `theme.active.light` and `theme.active.dark` back to defaults. |
-| `cmux ui themes reload` | `theme.reload` | Manually re-scan the user themes directory. |
-| `cmux ui themes path` | `theme.paths` | Print the user and bundled themes directories. |
-| `cmux ui themes dump --json` | `theme.dump` | Resolved snapshot for the active theme, JSON schema per plan §10. |
-| `cmux ui themes validate <path>` | `theme.validate` | Parse-only validation of a theme file; non-zero exit on failure. |
-| `cmux ui themes diff <a> <b>` | `theme.diff` | Role-level diff between two themes (by name or path). |
-| `cmux ui themes inherit <parent> --as <name>` | `theme.inherit` | Canonicalize a parent theme into a new user file. |
+| `c11 themes list` | `theme.list` | Enumerate built-in + user c11 chrome themes with active-slot flags and load warnings. |
+| `c11 themes get [--slot light\|dark]` | `theme.get` | Read the active c11 chrome theme for one or both slots. |
+| `c11 themes set <name> [--slot ...]` | `theme.set_active` | Set active c11 chrome theme. `slot` defaults to `both`; `light`/`dark` narrow it. |
+| `c11 themes clear` | `theme.clear_active` | Clear `theme.active.light` and `theme.active.dark` back to defaults. |
+| `c11 themes reload` | `theme.reload` | Manually re-scan the user c11 themes directory. |
+| `c11 themes path` | `theme.paths` | Print the user and bundled c11 themes directories. |
+| `c11 themes dump --json` | `theme.dump` | Resolved snapshot for the active c11 chrome theme, JSON schema per plan §10. |
+| `c11 themes validate <path>` | `theme.validate` | Parse-only validation of a c11 chrome theme file; non-zero exit on failure. |
+| `c11 themes diff <a> <b>` | `theme.diff` | Role-level diff between two c11 chrome themes (by name or path). |
 
 Per-workspace custom color:
 
 | CLI | Method | Description |
 | --- | ------ | ----------- |
-| `cmux workspace-color set <hex> [--workspace <ref>]` | `workspace.set_custom_color` | Set workspace color. `<ref>` accepts UUID, `workspace:N`, 1-based index, `@current`/`@focused`. |
-| `cmux workspace-color clear [--workspace <ref>]` | `workspace.set_custom_color` (with `clear=true`) | Reset to palette default. |
-| `cmux workspace-color get [--workspace <ref>]` | `workspace.list` | Read current custom color via workspace list. |
-| `cmux workspace-color list-palette` | — | Print built-in palette entries (client-side list). |
+| `c11 workspace-color set <hex> [--workspace <ref>]` | `workspace.set_custom_color` | Set workspace color. `<ref>` accepts UUID, `workspace:N`, 1-based index, `@current`/`@focused`. |
+| `c11 workspace-color clear [--workspace <ref>]` | `workspace.set_custom_color` (with `clear=true`) | Reset to palette default. |
+| `c11 workspace-color get [--workspace <ref>]` | `workspace.list` | Read current custom color via workspace list. |
+| `c11 workspace-color list-palette` | — | Print built-in palette entries (client-side list). |
 
 Focus policy: all `theme.*` handlers run off-main (parsing / validation /
 diffing) and touch the main actor only for the minimal state update that

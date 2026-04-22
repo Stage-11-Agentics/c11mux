@@ -1461,7 +1461,7 @@ struct CMUXCLI {
             return
         }
 
-        if command == "themes" {
+        if command == "terminal-theme" {
             try runThemes(
                 commandArgs: commandArgs,
                 jsonOutput: jsonOutput
@@ -2507,7 +2507,16 @@ struct CMUXCLI {
         case "markdown-content":
             try runMarkdownGetContentCommand(commandArgs: commandArgs, client: client, jsonOutput: jsonOutput, idFormat: idFormat)
 
-        // UI / theme commands (CMUX-35)
+        // c11 chrome theme commands.
+        case "themes":
+            try runUiThemes(
+                commandArgs: commandArgs,
+                client: client,
+                jsonOutput: jsonOutput,
+                allowAuthoringHelpers: false
+            )
+
+        // Legacy UI / theme commands (CMUX-35)
         case "ui":
             try runUi(commandArgs: commandArgs, client: client, jsonOutput: jsonOutput)
 
@@ -6331,32 +6340,67 @@ struct CMUXCLI {
             """
         case "themes":
             return """
-            Usage: c11 themes
-                   c11 themes list
-                   c11 themes set <theme>
-                   c11 themes set --light <theme> [--dark <theme>]
-                   c11 themes set --dark <theme> [--light <theme>]
+            Usage: c11 themes list
+                   c11 themes get [--slot light|dark]
+                   c11 themes set <name> [--slot light|dark|both]
                    c11 themes clear
+                   c11 themes reload
+                   c11 themes path
+                   c11 themes dump [--json] [--color-scheme light|dark]
+                   c11 themes validate <path>
+                   c11 themes diff <a> <b>
 
-            When run in a TTY, `c11 themes` opens an interactive theme picker with
-            live app preview. Use `c11 themes list` for a plain listing.
-
-            The picker previews the selected theme across the running c11 app and
-            lets you apply it to the light theme, dark theme, or both defaults.
+            Manage c11 chrome themes: sidebar, title bars, tab bar, dividers,
+            browser chrome, markdown chrome, and workspace frame.
 
             Commands:
-              list                      List available themes and mark the current light/dark defaults
-              set <theme>               Set the same theme for both light and dark appearance
-              set --light <theme>       Set the light appearance theme
-              set --dark <theme>        Set the dark appearance theme
-              clear                     Remove the c11 theme override and fall back to other config
+              list                      List available c11 chrome themes
+              get [--slot light|dark]   Read the active c11 chrome theme
+              set <name> [--slot ...]   Set a c11 chrome theme for light, dark, or both slots
+              clear                     Remove c11 chrome theme overrides
+              reload                    Re-scan the user c11 themes directory
+              path                      Print bundled and user c11 themes directories
+              dump                      Print the resolved c11 chrome theme
+              validate <path>           Validate a c11 chrome theme file
+              diff <a> <b>              Compare two c11 chrome themes
 
             Examples:
-              c11 themes
               c11 themes list
-              c11 themes set "Catppuccin Mocha"
-              c11 themes set --light "Catppuccin Latte" --dark "Catppuccin Mocha"
+              c11 themes set phosphor --slot both
+              c11 themes dump --json --color-scheme dark
+              c11 themes validate path/to/mytheme.toml
               c11 themes clear
+            """
+        case "terminal-theme":
+            return """
+            Usage: c11 terminal-theme
+                   c11 terminal-theme list
+                   c11 terminal-theme set <terminal-theme>
+                   c11 terminal-theme set --light <terminal-theme> [--dark <terminal-theme>]
+                   c11 terminal-theme set --dark <terminal-theme> [--light <terminal-theme>]
+                   c11 terminal-theme clear
+
+            Manage Ghostty terminal themes for terminal cells, ANSI colors, cursor,
+            selection, and terminal background/foreground.
+
+            When run in a TTY, `c11 terminal-theme` opens the interactive Ghostty
+            terminal theme picker. Use `c11 terminal-theme list` for a plain listing.
+
+            Commands:
+              list                      List available Ghostty terminal themes and mark the current light/dark defaults
+              set <terminal-theme>      Set the same Ghostty terminal theme for both light and dark appearance
+              set --light <terminal-theme>
+                                        Set the light appearance Ghostty terminal theme
+              set --dark <terminal-theme>
+                                        Set the dark appearance Ghostty terminal theme
+              clear                     Remove the managed Ghostty terminal theme block
+
+            Examples:
+              c11 terminal-theme
+              c11 terminal-theme list
+              c11 terminal-theme set "Catppuccin Mocha"
+              c11 terminal-theme set --light "Catppuccin Latte" --dark "Catppuccin Mocha"
+              c11 terminal-theme clear
             """
         case "claude-teams":
             return String(localized: "cli.claude-teams.usage", defaultValue: """
@@ -7756,7 +7800,7 @@ struct CMUXCLI {
 
     private func runInteractiveThemes() throws {
         guard let helperURL = bundledHelperURL(named: "ghostty") else {
-            throw CLIError(message: "Bundled Ghostty theme picker helper not found")
+            throw CLIError(message: "Bundled Ghostty terminal theme picker helper not found")
         }
 
         let selection = currentThemeSelection()
@@ -7859,7 +7903,7 @@ struct CMUXCLI {
 
         execve(executablePath, &argv, &envp)
         let code = errno
-        throw CLIError(message: "Failed to launch interactive theme picker: \(String(cString: strerror(code)))")
+        throw CLIError(message: "Failed to launch interactive Ghostty terminal theme picker: \(String(cString: strerror(code)))")
     }
 
     private func bundledGhosttyResourcesURL() -> URL? {
@@ -7911,7 +7955,7 @@ struct CMUXCLI {
         switch subcommand {
         case "list":
             if commandArgs.count > 1 {
-                throw CLIError(message: "themes list does not take any positional arguments")
+                throw CLIError(message: "terminal-theme list does not take any positional arguments")
             }
             try printThemesList(jsonOutput: jsonOutput)
         case "set":
@@ -7921,12 +7965,12 @@ struct CMUXCLI {
             )
         case "clear":
             if commandArgs.count > 1 {
-                throw CLIError(message: "themes clear does not take any positional arguments")
+                throw CLIError(message: "terminal-theme clear does not take any positional arguments")
             }
             try runThemesClear(jsonOutput: jsonOutput)
         default:
             if subcommand.hasPrefix("-") {
-                throw CLIError(message: "Unknown themes subcommand '\(subcommand)'. Run 'c11 themes --help'.")
+                throw CLIError(message: "Unknown terminal-theme subcommand '\(subcommand)'. Run 'c11 terminal-theme --help'.")
             }
 
             try runThemesSet(
@@ -7963,16 +8007,16 @@ struct CMUXCLI {
             return
         }
 
-        print("Current light: \(current.light ?? "inherit")")
-        print("Current dark: \(current.dark ?? "inherit")")
-        print("Config: \(configPath)")
+        print("Terminal light: \(current.light ?? "inherit")")
+        print("Terminal dark: \(current.dark ?? "inherit")")
+        print("Ghostty config: \(configPath)")
         if let sourcePath = current.sourcePath {
             print("Source: \(sourcePath)")
         }
         print("")
 
         guard !themes.isEmpty else {
-            print("No themes found.")
+            print("No Ghostty terminal themes found.")
             return
         }
 
@@ -7994,7 +8038,7 @@ struct CMUXCLI {
         let (darkOpt, rem1) = parseOption(rem0, name: "--dark")
 
         if let unknown = rem1.first(where: { $0.hasPrefix("--") }) {
-            throw CLIError(message: "themes set: unknown flag '\(unknown)'. Known flags: --light <theme>, --dark <theme>")
+            throw CLIError(message: "terminal-theme set: unknown flag '\(unknown)'. Known flags: --light <terminal-theme>, --dark <terminal-theme>")
         }
 
         let availableThemes = availableThemeNames()
@@ -8006,21 +8050,21 @@ struct CMUXCLI {
         if lightOpt == nil && darkOpt == nil {
             let joinedTheme = rem1.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !joinedTheme.isEmpty else {
-                throw CLIError(message: "themes set requires a theme name or --light/--dark flags")
+                throw CLIError(message: "terminal-theme set requires a terminal theme name or --light/--dark flags")
             }
             let resolved = try validatedThemeName(joinedTheme, availableThemes: availableThemes)
             lightTheme = resolved
             darkTheme = resolved
         } else {
             if !rem1.isEmpty {
-                throw CLIError(message: "themes set: unexpected argument '\(rem1.joined(separator: " "))'")
+                throw CLIError(message: "terminal-theme set: unexpected argument '\(rem1.joined(separator: " "))'")
             }
             lightTheme = try lightOpt.map { try validatedThemeName($0, availableThemes: availableThemes) } ?? current.light
             darkTheme = try darkOpt.map { try validatedThemeName($0, availableThemes: availableThemes) } ?? current.dark
         }
 
         guard let rawThemeValue = encodedThemeValue(light: lightTheme, dark: darkTheme) else {
-            throw CLIError(message: "themes set requires at least one theme")
+            throw CLIError(message: "terminal-theme set requires at least one terminal theme")
         }
 
         let configURL = try writeManagedThemeOverride(rawThemeValue: rawThemeValue)
@@ -8041,7 +8085,7 @@ struct CMUXCLI {
         }
 
         print(
-            "OK light=\(lightTheme ?? "-") dark=\(darkTheme ?? "-") config=\(configURL.path) reload=requested"
+            "OK terminal_light=\(lightTheme ?? "-") terminal_dark=\(darkTheme ?? "-") ghostty_config=\(configURL.path) reload=requested"
         )
     }
 
@@ -8061,7 +8105,7 @@ struct CMUXCLI {
             return
         }
 
-        print("OK cleared config=\(configURL.path) reload=requested")
+        print("OK cleared ghostty_config=\(configURL.path) reload=requested")
     }
 
     private func currentThemeSelection() -> ThemeSelection {
@@ -8142,24 +8186,34 @@ struct CMUXCLI {
         }
     }
 
-    // MARK: - `c11 ui themes` + `c11 workspace-color` (CMUX-35)
+    // MARK: - `c11 themes`, `c11 ui themes` + `c11 workspace-color` (CMUX-35)
 
     private func runUi(commandArgs: [String], client: SocketClient, jsonOutput: Bool) throws {
         guard let first = commandArgs.first else {
-            throw CLIError(message: "ui requires a subcommand. Try: c11 ui themes list")
+            throw CLIError(message: "ui requires a subcommand. Try: c11 themes list")
         }
         let sub = first.lowercased()
         let rest = Array(commandArgs.dropFirst())
 
         switch sub {
         case "themes":
-            try runUiThemes(commandArgs: rest, client: client, jsonOutput: jsonOutput)
+            try runUiThemes(
+                commandArgs: rest,
+                client: client,
+                jsonOutput: jsonOutput,
+                allowAuthoringHelpers: true
+            )
         default:
             throw CLIError(message: "Unknown ui subcommand: \(first)")
         }
     }
 
-    private func runUiThemes(commandArgs: [String], client: SocketClient, jsonOutput: Bool) throws {
+    private func runUiThemes(
+        commandArgs: [String],
+        client: SocketClient,
+        jsonOutput: Bool,
+        allowAuthoringHelpers: Bool
+    ) throws {
         guard let first = commandArgs.first else {
             try runUiThemesList(client: client, jsonOutput: jsonOutput)
             return
@@ -8187,9 +8241,13 @@ struct CMUXCLI {
         case "diff":
             try runUiThemesDiff(args: rest, client: client, jsonOutput: jsonOutput)
         case "inherit":
-            try runUiThemesInherit(args: rest, client: client, jsonOutput: jsonOutput)
+            if allowAuthoringHelpers {
+                try runUiThemesInherit(args: rest, client: client, jsonOutput: jsonOutput)
+            } else {
+                throw CLIError(message: "Unknown themes subcommand: \(first)")
+            }
         default:
-            throw CLIError(message: "Unknown ui themes subcommand: \(first)")
+            throw CLIError(message: "Unknown themes subcommand: \(first)")
         }
     }
 
@@ -8201,8 +8259,8 @@ struct CMUXCLI {
         }
         let activeLight = response["active_light"] as? String ?? "?"
         let activeDark = response["active_dark"] as? String ?? "?"
-        print("Active light: \(activeLight)")
-        print("Active dark:  \(activeDark)")
+        print("Chrome light: \(activeLight)")
+        print("Chrome dark:  \(activeDark)")
         print("")
 
         let items = response["themes"] as? [[String: Any]] ?? []
@@ -8226,7 +8284,7 @@ struct CMUXCLI {
     private func runUiThemesGet(args: [String], client: SocketClient, jsonOutput: Bool) throws {
         let (slotOpt, rest) = parseOption(args, name: "--slot")
         guard rest.isEmpty else {
-            throw CLIError(message: "ui themes get: unexpected argument '\(rest[0])'")
+            throw CLIError(message: "themes get: unexpected argument '\(rest[0])'")
         }
         var params: [String: Any] = [:]
         if let slot = slotOpt { params["slot"] = slot }
@@ -8236,12 +8294,12 @@ struct CMUXCLI {
             return
         }
         if let name = response["name"] as? String, let slot = response["slot"] as? String {
-            print("\(slot): \(name)")
+            print("Chrome \(slot): \(name)")
         } else {
             let l = response["active_light"] as? String ?? "?"
             let d = response["active_dark"] as? String ?? "?"
-            print("active_light: \(l)")
-            print("active_dark:  \(d)")
+            print("Chrome light: \(l)")
+            print("Chrome dark:  \(d)")
         }
     }
 
@@ -8249,10 +8307,10 @@ struct CMUXCLI {
         let (slotOpt, rest) = parseOption(args, name: "--slot")
         let positional = rest.filter { !$0.hasPrefix("-") }
         guard let name = positional.first else {
-            throw CLIError(message: "ui themes set requires a theme name. Example: c11 ui themes set phosphor [--slot light|dark|both]")
+            throw CLIError(message: "themes set requires a c11 chrome theme name. Example: c11 themes set phosphor --slot both")
         }
         if positional.count > 1 {
-            throw CLIError(message: "ui themes set: unexpected extra argument '\(positional[1])'")
+            throw CLIError(message: "themes set: unexpected extra argument '\(positional[1])'")
         }
         var params: [String: Any] = ["name": name]
         if let slot = slotOpt { params["slot"] = slot }
@@ -8266,7 +8324,7 @@ struct CMUXCLI {
             print("OK set \(applied)=\(name)")
         } else {
             let msg = response["error"] as? String ?? "failed"
-            throw CLIError(message: "ui themes set failed: \(msg)")
+            throw CLIError(message: "themes set failed: \(msg)")
         }
     }
 
@@ -8275,7 +8333,7 @@ struct CMUXCLI {
         if jsonOutput {
             print(jsonString(response))
         } else {
-            print("OK cleared active theme overrides")
+            print("OK cleared active c11 chrome theme overrides")
         }
     }
 
@@ -8284,7 +8342,7 @@ struct CMUXCLI {
         if jsonOutput {
             print(jsonString(response))
         } else {
-            print("OK themes reloaded")
+            print("OK c11 chrome themes reloaded")
         }
     }
 
@@ -8309,7 +8367,7 @@ struct CMUXCLI {
         if let scheme = schemeOpt { params["color_scheme"] = scheme }
         let response = try client.sendV2(method: "theme.dump", params: params)
         guard let json = response["dump_json"] as? String else {
-            throw CLIError(message: "ui themes dump: missing dump_json")
+            throw CLIError(message: "themes dump: missing dump_json")
         }
         if wantJson {
             print(json)
@@ -8320,7 +8378,7 @@ struct CMUXCLI {
 
     private func runUiThemesValidate(args: [String], client: SocketClient, jsonOutput: Bool) throws {
         guard let path = args.first else {
-            throw CLIError(message: "ui themes validate requires a file path")
+            throw CLIError(message: "themes validate requires a file path")
         }
         let absolutePath = resolvePath(path)
         let response = try client.sendV2(method: "theme.validate", params: ["path": absolutePath])
@@ -8340,7 +8398,7 @@ struct CMUXCLI {
 
     private func runUiThemesDiff(args: [String], client: SocketClient, jsonOutput: Bool) throws {
         guard args.count >= 2 else {
-            throw CLIError(message: "ui themes diff requires two theme names or paths")
+            throw CLIError(message: "themes diff requires two c11 chrome theme names or paths")
         }
         let response = try client.sendV2(
             method: "theme.diff",
@@ -8367,7 +8425,7 @@ struct CMUXCLI {
     private func runUiThemesInherit(args: [String], client: SocketClient, jsonOutput: Bool) throws {
         let (asOpt, rest) = parseOption(args, name: "--as")
         guard let parent = rest.first, let child = asOpt else {
-            throw CLIError(message: "ui themes inherit requires a parent theme and --as <new-name>. Example: c11 ui themes inherit stage11 --as my-theme")
+            throw CLIError(message: "themes inherit requires a parent theme and --as <new-name>")
         }
         let response = try client.sendV2(
             method: "theme.inherit",
@@ -8603,7 +8661,7 @@ struct CMUXCLI {
         if availableThemes.isEmpty {
             return trimmed
         }
-        throw CLIError(message: "Unknown theme '\(trimmed)'. Run 'c11 themes' to list available themes.")
+        throw CLIError(message: "Unknown terminal theme '\(trimmed)'. Run 'c11 terminal-theme' to list available Ghostty terminal themes.")
     }
 
     private func themeConfigSearchURLs() -> [URL] {
@@ -9194,7 +9252,7 @@ struct CMUXCLI {
         return try normalizeWorkspaceHandle(raw, client: client)
     }
 
-    /// `cmux set-workspace-metadata <key> <value>` — wraps workspace.set_metadata.
+    /// `c11 set-workspace-metadata <key> <value>` — wraps workspace.set_metadata.
     private func runSetWorkspaceMetadataCommand(
         commandArgs: [String],
         client: SocketClient,
@@ -9318,7 +9376,7 @@ struct CMUXCLI {
         printWorkspaceMetadataResult(payload, jsonOutput: jsonOutput, idFormat: idFormat)
     }
 
-    /// `cmux set-workspace-description <text>` / `cmux set-workspace-icon <glyph>`
+    /// `c11 set-workspace-description <text>` / `c11 set-workspace-icon <glyph>`
     /// — thin sugar over `set-workspace-metadata <canonical-key> <value>`.
     private func runSetWorkspaceCanonicalKeyCommand(
         key: String,
@@ -13123,7 +13181,8 @@ struct CMUXCLI {
           welcome
           shortcuts
           feedback [--email <email> --body <text> [--image <path> ...]]
-          themes [list|set|clear]
+          themes [list|get|set|clear|reload|path|dump|validate|diff]  c11 chrome themes
+          terminal-theme [list|set|clear]                             Ghostty terminal themes
           claude-teams [claude-args...]
           ping
           version
