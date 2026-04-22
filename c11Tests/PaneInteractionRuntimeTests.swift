@@ -373,6 +373,83 @@ final class PaneInteractionRuntimeTests: XCTestCase {
         XCTAssertFalse(runtime.acceptActive(panelId: UUID()))
     }
 
+    // MARK: - Key routing fallback
+
+    func testHandleKeyDownConfirmLeftReturnCancelsSelectedCancel() {
+        let runtime = PaneInteractionRuntime()
+        let panelId = UUID()
+        var result: ConfirmResult?
+
+        runtime.present(panelId: panelId, interaction: .confirm(makeConfirm { result = $0 }))
+
+        XCTAssertEqual(runtime.confirmSelection[panelId], .confirm)
+        XCTAssertTrue(runtime.handleKeyDown(panelId: panelId, keyCode: 123)) // left
+        XCTAssertEqual(runtime.confirmSelection[panelId], .cancel)
+        XCTAssertTrue(runtime.handleKeyDown(panelId: panelId, keyCode: 36)) // return
+
+        XCTAssertEqual(result, .cancelled)
+        XCTAssertFalse(runtime.hasActive(panelId: panelId))
+    }
+
+    func testHandleKeyDownConfirmUpDownAndReturn() {
+        let runtime = PaneInteractionRuntime()
+        let panelId = UUID()
+        var result: ConfirmResult?
+
+        runtime.present(panelId: panelId, interaction: .confirm(makeConfirm { result = $0 }))
+
+        XCTAssertTrue(runtime.handleKeyDown(panelId: panelId, keyCode: 126)) // up
+        XCTAssertEqual(runtime.confirmSelection[panelId], .cancel)
+        XCTAssertTrue(runtime.handleKeyDown(panelId: panelId, keyCode: 125)) // down
+        XCTAssertEqual(runtime.confirmSelection[panelId], .confirm)
+        XCTAssertTrue(runtime.handleKeyDown(panelId: panelId, keyCode: 36)) // return
+
+        XCTAssertEqual(result, .confirmed)
+    }
+
+    func testHandleKeyDownConfirmEscapeCancels() {
+        let runtime = PaneInteractionRuntime()
+        let panelId = UUID()
+        var result: ConfirmResult?
+
+        runtime.present(panelId: panelId, interaction: .confirm(makeConfirm { result = $0 }))
+        XCTAssertTrue(runtime.handleKeyDown(panelId: panelId, keyCode: 53)) // escape
+
+        XCTAssertEqual(result, .cancelled)
+        XCTAssertFalse(runtime.hasActive(panelId: panelId))
+    }
+
+    func testHandleKeyDownTextInputFieldSelectedDoesNotInterceptReturn() {
+        let runtime = PaneInteractionRuntime()
+        let panelId = UUID()
+        var result: TextInputResult?
+
+        runtime.present(
+            panelId: panelId,
+            interaction: .textInput(makeTextInput(defaultValue: "name") { result = $0 })
+        )
+
+        XCTAssertEqual(runtime.textInputSelection[panelId], .field)
+        XCTAssertFalse(runtime.handleKeyDown(panelId: panelId, keyCode: 36)) // return
+        XCTAssertNil(result)
+        XCTAssertTrue(runtime.hasActive(panelId: panelId))
+    }
+
+    func testHandleKeyDownTextInputButtonSelectionSubmits() {
+        let runtime = PaneInteractionRuntime()
+        let panelId = UUID()
+        var result: TextInputResult?
+
+        runtime.present(
+            panelId: panelId,
+            interaction: .textInput(makeTextInput(defaultValue: "name") { result = $0 })
+        )
+        runtime.setTextInputSelection(panelId: panelId, .confirm)
+
+        XCTAssertTrue(runtime.handleKeyDown(panelId: panelId, keyCode: 36)) // return
+        XCTAssertEqual(result, .submitted("name"))
+    }
+
     // MARK: - Interaction-ID guard
 
     func testResolveConfirmWithWrongInteractionIdIsNoOp() {

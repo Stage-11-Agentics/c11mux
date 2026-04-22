@@ -379,6 +379,52 @@ public final class PaneInteractionRuntime: ObservableObject {
         confirmSelection[panelId] = next
     }
 
+    /// Route non-text dialog control keys to the active interaction. This is used
+    /// both by the AppKit overlay host and by the app-level fallback when AppKit
+    /// leaves first responder on the window instead of the overlay.
+    @discardableResult
+    public func handleKeyDown(panelId: UUID, keyCode: Int, shift: Bool = false) -> Bool {
+        guard let interaction = active[panelId] else { return false }
+        switch interaction {
+        case .confirm:
+            switch keyCode {
+            case 123, 126: // left / up
+                moveConfirmSelection(panelId: panelId, direction: .left)
+            case 124, 125: // right / down
+                moveConfirmSelection(panelId: panelId, direction: .right)
+            case 48:
+                moveConfirmSelection(panelId: panelId, direction: .toggle)
+            case 36, 76, 49: // return / numpad enter / space
+                acceptSelectedConfirm(panelId: panelId)
+            case 53:
+                cancelActive(panelId: panelId)
+            default:
+                return false
+            }
+            return true
+        case .textInput:
+            // When the field is selected, typed keys, Return, Tab, and IME
+            // composition must continue through NSTextField/NSTextView.
+            let selection = textInputSelection[panelId] ?? .field
+            guard selection != .field else { return false }
+            switch keyCode {
+            case 123, 126: // left / up
+                moveTextInputSelection(panelId: panelId, direction: .left)
+            case 124, 125: // right / down
+                moveTextInputSelection(panelId: panelId, direction: .right)
+            case 48:
+                cycleTextInputSelection(panelId: panelId, backward: shift)
+            case 36, 76, 49: // return / numpad enter / space
+                return acceptSelectedTextInput(panelId: panelId)
+            case 53:
+                cancelActive(panelId: panelId)
+            default:
+                return false
+            }
+            return true
+        }
+    }
+
     /// Set the active `.textInput` selection directly. No-op if the active
     /// interaction isn't a `.textInput` variant. Used by click-to-defocus
     /// (scrim / card background) and by the field delegate to report that

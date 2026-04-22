@@ -5487,6 +5487,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return nil
     }
 
+    fileprivate func tabManagerForShortcutEvent(_ event: NSEvent) -> TabManager? {
+        mainWindowForShortcutEvent(event).flatMap { contextForMainWindow($0)?.tabManager } ?? tabManager
+    }
+
     /// Re-sync app-level active window pointers from the currently focused main terminal window.
     /// This keeps menu/shortcut actions window-scoped even if the cached `tabManager` drifts.
     @discardableResult
@@ -9397,7 +9401,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // key window's portal/SwiftUI hierarchy. Gate the same shortcuts here so the
         // overlay sees the Cmd+D accept and other app shortcuts stay suppressed while
         // a dialog is visible (plan §4.8).
-        let paneInteractionActive = tabManager?.hasActivePaneInteraction ?? false
+        let shortcutTabManager = tabManagerForShortcutEvent(event)
+        let paneInteractionActive = shortcutTabManager?.hasActivePaneInteraction ?? false
 
         if let closeConfirmationPanel {
             // Special-case: Cmd+D should confirm destructive close on alerts.
@@ -9426,20 +9431,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             //
             // The caller is an NSEvent local monitor (see installAppMonitor:
             // true → return nil = consume, false → return event = pass through).
-            // We must return `true` only for events that are actual app-level
-            // shortcuts — i.e. have Command/Control/Option modifiers. Plain keyDown
-            // events (letters, digits, Return, Escape, arrows) must pass through so
-            // the NSTextField inside TextInputCard receives typing and the card's
-            // SwiftUI `.onKeyPress` handlers fire (synthesis-critical §1.4,
-            // synthesis-standard §1.4; post-fix-review-codex flagged the naive
-            // `return true` as consuming all keyDowns).
+            // We normally return `true` only for actual app-level shortcuts —
+            // i.e. Command/Control/Option modified events. A narrow set of plain
+            // dialog-control keys is also routed here as a fallback for the
+            // AppKitWindow / WKWebView responder cases where the overlay host did
+            // not receive keyDown directly.
             if matchShortcut(
                 event: event,
                 shortcut: StoredShortcut(key: "d", command: true, shift: false, option: false, control: false)
-            ), tabManager?.acceptActivePaneInteractionInKeyWorkspace() == true {
+            ), shortcutTabManager?.acceptActivePaneInteractionInKeyWorkspace() == true {
                 return true
             }
             let hasAppShortcutModifier = hasCommand || hasControl || hasOption
+            if !hasAppShortcutModifier,
+               shortcutTabManager?.handleActivePaneInteractionKeyEventInKeyWorkspace(event) == true {
+                return true
+            }
             return hasAppShortcutModifier
         }
 
@@ -12948,7 +12955,7 @@ private extension NSWindow {
         // spurious page reload. The overlay's keyDown handler owns Return in
         // that state — see PaneInteractionOverlayHost.
         let paneInteractionActiveForReturnGate =
-            AppDelegate.shared?.tabManager?.hasActivePaneInteraction == true
+            AppDelegate.shared?.tabManagerForShortcutEvent(event)?.hasActivePaneInteraction == true
         if !paneInteractionActiveForReturnGate,
            shouldDispatchBrowserReturnViaFirstResponderKeyDown(
                keyCode: event.keyCode,

@@ -744,6 +744,38 @@ class TabManager: ObservableObject {
         return false
     }
 
+    @MainActor
+    @discardableResult
+    func handleActivePaneInteractionKeyEventInKeyWorkspace(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown else { return false }
+        let flags = event.modifierFlags
+            .intersection(.deviceIndependentFlagsMask)
+            .subtracting([.numericPad, .function, .capsLock])
+        guard flags.isEmpty || flags == [.shift] else { return false }
+        guard let selectedTabId,
+              let workspace = tabs.first(where: { $0.id == selectedTabId }) else {
+            return false
+        }
+        let runtime = workspace.paneInteractionRuntime
+        if let focusedPanelId = workspace.focusedPanelId,
+           runtime.hasActive(panelId: focusedPanelId),
+           runtime.handleKeyDown(
+               panelId: focusedPanelId,
+               keyCode: Int(event.keyCode),
+               shift: flags.contains(.shift)
+           ) {
+            return true
+        }
+        for panelId in runtime.activePanelIds where runtime.handleKeyDown(
+            panelId: panelId,
+            keyCode: Int(event.keyCode),
+            shift: flags.contains(.shift)
+        ) {
+            return true
+        }
+        return false
+    }
+
     /// Global monotonically increasing counter for CMUX_PORT ordinal assignment.
     /// Static so port ranges don't overlap across multiple windows (each window has its own TabManager).
     private static var nextPortOrdinal: Int = 0
