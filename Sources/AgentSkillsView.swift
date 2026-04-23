@@ -579,10 +579,14 @@ struct AgentSkillsOnboardingSheet: View {
         .frame(width: 540)
         .background(OnboardingKeyboardMonitor(
             onMove: { direction in
-                selectedAction = AgentSkillsOnboardingAction.moved(from: selectedAction, direction: direction)
+                selectedAction = AgentSkillsOnboardingAction.moved(
+                    from: selectedAction,
+                    direction: direction,
+                    within: visibleActions
+                )
             },
             onActivate: { activateSelectedAction() },
-            onCancel: { installLater() }
+            onCancel: { hasActionNeeded ? installLater() : onDismiss() }
         ))
         .environment(\.colorScheme, .dark)
         .onAppear { model.refresh() }
@@ -611,9 +615,16 @@ struct AgentSkillsOnboardingSheet: View {
 
     private var primaryActionTitle: String {
         if !detectedRows.isEmpty && !hasActionNeeded {
-            return String(localized: "agentSkills.onboarding.allSet", defaultValue: "All Set")
+            return String(localized: "agentSkills.onboarding.nothingToDo", defaultValue: "Nothing to do here")
+        }
+        if anyRowInstalled {
+            return String(localized: "agentSkills.onboarding.update", defaultValue: "Update")
         }
         return String(localized: "agentSkills.onboarding.install", defaultValue: "Teach it")
+    }
+
+    private var visibleActions: [AgentSkillsOnboardingAction] {
+        hasActionNeeded ? AgentSkillsOnboardingAction.allCases : [.install]
     }
 
     private var detectedRows: [AgentSkillsModel.TargetRow] {
@@ -820,19 +831,21 @@ struct AgentSkillsOnboardingSheet: View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
 
-            OnboardingActionButton(
-                title: String(localized: "agentSkills.onboarding.dontAsk", defaultValue: "Don't ask again"),
-                kind: .secondary,
-                isSelected: selectedAction == .dontAsk,
-                action: dontAskAgain
-            )
+            if hasActionNeeded {
+                OnboardingActionButton(
+                    title: String(localized: "agentSkills.onboarding.dontAsk", defaultValue: "Don't ask again"),
+                    kind: .secondary,
+                    isSelected: selectedAction == .dontAsk,
+                    action: dontAskAgain
+                )
 
-            OnboardingActionButton(
-                title: String(localized: "agentSkills.onboarding.later", defaultValue: "Later"),
-                kind: .secondary,
-                isSelected: selectedAction == .later,
-                action: installLater
-            )
+                OnboardingActionButton(
+                    title: String(localized: "agentSkills.onboarding.later", defaultValue: "Later"),
+                    kind: .secondary,
+                    isSelected: selectedAction == .later,
+                    action: installLater
+                )
+            }
 
             OnboardingActionButton(
                 title: primaryActionTitle,
@@ -915,10 +928,12 @@ private enum AgentSkillsOnboardingAction: CaseIterable {
 
     static func moved(
         from current: AgentSkillsOnboardingAction,
-        direction: ConfirmMoveDirection
+        direction: ConfirmMoveDirection,
+        within options: [AgentSkillsOnboardingAction] = Self.allCases
     ) -> AgentSkillsOnboardingAction {
-        let order = Self.allCases
-        guard let index = order.firstIndex(of: current) else { return .install }
+        let order = options
+        guard !order.isEmpty else { return current }
+        let index = order.firstIndex(of: current) ?? order.startIndex
         switch direction {
         case .left:
             return order[max(order.startIndex, index - 1)]

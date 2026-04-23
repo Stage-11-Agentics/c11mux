@@ -2117,6 +2117,28 @@
         }
       }
     },
+    "agentSkills.onboarding.nothingToDo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to do here"
+          }
+        }
+      }
+    },
+    "agentSkills.onboarding.update": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update"
+          }
+        }
+      }
+    },
     "agentSkills.onboarding.notDetected": {
       "extractionState": "manual",
       "localizations": {
