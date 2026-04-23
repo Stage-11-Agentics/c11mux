@@ -2401,20 +2401,17 @@ struct ContentView: View {
 
     var body: some View {
         var view = AnyView(
-            VStack(spacing: 0) {
-                contentAndSidebarLayout
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .overlay(alignment: .topLeading) {
-                        if isFullScreen && sidebarState.isVisible && !isMinimalMode {
-                            fullscreenControls
-                                .padding(.leading, 10)
-                                .padding(.top, 4)
-                        }
+            contentAndSidebarLayout
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .overlay(alignment: .topLeading) {
+                    if isFullScreen && sidebarState.isVisible && !isMinimalMode {
+                        fullscreenControls
+                            .padding(.leading, 10)
+                            .padding(.top, 4)
                     }
-                BottomStatusBarView(leading: { JumpToUnreadStatusBarButton() })
-            }
-            .frame(minWidth: CGFloat(SessionPersistencePolicy.minimumWindowWidth), minHeight: CGFloat(SessionPersistencePolicy.minimumWindowHeight))
-            .background(Color.clear)
+                }
+                .frame(minWidth: CGFloat(SessionPersistencePolicy.minimumWindowWidth), minHeight: CGFloat(SessionPersistencePolicy.minimumWindowHeight))
+                .background(Color.clear)
         )
 
         view = AnyView(view.onAppear {
