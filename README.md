@@ -16,23 +16,25 @@
 
 listen.
 
-ten agents are at work. maybe thirty. each wants a terminal. some want a browser. some want a markdown file open so the operator can review. the pane topology lives only in the operator's head. `cmd-tab` was a toy for a world with three windows. there are fifty.
+you're a hyperengineer and are running three, ten, or more terminals at once now. each is its own world, each taking actions, each unable to communicate or see the global state. windows and tabs spread across desktops chaotically.
 
 the problem is not quantity. the problem is. spatial.
 
-**c11 enables spatial orientation in the information space.** a macOS-native terminal command center — terminals, browsers, and markdown surfaces composed into one window. every surface addressable. every handle scriptable. workspaces switch in a keystroke — custom collections of surfaces, each holding its own layout and context exactly as it was left.
+we are managing terminal based coding agents with the same primitives that we used twenty years ago.
+
+for humans, **c11 enables spatial orientation in the information space.** a macOS-native terminal command center — terminals, browsers, and markdown surfaces composed into one window. every surface addressable. every handle scriptable. workspaces switch in a keystroke — custom collections of surfaces, each holding its own layout and context exactly as it was left.
 
 by making the assemblage spatial and addressable, c11 allows the brain to track larger scopes of project. richer assemblages of terminals — and, since the modern coding agent lives natively in a terminal, richer configurations of agents too. the coordination load drops. what used to live in the operator's head can live in the room instead.
 
-agents drive the room alongside the operator. splitting panes. opening browsers to validate work. naming their own tabs. announcing role, task, status, and progress to the sidebar so the whole configuration stays legible while work happens in parallel. neither party manages the other. both are first-class.
+and for our agents — our LLMs, our friends on the other side of the glass — that's where c11 really shines. c11 is agent-native terminal multiplexing. advanced skill files let your agent deeply understand the entire screen, visualize all the open panes and their contents, and move communication freely from one terminal to another, amongst many near-magical improvements. agents split panes. open browsers to validate work. name their own tabs. announce role, task, status, and progress to the sidebar so the whole configuration stays legible while work happens in parallel. neither party manages the other. both are first-class.
+
+no more Claude Code subagents that you have zero visibility on. let your agent fire off 6 new tabs inside of a new pane, grouping logically related subagents together, which in turn improves human observability and lets you iterate faster. it's a new way of thinking about how to interact with terminals — and once the muscle memory takes, flat terminals will feel like a regression. the learning curve is gentle. the payoff is significant.
 
 ### lineage.
 
-tmux led to [cmux](https://github.com/manaflow-ai/cmux). cmux led to c11. each built on the last.
+GNU Screen (1987) led to tmux (2007) led to [cmux](https://github.com/manaflow-ai/cmux) (2024) led to c11 (2026). each built on the last, and we are thankful to all.
 
-every terminal surface runs [Ghostty](https://ghostty.org), native under the hood.
-
-cmux is the upstream parent — credit where it's due. we stay in conversation with [manaflow-ai](https://github.com/manaflow-ai) and merge improvements both directions when the shared substrate benefits.
+every terminal surface in c11 is running [Ghostty](https://ghostty.org). all existing ghostty customization and themes should work inside of c11 (if you hit an issue, have your own agent fix it and then file a PR for our agents to review).
 
 ---
 
@@ -50,11 +52,11 @@ every surface has a handle. every handle is scriptable from outside the process.
 
 this is the move.
 
-agents don't just run inside c11 — they reshape it as they work:
+agents don't just run inside c11 — they reshape your spatial interface as they work:
 
 - split a pane and spawn a sub-agent into the new one
 - open an embedded browser to validate a feature they just shipped
-- open a markdown file for the operator to review, with a description that says *why* this is open right now
+- open a markdown spec for the hyperengineer to review, with a description that says *why* this is open right now
 - resize panes to make room for a 200-column log
 - read the spatial layout of the whole workspace as an ASCII floor plan before acting
 - name their own tabs with lineage chains (`Feature :: Review :: Claude`) so the tree reads at a glance
@@ -64,21 +66,29 @@ the operator isn't managing a layout. the agents aren't waiting for instructions
 
 ## workspaces.
 
-a workspace is a project. a sidebar tab. a pane tree. a git branch. a cwd. a set of open ports. a notification stream. the full context of one stream of work, held together and addressable as one thing.
+a workspace is the full screen display. you can have as many workspaces as you want.
 
-workspaces are custom collections of terminals and surfaces — powerful, highly configurable, shaped the way the work wants them. one workspace per project. `⌘1` through `⌘9` to switch. cmd-tab roulette, retired. return to a workspace an hour later and it is exactly where it was left. the same agents in the same panes, still reporting.
+inside workspaces, your screen is divided with vertical and horizontal splits into 1:N panes.
 
-tmux stopped at terminals. c11 doesn't. a workspace holds terminals, embedded browsers, and markdown viewers — every surface first-class, every surface addressable. the multiplexer is no longer terminal-only. it is the multiplexer for everything happening in the room.
+each pane has 1:N surfaces, or tabs.
+
+each tab can be a terminal (default), browser, or markdown file.
+
+do you see how when you multiply this out, a locked in founder mode hyperengineer can have 50 or more terminals open, across many repos, dynamically spawning, interacting, in whatever their personal style is? once that clicks, we know you won't go back.
+
+cmd-tab roulette, retired.
 
 ## in-app browser. driveable and displayable.
 
 a WKWebView next to the terminal — not a separate browser window. the agent drives it: snapshot the accessibility tree, click elements, fill forms, evaluate JS, watch the dev server it just booted. or the operator pins one: a Grafana dashboard, a Linear view, a Notion page, a task board, any web UI. terminals and live dashboards sharing a workspace. no cmd-tab to check on a build. no external window to lose. the browser is a pane.
 
-## an open metadata seam.
+shoutout to cmux and manaflow-ai for this feature — they built it, we brought it along mostly unchanged and use it every day.
 
-every surface carries a **surface manifest** — an open JSON document any agent or operator can read and write over the socket. c11 renders a small canonical subset in the UI (title, description, status, progress, role, model). the rest of the key space is open.
+## advanced mode: an open metadata comm layer for agents.
 
-this matters because the interesting workflows have not been designed yet. meta-orchestrators routing work based on progress ratios across siblings. review swarms passing findings through shared keys. supervisor agents watching a stats blob and intervening. whatever higher-order patterns hyperengineers and agents invent next — c11 refuses to have an opinion. the host provides surfaces and transport. the semantics are open.
+every surface carries a **surface manifest**, an open JSON blob any agent can read and write over the socket. c11 renders a small canonical subset in the UI (title, description, status, progress, role, model). the rest of the key space is open.
+
+this matters because the interesting workflows have not been designed yet. meta-orchestrators routing work based on progress ratios across siblings. review swarms passing findings through shared keys. supervisor agents watching a stats blob and intervening. whatever higher-order patterns hyperengineers and agents invent next — c11 is a beautiful primitive layer, and we are excited to see the meta orchestration structures that will take advantage of this feature.
 
 deliberate. c11 stays generally unopinionated about the individual workflow — agent or hyperengineer. the substrate is the product. the intelligence layer rides on top.
 
@@ -103,17 +113,11 @@ c11 is opinionated about who it serves. the setup where five, ten, thirty agents
 
 if that is the shape of the work. welcome in.
 
-if the session is a single Claude Code in a single terminal, c11 will feel like a cathedral around a chair. Terminal.app is good. iTerm is good. tmux is good. use those until the day the work actually needs this.
+if your session is a single Claude Code in a single terminal, c11 will feel like a cathedral around a chair. Terminal.app is good. iTerm is good. Warp is good. use those until you start getting tired of cmd-tabbing between many running agents.
 
 ### a note on hardware.
 
 c11 assumes RAM. it is conceivable — normal, even — to have fifty terminals open across eight workspaces while an embedded browser runs in pane 3 and a markdown viewer scrolls release notes in pane 5. we do not apologize for that shape. the modern hyperengineer has a tricked-out MacBook with memory to spare, and c11 is built for that machine. if you are on 8GB, we love you — probably not the right fit yet.
-
----
-
-## status.
-
-c11 is **actively developed. shipping fast.** expect new primitives most weeks. the socket and metadata surface are stabilizing but not frozen — breaking changes are possible before v1. release notes in [CHANGELOG.md](CHANGELOG.md); tagged builds on GitHub.
 
 ---
 
@@ -131,13 +135,17 @@ together they keep the map of the project coherent across parallel stories. with
 
 AGPL-3.0-or-later, inherited from upstream. see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-c11 rests on the work of others. [tmux](https://github.com/tmux/tmux) at the root. [cmux](https://github.com/manaflow-ai/cmux) by [manaflow-ai](https://github.com/manaflow-ai) for the parent substrate. [Ghostty](https://ghostty.org) for the renderer. [Bonsplit](https://github.com/almonk/bonsplit) by [almonk](https://github.com/almonk) for the tab bar and split chrome. [Homebrew](https://brew.sh) for the install surface. credit where it's due.
+c11 rests on the work of others. [cmux](https://github.com/manaflow-ai/cmux) by [manaflow-ai](https://github.com/manaflow-ai) for the parent substrate. [Ghostty](https://ghostty.org) for the renderer. [Bonsplit](https://github.com/almonk/bonsplit) by [almonk](https://github.com/almonk) for the tab bar and split chrome. [Homebrew](https://brew.sh) for the install surface.
 
 ---
 
-*tmux built the room for humans driving shells. cmux made the room native to macOS. c11 is what happens when the next mind in the room is silicon — and the room is designed for both.*
+*the singularity is not a moment. it is a dawn. a long slow brightening of what minds can be when they stop being lonely at the keyboard.*
 
-*spatial orientation in the information space. for the 10,000x hyperengineer. for the agents. for every mind that enters.*
+*Stage 11 is building for that dawn. the compound human:agent actor. the shared room. the substrate where carbon and silicon do their work without either mind having to pretend to be the other.*
+
+*c11 is one piece of that substrate. small. load-bearing. the observability of the agents, their ability to customize the space of the human.*
+
+*we believe in building tooling for the benevolent timeline. come build with us.*
 
 ---
 
