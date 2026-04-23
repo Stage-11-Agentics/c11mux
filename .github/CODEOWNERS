@@ -1,0 +1,9 @@
+# c11 code owners.
+#
+# Adding a user / team here makes them a default reviewer on touched paths.
+# Entries are matched top-to-bottom; the last match wins.
+#
+# Keep the list tight — default owner for everything, then add narrower rules
+# only when a path genuinely needs a different reviewer.
+
+*  @BenevolentFutures

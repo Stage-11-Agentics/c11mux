@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug in c11mux
+description: Report a bug in c11
 labels: ["bug"]
 body:
   - type: markdown
@@ -10,9 +10,9 @@ body:
   - type: input
     id: cmux-version
     attributes:
-      label: c11mux version
-      description: "Run `cmux --version` or check About c11mux in the menu bar."
-      placeholder: "e.g. 0.3.2"
+      label: c11 version
+      description: "Run `c11 --version` or check About c11 in the menu bar."
+      placeholder: "e.g. 0.41.0"
     validations:
       required: true
 
@@ -49,8 +49,8 @@ body:
   - type: dropdown
     id: nightly-repro
     attributes:
-      label: Can you reproduce this on cmux NIGHTLY?
-      description: "Please test with the latest NIGHTLY build first: https://github.com/manaflow-ai/cmux?tab=readme-ov-file#nightly-builds"
+      label: Can you reproduce this on c11 NIGHTLY?
+      description: "Please test with the latest NIGHTLY build first from the [c11 releases page](https://github.com/Stage-11-Agentics/c11/releases)."
       options:
         - Yes, it still reproduces on NIGHTLY
         - No, it does not reproduce on NIGHTLY
@@ -81,7 +81,7 @@ body:
       label: Steps to reproduce
       description: "Minimal steps to reproduce the bug."
       placeholder: |
-        1. Open cmux
+        1. Open c11
         2. ...
         3. See error
     validations:
@@ -102,7 +102,7 @@ body:
       label: Relevant logs or crash reports
       description: |
         If applicable, paste logs or crash reports. Crash reports are in `~/Library/Logs/DiagnosticReports/`.
-        You can also check `Console.app` for cmux-related messages.
+        You can also check `Console.app` for c11-related messages.
       render: text
     validations:
       required: false
