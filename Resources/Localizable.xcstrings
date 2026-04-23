@@ -613,6 +613,17 @@
         }
       }
     },
+    "accessibility.tab_bar.expand_handle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand tab bar"
+          }
+        }
+      }
+    },
     "agentSkills.action.envelope": {
       "extractionState": "manual",
       "localizations": {
@@ -26485,6 +26496,61 @@
         }
       }
     },
+    "menu.view.tabBar": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tab Bar"
+          }
+        }
+      }
+    },
+    "menu.view.tabBar.cycle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cycle Tab Bar"
+          }
+        }
+      }
+    },
+    "menu.view.tabBar.full": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full"
+          }
+        }
+      }
+    },
+    "menu.view.tabBar.hidden": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hidden"
+          }
+        }
+      }
+    },
+    "menu.view.tabBar.shrunk": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shrunk"
+          }
+        }
+      }
+    },
     "menu.view.toggleDevTools": {
       "extractionState": "manual",
       "localizations": {
@@ -43029,6 +43095,17 @@
         }
       }
     },
+    "shortcut.toggleTabBarChrome.label": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cycle Tab Bar Chrome"
+          }
+        }
+      }
+    },
     "shortcut.toggleTerminalCopyMode.label": {
       "extractionState": "manual",
       "localizations": {
@@ -46466,7 +46543,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Go to Next Notification"
+            "value": "Next Notification"
           }
         },
         "ja": {
@@ -46926,6 +47003,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Непрочитаних сповіщень: %lld"
+          }
+        }
+      }
+    },
+    "tab.bar.state.full": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full"
+          }
+        }
+      }
+    },
+    "tab.bar.state.hidden": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hidden"
+          }
+        }
+      }
+    },
+    "tab.bar.state.shrunk": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shrunk"
           }
         }
       }
