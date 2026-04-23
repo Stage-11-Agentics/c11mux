@@ -5842,6 +5842,32 @@ struct SettingsView: View {
             defaultValue: "c11 installs its skill files into detected agent skill folders only with your approval. Linked skill folders are shown as shared so one remove action cannot silently affect another agent."
         ))
 
+        SettingsSectionHeader(title: String(
+            localized: "settings.section.permissions",
+            defaultValue: "Permissions"
+        ))
+        SettingsCard {
+            SettingsCardRow(
+                String(
+                    localized: "settings.tccPrimer.row.title",
+                    defaultValue: "Permissions primer"
+                ),
+                subtitle: String(
+                    localized: "settings.tccPrimer.row.subtitle",
+                    defaultValue: "Re-open the explainer for macOS folder prompts. Covers why you see the dialogs, how to say no, and the Full Disk Access shortcut."
+                )
+            ) {
+                Button(String(
+                    localized: "settings.tccPrimer.showAgain",
+                    defaultValue: "Show permissions primer…"
+                )) {
+                    (NSApp.delegate as? AppDelegate)?.presentTCCPrimer()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+
         SettingsSectionHeader(title: String(localized: "settings.section.socketAccess", defaultValue: "Socket Access"))
         SettingsCard {
             SettingsPickerRow(

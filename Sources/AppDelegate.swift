@@ -2342,6 +2342,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // else touches UserDefaults. One-time, idempotent, guarded by a flag key.
         migrateLegacyPreferencesIfNeeded()
 
+        // Existing users who've already seen the welcome are presumed to have
+        // navigated macOS TCC dialogs the old way — don't surprise them with a
+        // retroactive primer. Runs once, idempotent.
+        TCCPrimer.migrateExistingUserIfNeeded()
+
         // Register fenced code renderers for the markdown panel content pipeline.
         FencedCodeRendererRegistry.shared.register(MermaidRenderer.shared)
 
@@ -6201,7 +6206,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
             WelcomeSettings.performQuadLayout(on: workspace, initialPanel: initialPanel)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                self?.presentAgentSkillsOnboardingIfNeeded()
+                guard let self else { return }
+                if AgentSkillsOnboarding.shouldPresent() {
+                    // Agent Skills sheet runs first; its willClose observer
+                    // chains the TCC primer (see presentAgentSkillsOnboarding).
+                    self.presentAgentSkillsOnboarding()
+                } else {
+                    self.presentTCCPrimerIfNeeded()
+                }
             }
         }
     }
@@ -6264,6 +6276,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
             self.agentSkillsOnboardingCloseObserver = nil
             self.agentSkillsOnboardingWindow = nil
+            // Chain the TCC primer after the skills sheet closes, so a
+            // fresh user sees one sheet at a time. Short delay lets the
+            // close animation finish before the next window animates in.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.presentTCCPrimerIfNeeded()
+            }
+        }
+    }
+
+    // MARK: - TCC primer onboarding
+
+    /// See the note on `agentSkillsOnboardingWindow` for why this is a strong
+    /// reference. Same AppKit retention gotcha applies.
+    private var tccPrimerWindow: NSWindow?
+    private var tccPrimerCloseObserver: NSObjectProtocol?
+
+    /// First-run primer explaining why macOS is about to ask about folders.
+    /// Consent-gated; the "Got it" button is the only thing that writes the
+    /// persistent flag. Closing via the red button or Cmd-W counts as
+    /// dismissed for the launch only.
+    func presentTCCPrimerIfNeeded() {
+        guard TCCPrimer.shouldPresent() else { return }
+        presentTCCPrimer()
+    }
+
+    func presentTCCPrimer() {
+        if let existing = tccPrimerWindow {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 500),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = String(
+            localized: "tccPrimer.windowTitle",
+            defaultValue: "c11 and macOS permissions"
+        )
+        window.isReleasedWhenClosed = false
+        window.level = .modalPanel
+        let rootView = TCCPrimerSheet(
+            onGotIt: { [weak window] in
+                UserDefaults.standard.set(true, forKey: TCCPrimer.shownKey)
+                window?.close()
+            },
+            onOpenSettings: { TCCPrimer.openFullDiskAccessPane() },
+            onDismiss: { [weak window] in window?.close() }
+        )
+        window.contentView = NSHostingView(rootView: rootView)
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        tccPrimerWindow = window
+        tccPrimerCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            TCCPrimer.markDismissedThisLaunch()
+            if let observer = self.tccPrimerCloseObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            self.tccPrimerCloseObserver = nil
+            self.tccPrimerWindow = nil
         }
     }
 

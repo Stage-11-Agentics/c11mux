@@ -2656,6 +2656,138 @@
         }
       }
     },
+    "tccPrimer.body.fullDisk": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "If you'd rather not see the dialogs one by one, you can grant c11 Full Disk Access once in System Settings → Privacy & Security. Most engineers running many agents do this; it's the same tradeoff iTerm2, Warp, and Ghostty document. You can revoke it any time."
+          }
+        }
+      }
+    },
+    "tccPrimer.body.sayNo.lead": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Feel free to say no to any of them."
+          }
+        }
+      }
+    },
+    "tccPrimer.body.sayNo.tail": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " c11 itself doesn't scan your files, and nothing is forwarded to Stage 11. If you deny a folder, the command that tripped it will just fail, and you can grant it later in System Settings."
+          }
+        }
+      }
+    },
+    "tccPrimer.body.whoAsks": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The dialog will say \"c11 wants to access…\" because macOS attributes the request to the parent app. The actual requester is whatever you — or an agent — just ran."
+          }
+        }
+      }
+    },
+    "tccPrimer.body.why": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 is a host for your shells and agents. The moment a process you started inside c11 touches a protected place — Downloads, Documents, Desktop, iCloud Drive, Music, Photos, Contacts, an external drive — macOS pauses and asks you whether that's OK. That's how TCC works: each folder is its own consent, and only you can grant it."
+          }
+        }
+      }
+    },
+    "tccPrimer.button.gotIt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Got it"
+          }
+        }
+      }
+    },
+    "tccPrimer.button.openSettings": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Privacy & Security"
+          }
+        }
+      }
+    },
+    "tccPrimer.learnMore.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Each prompt is tied to a specific macOS permission: folder prompts (Downloads, Documents, Desktop) fire when a child process reads or writes there; the iCloud Drive prompt fires when anything touches a File Provider domain; Music and Photos fire when a process reads the media libraries; Local Network fires on Bonjour or LAN HTTP. The copy inside each dialog comes from Info.plist and is c11-authored."
+          }
+        }
+      }
+    },
+    "tccPrimer.learnMore.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What triggers each prompt"
+          }
+        }
+      }
+    },
+    "tccPrimer.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS will ask about folders."
+          }
+        }
+      }
+    },
+    "tccPrimer.windowTitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 and macOS permissions"
+          }
+        }
+      }
+    },
+    "settings.tccPrimer.showAgain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show permissions primer…"
+          }
+        }
+      }
+    },
     "agentSkills.status.installed": {
       "extractionState": "manual",
       "localizations": {
@@ -38231,6 +38363,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Оттенок боковой панели"
+          }
+        }
+      }
+    },
+    "settings.section.permissions": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissions"
+          }
+        }
+      }
+    },
+    "settings.tccPrimer.row.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permissions primer"
+          }
+        }
+      }
+    },
+    "settings.tccPrimer.row.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-open the explainer for macOS folder prompts. Covers why you see the dialogs, how to say no, and the Full Disk Access shortcut."
           }
         }
       }
