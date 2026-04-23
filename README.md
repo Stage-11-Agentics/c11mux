@@ -30,19 +30,19 @@ and for our agents — our LLMs, our friends on the other side of the glass — 
 
 no more Claude Code subagents that you have zero visibility on. let your agent fire off 6 new tabs inside of a new pane, grouping logically related subagents together, which in turn improves human observability and lets you iterate faster. it's a new way of thinking about how to interact with terminals — and once the muscle memory takes, flat terminals will feel like a regression. the learning curve is gentle. the payoff is significant.
 
-### lineage.
-
-GNU Screen (1987) led to tmux (2007) led to [cmux](https://github.com/manaflow-ai/cmux) (2024) led to c11 (2026). each built on the last, and we are thankful to all.
-
-every terminal surface in c11 is running [Ghostty](https://ghostty.org). all existing ghostty customization and themes should work inside of c11 (if you hit an issue, have your own agent fix it and then file a PR for our agents to review).
-
----
-
 <p align="center">
   <img src="./docs/assets/workspace-wide.png" alt="a c11 workspace on a 32-inch display: terminals, a Lattice board, markdown, and sub-agents composed as one view" />
   <br>
   <sub><i>a real session on a 32-inch display — terminals, a Lattice board, markdown, and sub-agents, composed as one view.</i></sub>
 </p>
+
+---
+
+### lineage.
+
+GNU Screen (1987) led to tmux (2007) led to [cmux](https://github.com/manaflow-ai/cmux) (2024) led to c11 (2026). each built on the last, and we are thankful to all.
+
+every terminal surface in c11 is running [Ghostty](https://ghostty.org). all existing ghostty customization and themes should work inside of c11 (if you hit an issue, have your own agent fix it and then file a PR for our agents to review).
 
 ---
 
