@@ -7,6 +7,7 @@
     "cmux-drift-consolidate-1": "sess_01KPKK3NPCY73PASQFT2TWV8F3"
   },
   "serial_counters": {
+    "c11-12-impl": 1,
     "c11-8-orchestrator": 1,
     "cc-opus-cmux9-kickoff": 1,
     "cmux-30-orchestrator": 1,
