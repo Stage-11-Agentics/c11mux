@@ -94,7 +94,7 @@ Use **`claude --dangerously-skip-permissions`** — never bare `claude` (stalls 
 - **Plain `claude`** stalls on every tool call waiting for permission approvals nobody answers.
 - **`claude --dangerously-skip-permissions` in an interactive pane** inherits c11 env vars, preserves the auth chain, and skips approvals. Sub-agents can self-report via `c11 set-status`, `c11 log`, `c11 set-progress`, `c11 set-metadata`.
 
-> **`claude` on PATH is the c11 wrapper.** Inside a c11 surface, `claude` resolves to `Resources/bin/claude` — a PATH-scoped wrapper that injects session-id and hook settings so the sidebar gets `claude_code` status. `cc` is **not** a c11-provided command; some operators set `alias cc='claude --dangerously-skip-permissions'` in their shell config, but you cannot assume it exists in a spawned pane's shell. Always invoke `claude --dangerously-skip-permissions` explicitly in anything you send.
+> **`claude` on PATH is the c11 wrapper.** Inside a c11 surface, `claude` resolves to `Resources/bin/claude` — a PATH-scoped wrapper that injects session-id and hook settings so the sidebar gets `claude_code` status. Always invoke `claude --dangerously-skip-permissions` explicitly in anything you send to a pane.
 
 ### Standard launch pattern
 

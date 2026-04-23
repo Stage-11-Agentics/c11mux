@@ -287,7 +287,7 @@ Use **`claude --dangerously-skip-permissions`** — never bare `claude` (stalls 
 - Plain `claude` stalls on permission approvals.
 - `claude --dangerously-skip-permissions` in an interactive pane inherits c11 env vars, preserves the auth chain, and skips approvals. Sub-agents can `c11 set-status`, `c11 log`, `c11 set-progress` freely.
 
-> **`claude` on PATH is the c11 wrapper.** Inside a c11 surface, `claude` resolves to `Resources/bin/claude` — a PATH-scoped wrapper that injects session-id and hook settings so the sidebar gets `claude_code` status. `cc` is **not** a c11-provided command; some operators set `alias cc='claude --dangerously-skip-permissions'` in their shell config, but you cannot assume it exists. Always invoke `claude --dangerously-skip-permissions` explicitly in anything you send to a pane.
+> **`claude` on PATH is the c11 wrapper.** Inside a c11 surface, `claude` resolves to `Resources/bin/claude` — a PATH-scoped wrapper that injects session-id and hook settings so the sidebar gets `claude_code` status. Always invoke `claude --dangerously-skip-permissions` explicitly in anything you send to a pane.
 
 For **Codex** in a visible c11 surface, launch the interactive TUI with `codex --yolo`, not `codex exec`. `codex exec` is headless/non-interactive and is only appropriate for background jobs whose output will be read after completion; it is the wrong tool when the operator should be able to watch, inspect, or take over the agent in c11.
 
