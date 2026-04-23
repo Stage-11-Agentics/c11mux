@@ -38,9 +38,11 @@ every terminal surface in c11 is running [Ghostty](https://ghostty.org). all exi
 
 ---
 
-<!-- screenshot: multi-pane workspace with terminals + embedded browser + markdown surface -->
-<!-- screenshot: workspace sidebar showing several projects with agents reporting status/progress -->
-<!-- screenshot: orchestrator pane with sub-agents reporting lineage in their own tab names -->
+<p align="center">
+  <img src="./docs/assets/workspace-wide.png" alt="a c11 workspace on a 32-inch display: terminals, a Lattice board, markdown, and sub-agents composed as one view" />
+  <br>
+  <sub><i>a real session on a 32-inch display — terminals, a Lattice board, markdown, and sub-agents, composed as one view.</i></sub>
+</p>
 
 ---
 
@@ -64,6 +66,26 @@ agents don't just run inside c11 — they reshape your spatial interface as they
 
 the operator isn't managing a layout. the agents aren't waiting for instructions. both are first-class. both carve out the space they need and announce themselves. c11 is unopinionated about which side originates which move — splits, resizes, spawns, metadata writes are peers.
 
+in practice, the prompts get ambitious.
+
+> open Claude Code in our frontend repo on the top-left. on the top-right, another Claude Code in the client repo. bottom-right, the embedded browser pointed at the running client. bottom-left, a terminal streaming stats from the backend.
+
+one sentence. the workspace assembles itself around the intent.
+
+> look across every terminal open right now. remind me what we were working on, and the two or three moves that would be highest leverage in the next fifteen minutes.
+
+the agent reads the spatial layout, the per-surface manifests, the lineage in the tab names — and returns a situation report across the fleet.
+
+> open our help page in a browser on the top-left. below it, a Claude Code instance to interview me on what could be improved. every time I name an improvement, spin up a new pane on the right and dispatch an agent to work it.
+
+one pane holds the conversation. the fleet grows around it, one sub-agent per issue, each announcing its role to the sidebar.
+
+<p align="center">
+  <img src="./docs/assets/agent-notification.png" alt="a c11 workspace with a Claude Code agent raising a waiting-for-input notification in the sidebar" />
+  <br>
+  <sub><i>agents raise a notification and announce themselves when they need the operator back. no more checking every tab to see who's idle.</i></sub>
+</p>
+
 ## workspaces.
 
 a workspace is the full screen display. you can have as many workspaces as you want.
@@ -74,6 +96,12 @@ each pane has 1:N surfaces, or tabs.
 
 each tab can be a terminal (default), browser, or markdown file.
 
+<p align="center">
+  <img src="./docs/assets/markdown-surface.png" alt="a c11 workspace with a terminal, a markdown preview surface, and another terminal side by side" />
+  <br>
+  <sub><i>a markdown surface holds a live-rendering preview right next to the terminals writing it. drop a .md file onto a pane and it opens here.</i></sub>
+</p>
+
 do you see how when you multiply this out, a locked in founder mode hyperengineer can have 50 or more terminals open, across many repos, dynamically spawning, interacting, in whatever their personal style is? once that clicks, we know you won't go back.
 
 cmd-tab roulette, retired.
@@ -81,6 +109,12 @@ cmd-tab roulette, retired.
 ## in-app browser. driveable and displayable.
 
 a WKWebView next to the terminal — not a separate browser window. the agent drives it: snapshot the accessibility tree, click elements, fill forms, evaluate JS, watch the dev server it just booted. or the operator pins one: a Grafana dashboard, a Linear view, a Notion page, a task board, any web UI. terminals and live dashboards sharing a workspace. no cmd-tab to check on a build. no external window to lose. the browser is a pane.
+
+<p align="center">
+  <img src="./docs/assets/browser-surface.png" alt="a c11 workspace with a terminal, a markdown surface, and an embedded browser pane side by side" />
+  <br>
+  <sub><i>same layout, but the right surface is a browser. terminals, markdown, browsers — interchangeable panes in one window.</i></sub>
+</p>
 
 shoutout to cmux and manaflow-ai for this feature — they built it, we brought it along mostly unchanged and use it every day.
 
@@ -109,7 +143,7 @@ from there, split a pane (`⌘D` horizontal, `⌘⇧D` vertical), open an embedd
 
 ## this is for hyperengineers and agents.
 
-c11 is opinionated about who it serves. the setup where five, ten, thirty agents run in parallel across several projects. many threads in motion. hyperengineers and agents both carrying the work. first-class, both.
+c11 is opinionated about who it serves. the setup where three, ten, thirty agents run in parallel across several projects. many threads in motion. hyperengineers and agents both carrying the work. first-class, both.
 
 if that is the shape of the work. welcome in.
 
