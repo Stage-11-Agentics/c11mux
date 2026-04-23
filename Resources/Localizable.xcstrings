@@ -2664,6 +2664,42 @@
             "state": "translated",
             "value": "If you'd rather not see the dialogs one by one, you can grant c11 Full Disk Access once in System Settings → Privacy & Security. Most engineers running many agents do this; it's the same tradeoff iTerm2, Warp, and Ghostty document. You can revoke it any time."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダイアログを一つずつ見るのが面倒なら、システム設定 → プライバシーとセキュリティで c11 に Full Disk Access を一度だけ許可できます。多くのエージェントを動かすエンジニアの多くはこうしています — iTerm2、Warp、Ghostty でも同じトレードオフが案内されています。いつでも取り消せます。"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Якщо не хочете бачити ці діалоги по одному, можете один раз надати c11 Full Disk Access у System Settings → Privacy & Security. Саме так роблять більшість інженерів, які керують багатьма агентами; це той самий компроміс, що описують iTerm2, Warp і Ghostty. Ви можете відкликати його будь-коли."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "대화상자를 하나씩 보고 싶지 않다면, System Settings → Privacy & Security에서 c11에 Full Disk Access를 한 번 허용하면 돼요. 여러 에이전트를 돌리는 엔지니어 대부분이 이 방식을 써요 — iTerm2, Warp, Ghostty에서도 똑같은 트레이드오프를 안내하죠. 언제든지 취소할 수 있어요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "如果不想一个个看这些对话框,可以在 System Settings → Privacy & Security 中一次性授予 c11 Full Disk Access。多数同时跑很多代理的工程师都会这么做 — iTerm2、Warp 和 Ghostty 记录的就是同样的取舍。你可以随时撤销。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "如果不想一個一個看這些對話框,可以在 System Settings → Privacy & Security 裡一次給 c11 Full Disk Access。大多同時跑很多代理的工程師都是這麼做 — iTerm2、Warp 和 Ghostty 所記載的就是同一個取捨。你隨時都能撤銷。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если не хотите видеть эти диалоги по одному, можно один раз выдать c11 Full Disk Access в System Settings → Privacy & Security. Большинство инженеров, запускающих много агентов, так и делают — это тот же компромисс, что описан у iTerm2, Warp и Ghostty. Вы можете отозвать его в любой момент."
+          }
         }
       }
     },
@@ -2674,6 +2710,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Feel free to say no to any of them."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "どれも遠慮なく「許可しない」で大丈夫です。"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сміливо відмовляйте будь-якому з них."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "어느 것이든 편하게 거절해도 괜찮아요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任何一项都可以放心拒绝。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任何一項都可以放心拒絕。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Смело отказывайте любому из них."
           }
         }
       }
@@ -2686,6 +2758,42 @@
             "state": "translated",
             "value": " c11 itself doesn't scan your files, and nothing is forwarded to Stage 11. If you deny a folder, the command that tripped it will just fail, and you can grant it later in System Settings."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " c11 自体があなたのファイルをスキャンすることはなく、Stage 11 に何かが送られることもありません。フォルダを拒否しても、きっかけになったコマンドが失敗するだけで、あとから System Settings で許可できます。"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Сам c11 не сканує ваші файли, і нічого не пересилається до Stage 11. Якщо ви відмовите в доступі до теки, команда, яка його спричинила, просто завершиться з помилкою, а ви зможете надати дозвіл пізніше в System Settings."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " c11 자체는 파일을 스캔하지 않고, Stage 11으로 아무것도 전송되지 않아요. 폴더를 거부하면 해당 권한을 요청한 명령이 그냥 실패할 뿐이고, 나중에 System Settings에서 허용할 수 있어요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " c11 本身不会扫描你的文件,也不会把任何内容转发给 Stage 11。如果你拒绝某个文件夹,触发该提示的命令只会失败,之后你可以在 System Settings 里再授予权限。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " c11 本身不會掃描你的檔案,也不會把任何內容轉發給 Stage 11。如果你拒絕某個檔案夾,觸發該提示的指令只會失敗,之後你可以在 System Settings 裡再開啟權限。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " Сам c11 не сканирует ваши файлы, и ничего не пересылается в Stage 11. Если вы откажете в доступе к папке, команда, вызвавшая запрос, просто завершится ошибкой, а разрешение вы сможете выдать позже в System Settings."
+          }
         }
       }
     },
@@ -2696,6 +2804,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "The dialog will say \"c11 wants to access…\" because macOS attributes the request to the parent app. The actual requester is whatever you — or an agent — just ran."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダイアログには「c11 がアクセスを求めています…」と表示されます。macOS が要求を親アプリのものとして扱うからです。実際にリクエストしているのは、あなた — もしくはエージェント — がたった今実行したものです。"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "У діалозі буде написано «c11 хоче отримати доступ…», бо macOS приписує запит батьківському застосунку. Насправді його робить те, що ви — або агент — щойно запустили."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "대화상자에는 \"c11이 접근하려고 합니다…\"라고 표시돼요. macOS가 요청을 부모 앱의 것으로 간주하기 때문이에요. 실제로 요청한 건 방금 당신 — 또는 에이전트 — 이 실행한 무언가예요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "对话框会写“c11 想要访问…”,因为 macOS 把请求归到父应用名下。真正发起请求的,其实是你 — 或者某个代理 — 刚刚运行的东西。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "對話框會寫「c11 想要存取…」,因為 macOS 把請求歸到父應用程式名下。真正發起請求的,其實是你 — 或某個代理 — 剛剛執行的東西。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В диалоге будет написано «c11 запрашивает доступ…», потому что macOS приписывает запрос родительскому приложению. На самом деле запрос исходит от того, что вы — или агент — только что запустили."
           }
         }
       }
@@ -2708,6 +2852,42 @@
             "state": "translated",
             "value": "c11 is a host for your shells and agents. The moment a process you started inside c11 touches a protected place — Downloads, Documents, Desktop, iCloud Drive, Music, Photos, Contacts, an external drive — macOS pauses and asks you whether that's OK. That's how TCC works: each folder is its own consent, and only you can grant it."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 はあなたのシェルやエージェントの入れ物です。c11 の中で始めたプロセスが保護対象の場所 — Downloads、Documents、Desktop、iCloud Drive、Music、Photos、Contacts、外付けドライブ — に触れた瞬間、macOS はいったん止まって、それを許可してよいかあなたに尋ねます。これが TCC の仕組みです。フォルダごとに個別の同意が必要で、それを与えられるのはあなただけです。"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 — це хост для ваших оболонок та агентів. Щойно процес, який ви запустили всередині c11, торкається захищеного місця — Downloads, Documents, Desktop, iCloud Drive, Music, Photos, Contacts, зовнішнього диска — macOS призупиняється й запитує, чи це нормально. Саме так працює TCC: кожна тека — це окрема згода, і дати її можете лише ви."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11은 당신의 셸과 에이전트를 담는 호스트예요. c11 안에서 시작한 프로세스가 보호된 곳 — Downloads, Documents, Desktop, iCloud Drive, Music, Photos, Contacts, 외장 드라이브 — 에 닿는 순간, macOS는 잠깐 멈춰서 그래도 괜찮은지 당신에게 물어봐요. TCC는 이렇게 동작해요: 폴더마다 별도의 동의가 필요하고, 그 동의는 오직 당신만 줄 수 있어요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 是你的 shell 和代理的宿主。当你在 c11 里启动的进程触及受保护的地方 — Downloads、Documents、Desktop、iCloud Drive、Music、Photos、Contacts、外接硬盘 — 时,macOS 会暂停,问你这是否可以。这就是 TCC 的工作方式:每个文件夹都要单独授权,而且只有你能授权。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 是你 shell 和代理的宿主。當你在 c11 裡啟動的程序觸及受保護的位置 — Downloads、Documents、Desktop、iCloud Drive、Music、Photos、Contacts、外接硬碟 — 時,macOS 會暫停,詢問你是否允許。TCC 就是這樣運作的:每個檔案夾都要單獨同意,而且只有你能給出同意。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 — это хост для ваших оболочек и агентов. В тот момент, когда процесс, запущенный вами внутри c11, касается защищённого места — Downloads, Documents, Desktop, iCloud Drive, Music, Photos, Contacts, внешнего диска — macOS приостанавливается и спрашивает, согласны ли вы. Так устроен TCC: каждая папка — отдельное согласие, и дать его можете только вы."
+          }
         }
       }
     },
@@ -2718,6 +2898,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Got it"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "わかりました"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зрозуміло"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알겠어요"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "明白了"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "明白了"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Понятно"
           }
         }
       }
@@ -2730,6 +2946,42 @@
             "state": "translated",
             "value": "Open Privacy & Security"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プライバシーとセキュリティを開く"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкрити Privacy & Security"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy & Security 열기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开 Privacy & Security"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打開 Privacy & Security"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть Privacy & Security"
+          }
         }
       }
     },
@@ -2740,6 +2992,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Each prompt is tied to a specific macOS permission: folder prompts (Downloads, Documents, Desktop) fire when a child process reads or writes there; the iCloud Drive prompt fires when anything touches a File Provider domain; Music and Photos fire when a process reads the media libraries; Local Network fires on Bonjour or LAN HTTP. The copy inside each dialog comes from Info.plist and is c11-authored."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "それぞれのプロンプトは特定の macOS 権限に対応しています。フォルダ系(Downloads、Documents、Desktop)は子プロセスがそこを読み書きした瞬間に出ます。iCloud Drive のプロンプトは何かが File Provider ドメインに触れたときに。Music と Photos はプロセスがそのメディアライブラリを読んだときに。Local Network は Bonjour や LAN HTTP で発火します。各ダイアログ内の文面は Info.plist 由来で、c11 が書いたものです。"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кожен запит прив'язаний до конкретного дозволу macOS: запити на теки (Downloads, Documents, Desktop) спрацьовують, коли дочірній процес читає або пише в них; запит iCloud Drive — коли щось торкається домену File Provider; Music і Photos — коли процес читає медіатеки; Local Network — на Bonjour або LAN HTTP. Текст усередині кожного діалогу береться з Info.plist і написаний c11."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "각 프롬프트는 특정 macOS 권한에 연결돼 있어요. 폴더 프롬프트(Downloads, Documents, Desktop)는 자식 프로세스가 거기서 읽거나 쓸 때 뜨고, iCloud Drive 프롬프트는 무언가가 File Provider 도메인에 닿을 때, Music과 Photos는 프로세스가 해당 미디어 보관함을 읽을 때, Local Network는 Bonjour나 LAN HTTP에서 뜨죠. 각 대화상자 안의 문구는 Info.plist에서 오고, c11이 직접 작성한 것이에요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每个提示都绑定到一个具体的 macOS 权限:文件夹提示(Downloads、Documents、Desktop)在子进程读写时出现;iCloud Drive 提示在任何东西触及 File Provider 域时出现;Music 和 Photos 在进程读取对应媒体库时出现;Local Network 在 Bonjour 或 LAN HTTP 时出现。每个对话框里的文字都来自 Info.plist,是由 c11 撰写的。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每個提示都對應一個特定的 macOS 權限:檔案夾提示(Downloads、Documents、Desktop)在子程序讀寫時出現;iCloud Drive 提示在任何東西觸及 File Provider 網域時出現;Music 和 Photos 在程序讀取相應媒體資料庫時出現;Local Network 在 Bonjour 或 LAN HTTP 時出現。每個對話框裡的文字都來自 Info.plist,是由 c11 撰寫的。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый запрос привязан к конкретному разрешению macOS: запросы папок (Downloads, Documents, Desktop) срабатывают, когда дочерний процесс читает или пишет в них; запрос iCloud Drive — когда что-то касается домена File Provider; Music и Photos — когда процесс читает эти медиатеки; Local Network — при Bonjour или LAN HTTP. Текст внутри каждого диалога берётся из Info.plist и написан c11."
           }
         }
       }
@@ -2752,6 +3040,42 @@
             "state": "translated",
             "value": "What triggers each prompt"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "各プロンプトが出る条件"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Що спричиняє кожен запит"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "각 프롬프트가 뜨는 조건"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每个提示的触发条件"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "各提示的觸發條件"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что вызывает каждый запрос"
+          }
         }
       }
     },
@@ -2762,6 +3086,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "macOS will ask about folders."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS がフォルダについて尋ねてきます。"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS питатиме про теки."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS가 폴더에 대해 물어볼 거예요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS 会询问文件夹权限。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS 會詢問檔案夾權限。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS будет спрашивать про папки."
           }
         }
       }
@@ -2774,6 +3134,42 @@
             "state": "translated",
             "value": "c11 and macOS permissions"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 と macOS の権限"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 та дозволи macOS"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11과 macOS 권한"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 与 macOS 权限"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 與 macOS 權限"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "c11 и разрешения macOS"
+          }
         }
       }
     },
@@ -2784,6 +3180,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show permissions primer…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "権限のガイドを表示…"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показати ознайомлення з дозволами…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "권한 안내 다시 보기…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示权限说明…"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示權限說明…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показать памятку о разрешениях…"
           }
         }
       }
@@ -38375,6 +38807,42 @@
             "state": "translated",
             "value": "Permissions"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "権限"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дозволи"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "권한"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "权限"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "權限"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разрешения"
+          }
         }
       }
     },
@@ -38386,6 +38854,42 @@
             "state": "translated",
             "value": "Permissions primer"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "権限のガイド"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ознайомлення з дозволами"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "권한 안내"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "权限说明"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "權限說明"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Памятка о разрешениях"
+          }
         }
       }
     },
@@ -38396,6 +38900,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Re-open the explainer for macOS folder prompts. Covers why you see the dialogs, how to say no, and the Full Disk Access shortcut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS のフォルダ確認ダイアログについての説明をもう一度開きます。なぜ出るのか、断り方、Full Disk Access でまとめて済ませる方法まで。"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Знову відкрити пояснення про запити macOS на теки. Про те, чому ви їх бачите, як відмовитись і про ярлик Full Disk Access."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS 폴더 프롬프트에 대한 설명을 다시 엽니다. 왜 뜨는지, 어떻게 거절하는지, Full Disk Access 지름길까지 담고 있어요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新打开 macOS 文件夹提示的说明。涵盖你为什么会看到这些对话框、如何拒绝,以及 Full Disk Access 这个捷径。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新開啟 macOS 檔案夾提示的說明。包含你為什麼會看到這些對話框、如何拒絕,以及 Full Disk Access 這條捷徑。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Снова открыть пояснение про запросы macOS к папкам. О том, почему они появляются, как отказать и про быстрый путь через Full Disk Access."
           }
         }
       }
