@@ -45,6 +45,34 @@
 	<string>A program running within c11 would like to use your microphone.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>A program running within c11 would like to use your camera.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>A program running within c11 would like to access files in your Downloads folder.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>A program running within c11 would like to access files in your Documents folder.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>A program running within c11 would like to access files on your Desktop.</string>
+	<key>NSFileProviderDomainUsageDescription</key>
+	<string>A program running within c11 would like to access files managed by iCloud Drive or another file provider.</string>
+	<key>NSFileProviderPresenceUsageDescription</key>
+	<string>A program running within c11 is checking which of your cloud files are available locally.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>A program running within c11 would like to access files on a removable volume.</string>
+	<key>NSNetworkVolumesUsageDescription</key>
+	<string>A program running within c11 would like to access files on a network volume.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>A program running within c11 would like to access your Music library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>A program running within c11 would like to access your Photos library.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>A program running within c11 would like to access your Contacts.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>A program running within c11 would like to access your Calendar.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>A program running within c11 would like to access your Reminders.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>A program running within c11 would like to discover devices on your local network.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>A program running within c11 would like to control other applications via AppleScript.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

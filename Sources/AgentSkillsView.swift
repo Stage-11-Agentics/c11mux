@@ -946,13 +946,13 @@ private enum AgentSkillsOnboardingAction: CaseIterable {
     }
 }
 
-private enum OnboardingActionButtonKind {
+enum OnboardingActionButtonKind {
     case primary
     case success
     case secondary
 }
 
-private struct OnboardingActionButton: View {
+struct OnboardingActionButton: View {
     let title: String
     let kind: OnboardingActionButtonKind
     let isSelected: Bool
@@ -1056,7 +1056,7 @@ private struct SecondaryOnboardingButton: View {
     }
 }
 
-private struct OnboardingKeyboardMonitor: NSViewRepresentable {
+struct OnboardingKeyboardMonitor: NSViewRepresentable {
     let onMove: (ConfirmMoveDirection) -> Void
     let onActivate: () -> Void
     let onCancel: () -> Void
