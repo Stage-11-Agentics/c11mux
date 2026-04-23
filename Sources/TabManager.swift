@@ -1289,11 +1289,9 @@ class TabManager: ObservableObject {
     @MainActor
     private func spawnDefaultGridWhenReady(to workspace: Workspace) {
         func performGrid(_ initialPanel: TerminalPanel) {
-            let screenFrame = DefaultGridSettings.resolvedScreenFrame(for: nil)
             DefaultGridSettings.performDefaultGrid(
                 on: workspace,
-                initialPanel: initialPanel,
-                screenFrame: screenFrame
+                initialPanel: initialPanel
             )
         }
 
