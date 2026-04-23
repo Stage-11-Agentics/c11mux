@@ -9464,6 +9464,7 @@ private struct SidebarFooterButtons: View {
     var body: some View {
         HStack(spacing: 4) {
             SidebarHelpMenuButton(onSendFeedback: onSendFeedback)
+            SidebarJumpToUnreadButton()
             UpdatePill(model: updateViewModel)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -10379,6 +10380,74 @@ private struct SidebarHelpMenuButton: View {
             return fallback
         }
         return shortcut
+    }
+}
+
+private struct SidebarJumpToUnreadButton: View {
+    @EnvironmentObject private var notificationStore: TerminalNotificationStore
+
+    private let buttonSize: CGFloat = 22
+    private let iconSize: CGFloat = 11
+
+    private var display: StatusBarButtonDisplay {
+        StatusBarButtonDisplay(unreadCount: notificationStore.unreadCount)
+    }
+
+    private var label: String {
+        String(
+            localized: "statusBar.nextNotification.title",
+            defaultValue: "Go To Next Notification"
+        )
+    }
+
+    private var accessibilityLabel: String {
+        String(
+            localized: "statusBar.jumpToUnread.accessibility",
+            defaultValue: "Jump to next unread notification"
+        )
+    }
+
+    var body: some View {
+        let display = self.display
+        return Button(action: jump) {
+            Image(systemName: "bell")
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: iconSize, weight: .medium))
+                .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                .frame(width: buttonSize, height: buttonSize, alignment: .center)
+                .overlay(alignment: .topTrailing) {
+                    if let badge = display.badgeText {
+                        Text(badge)
+                            .font(.system(size: 8, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 3)
+                            .frame(minWidth: 10, minHeight: 10)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color.red)
+                            )
+                            .offset(x: 3, y: -2)
+                            .accessibilityHidden(true)
+                    }
+                }
+        }
+        .buttonStyle(SidebarFooterIconButtonStyle())
+        .frame(width: buttonSize, height: buttonSize, alignment: .center)
+        .disabled(!display.isEnabled)
+        .opacity(display.isEnabled ? 1.0 : 0.45)
+        .accessibilityIdentifier("SidebarJumpToUnreadButton")
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(display.badgeText ?? "")
+        .safeHelp(
+            KeyboardShortcutSettings.Action.jumpToUnread.tooltip(label)
+        )
+    }
+
+    private func jump() {
+        DispatchQueue.main.async {
+            AppDelegate.shared?.jumpToLatestUnread()
+        }
     }
 }
 
