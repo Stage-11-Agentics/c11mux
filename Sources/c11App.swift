@@ -16,6 +16,21 @@ enum WorkspaceTitlebarSettings {
     }
 }
 
+enum TabBarChromeState: String {
+    case full
+    case shrunk
+    case hidden
+}
+
+enum TabBarChromeSettings {
+    static let stateKey = "tabBarChromeState"
+    static let defaultState: TabBarChromeState = .full
+
+    static func state(for rawValue: String?) -> TabBarChromeState {
+        TabBarChromeState(rawValue: rawValue ?? "") ?? defaultState
+    }
+}
+
 enum WorkspacePresentationModeSettings {
     static let modeKey = "workspacePresentationMode"
 
@@ -174,6 +189,8 @@ struct cmuxApp: App {
     @AppStorage(KeyboardShortcutSettings.Action.renameWorkspace.defaultsKey) private var renameWorkspaceShortcutData = Data()
     @AppStorage(KeyboardShortcutSettings.Action.openFolder.defaultsKey) private var openFolderShortcutData = Data()
     @AppStorage(KeyboardShortcutSettings.Action.closeWorkspace.defaultsKey) private var closeWorkspaceShortcutData = Data()
+    @AppStorage(TabBarChromeSettings.stateKey) private var tabBarChromeStateRaw = TabBarChromeState.full.rawValue
+    @AppStorage(KeyboardShortcutSettings.Action.toggleTabBarChrome.defaultsKey) private var toggleTabBarChromeShortcutData = Data()
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     private var browserToolbarAccessorySpacing: Int {
@@ -852,6 +869,25 @@ struct cmuxApp: App {
                     }
                 }
 
+                Menu(String(localized: "menu.view.tabBar", defaultValue: "Tab Bar")) {
+                    Button(String(localized: "menu.view.tabBar.full", defaultValue: "Full")) {
+                        tabBarChromeStateRaw = TabBarChromeState.full.rawValue
+                    }
+                    Button(String(localized: "menu.view.tabBar.shrunk", defaultValue: "Shrunk")) {
+                        tabBarChromeStateRaw = TabBarChromeState.shrunk.rawValue
+                    }
+                    Button(String(localized: "menu.view.tabBar.hidden", defaultValue: "Hidden")) {
+                        tabBarChromeStateRaw = TabBarChromeState.hidden.rawValue
+                    }
+                }
+
+                splitCommandButton(
+                    title: String(localized: "menu.view.tabBar.cycle", defaultValue: "Cycle Tab Bar"),
+                    shortcut: toggleTabBarChromeMenuShortcut
+                ) {
+                    cycleTabBarChromeState()
+                }
+
                 Divider()
 
                 splitCommandButton(title: String(localized: "menu.view.nextSurface", defaultValue: "Next Surface"), shortcut: nextSurfaceMenuShortcut) {
@@ -1021,6 +1057,21 @@ struct cmuxApp: App {
 
     private var toggleSidebarMenuShortcut: StoredShortcut {
         decodeShortcut(from: toggleSidebarShortcutData, fallback: KeyboardShortcutSettings.Action.toggleSidebar.defaultShortcut)
+    }
+
+    private var toggleTabBarChromeMenuShortcut: StoredShortcut {
+        decodeShortcut(from: toggleTabBarChromeShortcutData, fallback: KeyboardShortcutSettings.Action.toggleTabBarChrome.defaultShortcut)
+    }
+
+    private func cycleTabBarChromeState() {
+        let current = TabBarChromeSettings.state(for: tabBarChromeStateRaw)
+        let next: TabBarChromeState
+        switch current {
+        case .full:   next = .shrunk
+        case .shrunk: next = .hidden
+        case .hidden: next = .full
+        }
+        tabBarChromeStateRaw = next.rawValue
     }
 
     private var newWorkspaceMenuShortcut: StoredShortcut {
