@@ -13,9 +13,9 @@
 </p>
 
 <p align="center">
-  <img src="./docs/assets/workspace-wide.png" alt="a c11 workspace on a 32-inch display: terminals, a Lattice board, markdown, and sub-agents composed as one view" />
+  <img src="./docs/assets/workspace-wide.png" alt="a c11 workspace on a 32-inch display: many terminals with coding agents, a browser window showing a Lattice board, all visible at once" />
   <br>
-  <sub><i>a real session on a 32-inch display — terminals, a Lattice board, markdown, and sub-agents, composed as one view.</i></sub>
+  <sub><i>a real session on a 32-inch display: many terminals with coding agents, a browser window showing a Lattice board, all visible at once.</i></sub>
 </p>
 
 ---
