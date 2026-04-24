@@ -195,6 +195,31 @@ final class MailboxEnvelopeValidationTests: XCTestCase {
         XCTAssertEqual(bytes, expected)
     }
 
+    func testEncodeDoesNotEscapeForwardSlashes() throws {
+        // Swift's default JSONSerialization escapes `/` as `\/`; Python's
+        // json.dumps does not. The parity test asserts CLI == raw byte-for-byte,
+        // so the encoder must emit a literal slash. Regression lock for
+        // review cycle 1 P0 #2.
+        let envelope = try MailboxEnvelope.build(
+            from: "builder",
+            to: "watcher",
+            body: "",
+            id: "01K3A2B7X8PQRTVWYZ0123456J",
+            ts: "2026-04-23T10:15:42Z",
+            bodyRef: "/tmp/c11-parity-blob"
+        )
+        let bytes = try envelope.encode()
+        let text = String(data: bytes, encoding: .utf8) ?? ""
+        XCTAssertTrue(
+            text.contains("/tmp/c11-parity-blob"),
+            "body_ref must round-trip as literal slashes, got: \(text)"
+        )
+        XCTAssertFalse(
+            text.contains(#"\/"#),
+            "encoder must not escape `/` as `\\/`, got: \(text)"
+        )
+    }
+
     func testBuildRoundTripValidates() throws {
         let envelope = try MailboxEnvelope.build(
             from: "builder",

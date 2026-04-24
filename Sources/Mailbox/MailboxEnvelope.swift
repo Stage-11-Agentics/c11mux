@@ -65,10 +65,14 @@ struct MailboxEnvelope: Equatable {
 
     /// Compact, lexicographically key-sorted JSON. This is the byte form both
     /// the CLI and raw-file senders must produce to satisfy the parity test.
+    ///
+    /// `.withoutEscapingSlashes` is load-bearing: without it Swift escapes
+    /// `/` as `\/` while Python's `json.dumps` does not, so `body_ref`
+    /// envelopes drift the moment byte-equality is asserted.
     func encode() throws -> Data {
         try JSONSerialization.data(
             withJSONObject: raw,
-            options: [.sortedKeys, .fragmentsAllowed]
+            options: [.sortedKeys, .fragmentsAllowed, .withoutEscapingSlashes]
         )
     }
 
@@ -288,7 +292,7 @@ struct MailboxEnvelope: Equatable {
         // of truth per drift-prevention rule #1.
         let data = try JSONSerialization.data(
             withJSONObject: raw,
-            options: [.sortedKeys, .fragmentsAllowed]
+            options: [.sortedKeys, .fragmentsAllowed, .withoutEscapingSlashes]
         )
         return try validate(data: data)
     }
