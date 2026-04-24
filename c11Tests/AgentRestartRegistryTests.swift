@@ -16,14 +16,17 @@ final class AgentRestartRegistryTests: XCTestCase {
 
     // MARK: - Phase 1 cc row
 
-    func testClaudeCodeWithSessionIdReturnsResumeCommand() {
+    func testClaudeCodeWithSessionIdReturnsResumeCommandWithTrailingNewline() {
         let registry = AgentRestartRegistry.phase1
         let cmd = registry.resolveCommand(
             terminalType: "claude-code",
             sessionId: "abc12345-ef67-890a-bcde-f0123456789a",
             metadata: [:]
         )
-        XCTAssertEqual(cmd, "cc --resume abc12345-ef67-890a-bcde-f0123456789a")
+        // Exact-equal — the trailing newline is load-bearing. Without it
+        // the synthesised command sits at the prompt unsubmitted and
+        // resume silently no-ops.
+        XCTAssertEqual(cmd, "cc --resume abc12345-ef67-890a-bcde-f0123456789a\n")
     }
 
     func testClaudeCodeWithoutSessionIdDeclines() {
@@ -93,7 +96,7 @@ final class AgentRestartRegistryTests: XCTestCase {
             sessionId: "cccc1111-2222-3333-4444-555566667777",
             metadata: [:]
         )
-        XCTAssertEqual(cmd, "cc --resume cccc1111-2222-3333-4444-555566667777")
+        XCTAssertEqual(cmd, "cc --resume cccc1111-2222-3333-4444-555566667777\n")
     }
 
     func testNamedUnknownReturnsNilInsteadOfErroring() {
@@ -234,7 +237,7 @@ final class AgentRestartRegistryTests: XCTestCase {
         )
         XCTAssertEqual(
             cmd,
-            "cc --resume AaBbCcDd-1111-2222-3333-AABBCCDDEEFF",
+            "cc --resume AaBbCcDd-1111-2222-3333-AABBCCDDEEFF\n",
             "UUID grammar is case-insensitive for hex"
         )
     }

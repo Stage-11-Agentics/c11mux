@@ -146,11 +146,17 @@ final class WorkspaceSnapshotRoundTripAcceptanceTests: XCTestCase {
                 "fixture surface[\(surfaceSpec.id)] missing claude.session_id"
             )
             if let sessionId {
-                let expected = "cc --resume \(sessionId)"
+                // B2 acceptance: the registry returns the submit form — the
+                // trailing newline is load-bearing. `==` not `.contains`:
+                // `.contains("cc --resume <id>")` would happily pass on
+                // `"cc --resume <id>"` (typed but never submitted), which
+                // was exactly the shipped regression this test now guards.
+                let expected = "cc --resume \(sessionId)\n"
                 let sent = terminalPendingInput(terminal) ?? ""
-                XCTAssertTrue(
-                    sent.contains(expected),
-                    "surface[\(surfaceSpec.id)] expected to have received '\(expected)'; got: '\(sent)'"
+                XCTAssertEqual(
+                    sent,
+                    expected,
+                    "surface[\(surfaceSpec.id)] expected to have received exactly '\(expected)'; got: '\(sent)'"
                 )
             }
         }

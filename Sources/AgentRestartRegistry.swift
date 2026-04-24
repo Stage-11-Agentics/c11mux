@@ -102,12 +102,20 @@ struct AgentRestartRegistry: Sendable {
     /// is interpolated into a shell command that runs on restore, and any
     /// future in-process writer that bypasses the store must not become a
     /// command-injection vector.
+    ///
+    /// The trailing `"\n"` is part of the row's output: the registry
+    /// returns the **submit form** of the command, not the typed form.
+    /// How to submit is the registry's concern, not the executor's —
+    /// otherwise every executor caller would have to remember to append
+    /// one. Without it, `TerminalPanel.sendText` writes the bytes verbatim
+    /// and the command sits at the prompt unexecuted. Phase 5 rows for
+    /// codex/opencode/kimi follow the same "return submit form" contract.
     static let phase1: AgentRestartRegistry = .init(rows: [
         Row(terminalType: "claude-code") { sessionId, _ in
             guard let raw = sessionId?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !raw.isEmpty,
                   isValidClaudeSessionId(raw) else { return nil }
-            return "cc --resume \(raw)"
+            return "cc --resume \(raw)\n"
         }
     ])
 }
