@@ -159,6 +159,74 @@ final class WorkspaceSnapshotCaptureTests: XCTestCase {
         XCTAssertEqual(list.first?.snapshotId, valid.snapshotId)
     }
 
+    // MARK: - P1: header-only summary for `snapshot.list`
+
+    /// New-file path: when the envelope carries `surface_count` explicitly
+    /// (as written by `LiveWorkspaceSnapshotSource.capture` after P1), the
+    /// list path surfaces that count verbatim — no full-plan decode.
+    func testStoreListReadsExplicitSurfaceCountFromEnvelope() throws {
+        let tmp = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let store = WorkspaceSnapshotStore(
+            currentDirectory: tmp,
+            legacyDirectory: tmp.appendingPathComponent("nowhere"),
+            fileManager: .default
+        )
+        var envelope = sampleEnvelope(id: "01KQ0SURFACECOUNT0000000")
+        // Fabricate a disagreement so we can prove the list path reads the
+        // explicit envelope count, not the embedded plan's count. In the
+        // real world the two always agree — capture writes both — but if
+        // somebody hand-edits the file, the envelope field wins.
+        envelope.surfaceCount = 7
+        _ = try store.write(envelope)
+        let list = try store.list()
+        let entry = try XCTUnwrap(list.first)
+        XCTAssertEqual(entry.surfaceCount, 7)
+    }
+
+    /// Legacy-file path: an envelope written before P1 landed omits
+    /// `surface_count`. The list path falls back to the embedded plan's
+    /// `surfaces.count`.
+    func testStoreListFallsBackToPlanSurfacesCountWhenEnvelopeLacksKey() throws {
+        let tmp = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let store = WorkspaceSnapshotStore(
+            currentDirectory: tmp,
+            legacyDirectory: tmp.appendingPathComponent("nowhere"),
+            fileManager: .default
+        )
+        // Craft a legacy-shaped JSON by hand — no surface_count key, two
+        // surfaces in the embedded plan.
+        let id = "01KQ0LEGACYSURFACECOUNT0"
+        let legacyJSON = """
+        {
+          "version": 1,
+          "snapshot_id": "\(id)",
+          "created_at": "2026-04-24T18:00:00.000Z",
+          "c11_version": "0.01.0+1",
+          "origin": "manual",
+          "plan": {
+            "version": 1,
+            "workspace": { "title": "legacy shape" },
+            "layout": {
+              "type": "pane",
+              "pane": { "surfaceIds": ["a", "b"] }
+            },
+            "surfaces": [
+              { "id": "a", "kind": "terminal" },
+              { "id": "b", "kind": "terminal" }
+            ]
+          }
+        }
+        """
+        let url = tmp.appendingPathComponent("\(id).json")
+        try Data(legacyJSON.utf8).write(to: url, options: .atomic)
+        let list = try store.list()
+        let entry = try XCTUnwrap(list.first { $0.snapshotId == id })
+        XCTAssertEqual(entry.surfaceCount, 2, "fallback to plan.surfaces.count when envelope lacks surface_count")
+        XCTAssertEqual(entry.workspaceTitle, "legacy shape")
+    }
+
     // MARK: - Capture seam (fake source)
 
     func testFakeSourceReturnsCannedEnvelope() {

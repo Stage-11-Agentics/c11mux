@@ -39,6 +39,12 @@ struct WorkspaceSnapshotFile: Codable, Sendable, Equatable {
     var c11Version: String
     /// How this snapshot was produced.
     var origin: Origin
+    /// Count of surfaces in the embedded plan. Populated on write so
+    /// `snapshot.list` can report the count without decoding the full
+    /// plan tree. Optional on read: legacy files written before P1
+    /// landed omit the field; the list path falls back to the embedded
+    /// plan's `surfaces.count` when absent.
+    var surfaceCount: Int?
     /// The captured workspace, expressed as a `WorkspaceApplyPlan` that the
     /// executor can apply verbatim on restore.
     var plan: WorkspaceApplyPlan
@@ -54,6 +60,7 @@ struct WorkspaceSnapshotFile: Codable, Sendable, Equatable {
         createdAt: Date,
         c11Version: String,
         origin: Origin,
+        surfaceCount: Int? = nil,
         plan: WorkspaceApplyPlan
     ) {
         self.version = version
@@ -61,6 +68,7 @@ struct WorkspaceSnapshotFile: Codable, Sendable, Equatable {
         self.createdAt = createdAt
         self.c11Version = c11Version
         self.origin = origin
+        self.surfaceCount = surfaceCount
         self.plan = plan
     }
 
@@ -70,6 +78,7 @@ struct WorkspaceSnapshotFile: Codable, Sendable, Equatable {
         case createdAt = "created_at"
         case c11Version = "c11_version"
         case origin
+        case surfaceCount = "surface_count"
         case plan
     }
 }

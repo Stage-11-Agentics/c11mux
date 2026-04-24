@@ -67,6 +67,7 @@ struct LiveWorkspaceSnapshotSource: WorkspaceSnapshotSource {
             createdAt: now,
             c11Version: c11Version,
             origin: origin,
+            surfaceCount: plan.surfaces.count,
             plan: plan
         )
     }
