@@ -6195,26 +6195,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             setActiveMainWindow(window)
             bringToFront(window)
         }
+        // Present primer before any shell spawns; workspace is created only
+        // in the completion chain so no PTY exists until the user acts.
+        if TCCPrimer.shouldPresent() {
+            presentTCCPrimer { [weak self] in
+                guard let self else { return }
+                if AgentSkillsOnboarding.shouldPresent() {
+                    self.presentAgentSkillsOnboarding { [weak self] in
+                        self?.continueWelcomeWorkspaceSetup(context: context)
+                    }
+                } else {
+                    self.continueWelcomeWorkspaceSetup(context: context)
+                }
+            }
+        } else if AgentSkillsOnboarding.shouldPresent() {
+            presentAgentSkillsOnboarding { [weak self] in
+                self?.continueWelcomeWorkspaceSetup(context: context)
+            }
+        } else {
+            continueWelcomeWorkspaceSetup(context: context)
+        }
+    }
+
+    private func continueWelcomeWorkspaceSetup(context: MainWindowContext) {
+        guard context.window != nil || windowForMainWindowId(context.windowId) != nil else { return }
         let workspace = context.tabManager.addWorkspace(select: true, autoWelcomeIfNeeded: false)
         sendWelcomeCommandWhenReady(to: workspace)
     }
 
     func sendWelcomeCommandWhenReady(to workspace: Workspace, markShownOnSend: Bool = false) {
-        runWhenInitialTerminalReady(in: workspace) { [weak self] initialPanel in
+        runWhenInitialTerminalReady(in: workspace) { initialPanel in
             if markShownOnSend {
                 UserDefaults.standard.set(true, forKey: WelcomeSettings.shownKey)
             }
             WelcomeSettings.performQuadLayout(on: workspace, initialPanel: initialPanel)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                guard let self else { return }
-                if AgentSkillsOnboarding.shouldPresent() {
-                    // Agent Skills sheet runs first; its willClose observer
-                    // chains the TCC primer (see presentAgentSkillsOnboarding).
-                    self.presentAgentSkillsOnboarding()
-                } else {
-                    self.presentTCCPrimerIfNeeded()
-                }
-            }
         }
     }
 
