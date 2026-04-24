@@ -192,6 +192,8 @@
 					D7002BF0A1B2C3D4E5F60718 /* DescriptionSanitizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7002BF1A1B2C3D4E5F60718 /* DescriptionSanitizerTests.swift */; };
 					D7003BF0A1B2C3D4E5F60718 /* PanelIdentityRestoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7003BF1A1B2C3D4E5F60718 /* PanelIdentityRestoreTests.swift */; };
 					D7004BF0A1B2C3D4E5F60718 /* WorkspaceIdentityRestoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7004BF1A1B2C3D4E5F60718 /* WorkspaceIdentityRestoreTests.swift */; };
+					D7100BF0A1B2C3D4E5F60718 /* MailboxLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7100BF1A1B2C3D4E5F60718 /* MailboxLayout.swift */; };
+					D7101BF0A1B2C3D4E5F60718 /* MailboxLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7101BF1A1B2C3D4E5F60718 /* MailboxLayoutTests.swift */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -430,6 +432,8 @@
 				D7002BF1A1B2C3D4E5F60718 /* DescriptionSanitizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DescriptionSanitizerTests.swift; sourceTree = "<group>"; };
 			D7003BF1A1B2C3D4E5F60718 /* PanelIdentityRestoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelIdentityRestoreTests.swift; sourceTree = "<group>"; };
 			D7004BF1A1B2C3D4E5F60718 /* WorkspaceIdentityRestoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceIdentityRestoreTests.swift; sourceTree = "<group>"; };
+			D7100BF1A1B2C3D4E5F60718 /* MailboxLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mailbox/MailboxLayout.swift; sourceTree = "<group>"; };
+			D7101BF1A1B2C3D4E5F60718 /* MailboxLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailboxLayoutTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -588,6 +592,7 @@
 				A5F1002001A1B2C3D4E5F123 /* ThemeCanonicalizer.swift */,
 				A5F1002001A1B2C3D4E5F124 /* ThemeSocketMethods.swift */,
 				A5F1002001A1B2C3D4E5F125 /* ThemeBindingControls.swift */,
+				D7100BF1A1B2C3D4E5F60718 /* MailboxLayout.swift */,
 				A5008F12 /* SurfaceTitleBarView.swift */,
 				A5008F22 /* TitleFormatting.swift */,
 				A5001225 /* SocketControlSettings.swift */,
@@ -759,6 +764,7 @@
 					D7015BF1A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift */,
 					D7016BF1A1B2C3D4E5F60718 /* TCCPrimerTests.swift */,
 					A5C36031 /* StatusBarButtonDisplayTests.swift */,
+					D7101BF1A1B2C3D4E5F60718 /* MailboxLayoutTests.swift */,
 				);
 				path = c11Tests;
 				sourceTree = "<group>";
@@ -941,6 +947,7 @@
 			A5F1001001A1B2C3D4E5F123 /* ThemeCanonicalizer.swift in Sources */,
 			A5F1001001A1B2C3D4E5F124 /* ThemeSocketMethods.swift in Sources */,
 			A5F1001001A1B2C3D4E5F125 /* ThemeBindingControls.swift in Sources */,
+			D7100BF0A1B2C3D4E5F60718 /* MailboxLayout.swift in Sources */,
 				A5008F11 /* SurfaceTitleBarView.swift in Sources */,
 				A5008F21 /* TitleFormatting.swift in Sources */,
 				A5001226 /* SocketControlSettings.swift in Sources */,
@@ -1075,6 +1082,7 @@
 					D7012BF0A1B2C3D4E5F60718 /* PaneMetadataPersistenceTests.swift in Sources */,
 					D7015BF0A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift in Sources */,
 					D7016BF0A1B2C3D4E5F60718 /* TCCPrimerTests.swift in Sources */,
+					D7101BF0A1B2C3D4E5F60718 /* MailboxLayoutTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
