@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "workspace": {
+    "title": "Default Grid"
+  },
+  "layout": {
+    "type": "split",
+    "split": {
+      "orientation": "horizontal",
+      "dividerPosition": 0.5,
+      "first": {
+        "type": "split",
+        "split": {
+          "orientation": "vertical",
+          "dividerPosition": 0.5,
+          "first": { "type": "pane", "pane": { "surfaceIds": ["tl"] } },
+          "second": { "type": "pane", "pane": { "surfaceIds": ["bl"] } }
+        }
+      },
+      "second": {
+        "type": "split",
+        "split": {
+          "orientation": "vertical",
+          "dividerPosition": 0.5,
+          "first": { "type": "pane", "pane": { "surfaceIds": ["tr"] } },
+          "second": { "type": "pane", "pane": { "surfaceIds": ["br"] } }
+        }
+      }
+    }
+  },
+  "surfaces": [
+    { "id": "tl", "kind": "terminal" },
+    { "id": "tr", "kind": "terminal", "workingDirectory": "/tmp" },
+    { "id": "bl", "kind": "terminal", "workingDirectory": "/var/tmp" },
+    { "id": "br", "kind": "terminal" }
+  ]
+}

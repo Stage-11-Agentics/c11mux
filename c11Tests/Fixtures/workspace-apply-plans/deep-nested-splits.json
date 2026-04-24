@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "workspace": {
+    "title": "Deep Nested"
+  },
+  "layout": {
+    "type": "split",
+    "split": {
+      "orientation": "horizontal",
+      "dividerPosition": 0.3,
+      "first": { "type": "pane", "pane": { "surfaceIds": ["a"] } },
+      "second": {
+        "type": "split",
+        "split": {
+          "orientation": "vertical",
+          "dividerPosition": 0.4,
+          "first": { "type": "pane", "pane": { "surfaceIds": ["b"] } },
+          "second": {
+            "type": "split",
+            "split": {
+              "orientation": "horizontal",
+              "dividerPosition": 0.5,
+              "first": { "type": "pane", "pane": { "surfaceIds": ["c"] } },
+              "second": {
+                "type": "split",
+                "split": {
+                  "orientation": "vertical",
+                  "dividerPosition": 0.7,
+                  "first": { "type": "pane", "pane": { "surfaceIds": ["d"] } },
+                  "second": { "type": "pane", "pane": { "surfaceIds": ["e"] } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "surfaces": [
+    { "id": "a", "kind": "terminal", "title": "a" },
+    { "id": "b", "kind": "terminal", "title": "b" },
+    { "id": "c", "kind": "terminal", "title": "c" },
+    { "id": "d", "kind": "terminal", "title": "d" },
+    { "id": "e", "kind": "terminal", "title": "e" }
+  ]
+}

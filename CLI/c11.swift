@@ -17,6 +17,19 @@ struct CLIError: Error, CustomStringConvertible {
     var description: String { message }
 }
 
+/// Returns true when a `CLIError` represents "c11 app isn't reachable on its
+/// control socket" — used by advisory pathways (like the claude-hook dispatch)
+/// that should no-op rather than surface an error when nothing is listening.
+private func isAdvisoryHookConnectivityError(_ error: CLIError) -> Bool {
+    let m = error.message
+    return m.contains("Socket not found")
+        || m.contains("socket not found")
+        || m.contains("c11 app did not start in time")
+        || m.contains("Connection refused")
+        || m.contains("Failed to connect")
+        || m.contains("No such file or directory")
+}
+
 // Mirrors CMUX_* ↔ C11_* env vars so callers can use either prefix.
 // Why: binary rename from `cmux` to `c11` keeps both namespaces live during transition.
 func mirrorC11CmuxEnv() {
@@ -1519,6 +1532,16 @@ struct CMUXCLI {
         } catch {
             cliTelemetry.breadcrumb("socket.connect.failure", data: ["path": resolvedSocketPath])
             cliTelemetry.captureError(stage: "socket_connect", error: error)
+            // Advisory commands (claude-hook) should never error a Claude Code
+            // banner on every prompt just because c11 isn't listening. Exit
+            // cleanly when the eager connect fails for a connectivity reason.
+            // Real hook bugs still propagate from inside the subcommand.
+            if command == "claude-hook",
+               let cliError = error as? CLIError,
+               isAdvisoryHookConnectivityError(cliError) {
+                cliTelemetry.breadcrumb("claude-hook.socket-unreachable")
+                return
+            }
             throw error
         }
         defer { client.close() }
@@ -1709,6 +1732,40 @@ struct CMUXCLI {
             try runSSH(commandArgs: commandArgs, client: client, jsonOutput: jsonOutput, idFormat: idFormat)
         case "ssh-session-end":
             try runSSHSessionEnd(commandArgs: commandArgs, client: client)
+
+        case "workspace":
+            // CMUX-37 Phase 0: `c11 workspace <subcommand>`. Plan and docs
+            // (docs/c11-snapshot-restore-plan.md:164) specify this form.
+            // Future subcommands: snapshot/restore (Phase 1), new/export-
+            // blueprint (Phase 2). For now `apply` is the only subcommand.
+            guard let sub = commandArgs.first else {
+                throw CLIError(message: "workspace: missing subcommand. Known subcommands: apply")
+            }
+            let subArgs = Array(commandArgs.dropFirst())
+            switch sub {
+            case "apply":
+                try runWorkspaceApply(
+                    subArgs,
+                    client: client,
+                    commandLabel: "workspace apply",
+                    jsonOutput: jsonOutput,
+                    idFormat: idFormat
+                )
+            default:
+                throw CLIError(message: "workspace: unknown subcommand '\(sub)'. Known subcommands: apply")
+            }
+
+        case "workspace-apply":
+            // Back-compat alias for the Phase 0 `c11 workspace apply` form
+            // that shipped before the review cycle 1 rename. Prefer the
+            // subcommand form going forward.
+            try runWorkspaceApply(
+                commandArgs,
+                client: client,
+                commandLabel: "workspace-apply",
+                jsonOutput: jsonOutput,
+                idFormat: idFormat
+            )
 
         case "new-workspace":
             let (commandOpt, rem0) = parseOption(commandArgs, name: "--command")
@@ -2408,6 +2465,15 @@ struct CMUXCLI {
             do {
                 try runClaudeHook(commandArgs: commandArgs, client: client, telemetry: cliTelemetry)
                 cliTelemetry.breadcrumb("claude-hook.completed")
+            } catch let error as CLIError where isAdvisoryHookConnectivityError(error) {
+                // claude-hook is advisory — it signals c11 about Claude Code
+                // lifecycle events (prompt submitted, notification, etc.) so
+                // the sidebar can update. When c11 isn't running (socket
+                // missing / refused / path orphaned from a crashed process),
+                // there's nothing to signal. Exit cleanly so Claude Code
+                // doesn't surface a hook-error banner on every prompt. Real
+                // hook bugs (malformed input, logic errors) still propagate.
+                cliTelemetry.breadcrumb("claude-hook.socket-unreachable")
             } catch {
                 cliTelemetry.breadcrumb("claude-hook.failure")
                 cliTelemetry.captureError(stage: "claude_hook_dispatch", error: error)
@@ -2545,6 +2611,64 @@ struct CMUXCLI {
         if expanded.hasPrefix("/") { return expanded }
         let cwd = FileManager.default.currentDirectoryPath
         return (cwd as NSString).appendingPathComponent(expanded)
+    }
+
+    /// Shared implementation for `c11 workspace apply` and its back-compat
+    /// alias `c11 workspace-apply`. Reads a JSON `WorkspaceApplyPlan` from a
+    /// file path (or `-` for stdin), POSTs it via `workspace.apply`, and
+    /// prints the `ApplyResult`. `commandLabel` is threaded into error
+    /// messages so operators know which spelling they invoked.
+    private func runWorkspaceApply(
+        _ args: [String],
+        client: SocketClient,
+        commandLabel: String,
+        jsonOutput: Bool,
+        idFormat: CLIIDFormat
+    ) throws {
+        let (fileOpt, remaining) = parseOption(args, name: "--file")
+        if let unknown = remaining.first(where: { $0.hasPrefix("--") }) {
+            throw CLIError(message: "\(commandLabel): unknown flag '\(unknown)'. Known flags: --file <path|->")
+        }
+        guard let fileArg = fileOpt else {
+            throw CLIError(message: "\(commandLabel) requires --file <path|->")
+        }
+        let planData: Data
+        if fileArg == "-" {
+            planData = FileHandle.standardInput.readDataToEndOfFile()
+        } else {
+            let resolvedPath = resolvePath(fileArg)
+            guard let data = FileManager.default.contents(atPath: resolvedPath) else {
+                throw CLIError(message: "\(commandLabel): could not read '\(resolvedPath)'")
+            }
+            planData = data
+        }
+        guard let planObject = try? JSONSerialization.jsonObject(with: planData, options: []) else {
+            throw CLIError(message: "\(commandLabel): --file contents are not valid JSON")
+        }
+        let payload = try client.sendV2(method: "workspace.apply", params: ["plan": planObject])
+        if jsonOutput {
+            print(jsonString(formatIDs(payload, mode: idFormat)))
+        } else {
+            let ref = (payload["workspaceRef"] as? String) ?? "?"
+            let surfaceRefs = payload["surfaceRefs"] as? [String: String] ?? [:]
+            let paneRefs = payload["paneRefs"] as? [String: String] ?? [:]
+            let warnings = payload["warnings"] as? [String] ?? []
+            let failures = payload["failures"] as? [[String: Any]] ?? []
+            print("OK workspace=\(ref) surfaces=\(surfaceRefs.count) panes=\(paneRefs.count)")
+            if !warnings.isEmpty {
+                print("warnings: \(warnings.count)")
+                for w in warnings { print("  - \(w)") }
+            }
+            if !failures.isEmpty {
+                print("failures: \(failures.count)")
+                for f in failures {
+                    let code = (f["code"] as? String) ?? "?"
+                    let step = (f["step"] as? String) ?? "?"
+                    let msg = (f["message"] as? String) ?? ""
+                    print("  - [\(code)] \(step): \(msg)")
+                }
+            }
+        }
     }
 
     private func sanitizedFilenameComponent(_ raw: String) -> String {
@@ -13510,7 +13634,7 @@ struct IntegrationInstallerConstants {
     static let tomlFenceEnd = "# cmux-install-end"
 }
 
-/// Canonical hook entries cmux writes into `~/.claude/settings.json`.
+/// Canonical hook entries c11 writes into `~/.claude/settings.json`.
 /// Identity is established by content-hash match against the `x-cmux.entries`
 /// table. See `docs/c11mux-module-4-integration-installers-spec.md`.
 private func claudeCanonicalEntries() -> [(event: String, entry: [String: Any])] {
@@ -13518,38 +13642,38 @@ private func claudeCanonicalEntries() -> [(event: String, entry: [String: Any])]
         ("SessionStart", [
             "matcher": "",
             "hooks": [
-                ["type": "command", "command": "cmux claude-hook session-start", "timeout": 10],
-                ["type": "command", "command": "cmux set-agent --type claude-code --source declare", "timeout": 5]
+                ["type": "command", "command": "c11 claude-hook session-start", "timeout": 10],
+                ["type": "command", "command": "c11 set-agent --type claude-code --source declare", "timeout": 5]
             ]
         ]),
         ("Stop", [
             "matcher": "",
             "hooks": [
-                ["type": "command", "command": "cmux claude-hook stop", "timeout": 10]
+                ["type": "command", "command": "c11 claude-hook stop", "timeout": 10]
             ]
         ]),
         ("SessionEnd", [
             "matcher": "",
             "hooks": [
-                ["type": "command", "command": "cmux claude-hook session-end", "timeout": 1]
+                ["type": "command", "command": "c11 claude-hook session-end", "timeout": 1]
             ]
         ]),
         ("Notification", [
             "matcher": "",
             "hooks": [
-                ["type": "command", "command": "cmux claude-hook notification", "timeout": 10]
+                ["type": "command", "command": "c11 claude-hook notification", "timeout": 10]
             ]
         ]),
         ("UserPromptSubmit", [
             "matcher": "",
             "hooks": [
-                ["type": "command", "command": "cmux claude-hook prompt-submit", "timeout": 10]
+                ["type": "command", "command": "c11 claude-hook prompt-submit", "timeout": 10]
             ]
         ]),
         ("PreToolUse", [
             "matcher": "",
             "hooks": [
-                ["type": "command", "command": "cmux claude-hook pre-tool-use", "timeout": 5, "async": true]
+                ["type": "command", "command": "c11 claude-hook pre-tool-use", "timeout": 5, "async": true]
             ]
         ])
     ]
