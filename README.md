@@ -155,7 +155,9 @@ if your session is a single Claude Code in a single terminal, c11 will feel like
 
 c11 assumes RAM. it is conceivable — normal, even — to have fifty terminals open across eight workspaces while an embedded browser runs in pane 3 and a markdown viewer scrolls release notes in pane 5. we do not apologize for that shape.
 
-c11 does not throttle. there is no performance governor, no ceiling on how many terminals you can spawn — the limit is your machine, not our code. on a 128GB MacBook, that might mean 500 panes running in parallel; if the hardware can carry them, carry on. on an 8GB Air, the same freedom is a short walk off a performance cliff. plan for the machine you're on.
+c11 does not throttle. no performance governor, no ceiling on how many terminals you spawn — the limit is your machine, not our code. the modern hyperengineer runs a tricked-out MacBook with memory to spare, and c11 is built for that machine. fifteen workspaces, six panes to a workspace, six terminals to a pane — if the silicon can carry it, carry on.
+
+on an 8GB Air, c11 will let you walk off the performance cliff. we do not apologize for that either.
 
 ---
 
