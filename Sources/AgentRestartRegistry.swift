@@ -60,9 +60,15 @@ struct AgentRestartRegistry: Sendable {
         }
     }
 
+    /// Stable identity for `Equatable` comparisons. The registry carries
+    /// closures (not `Equatable`); callers (the v2 handler, tests) identify
+    /// a registry by the name it was minted with — `"phase1"` for the
+    /// canonical singleton, test-chosen names for fixtures.
+    let name: String
     private let rowsByType: [String: Row]
 
-    init(rows: [Row]) {
+    init(name: String, rows: [Row]) {
+        self.name = name
         var map: [String: Row] = [:]
         // Trim on insert to match the symmetric trim in `resolveCommand`;
         // avoids an asymmetric-trim footgun where a row registered with
@@ -116,7 +122,7 @@ struct AgentRestartRegistry: Sendable {
     /// one. Without it, `TerminalPanel.sendText` writes the bytes verbatim
     /// and the command sits at the prompt unexecuted. Phase 5 rows for
     /// codex/opencode/kimi follow the same "return submit form" contract.
-    static let phase1: AgentRestartRegistry = .init(rows: [
+    static let phase1: AgentRestartRegistry = .init(name: "phase1", rows: [
         Row(terminalType: "claude-code") { sessionId, _ in
             guard let raw = sessionId?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !raw.isEmpty,

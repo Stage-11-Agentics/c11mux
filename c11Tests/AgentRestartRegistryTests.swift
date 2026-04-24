@@ -249,7 +249,7 @@ final class AgentRestartRegistryTests: XCTestCase {
     /// whitespace is still resolvable. Otherwise a typo in a future Phase 5
     /// row definition silently disables it.
     func testCustomRegistryTrimsTerminalTypeOnInsert() {
-        let registry = AgentRestartRegistry(rows: [
+        let registry = AgentRestartRegistry(name: "trim-test", rows: [
             AgentRestartRegistry.Row(terminalType: "  claude-code  ") { _, _ in "cc trimmed" }
         ])
         XCTAssertEqual(
@@ -262,7 +262,7 @@ final class AgentRestartRegistryTests: XCTestCase {
     // MARK: - Custom row (Phase 5 shape preview)
 
     func testCustomRegistryCanCarryAdditionalRows() {
-        let registry = AgentRestartRegistry(rows: [
+        let registry = AgentRestartRegistry(name: "multi-row-test", rows: [
             AgentRestartRegistry.Row(terminalType: "claude-code") { _, _ in "cc" },
             AgentRestartRegistry.Row(terminalType: "codex") { sid, _ in
                 guard let sid else { return nil }
