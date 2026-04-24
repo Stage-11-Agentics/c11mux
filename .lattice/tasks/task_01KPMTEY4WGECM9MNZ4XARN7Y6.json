@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 1,
+  "comment_count": 2,
   "complexity": null,
   "created_at": "2026-04-20T06:50:18Z",
   "created_by": "human:atin",
@@ -16,8 +16,8 @@
     }
   ],
   "id": "task_01KPMTEY4WGECM9MNZ4XARN7Y6",
-  "last_event_id": "ev_01KPZ18QGZ6B2T100JGQZ1473H",
-  "last_status_changed_at": "2026-04-20T06:50:18Z",
+  "last_event_id": "ev_01KQ09R2ZHEV6E5KQVYJ9Z9ZRD",
+  "last_status_changed_at": "2026-04-24T17:49:05Z",
   "linked_files": [],
   "priority": "medium",
   "relationships_out": [
@@ -43,13 +43,13 @@
       "type": "related_to"
     }
   ],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "CMUX-37",
-  "status": "backlog",
+  "status": "planned",
   "tags": null,
   "title": "c11mux workspace persistence: Blueprints (declarative) + Snapshots (live state) + session resume",
   "type": "task",
-  "updated_at": "2026-04-24T06:01:39Z",
+  "updated_at": "2026-04-24T17:49:05Z",
   "urgency": null
 }
