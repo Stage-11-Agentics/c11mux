@@ -8,8 +8,13 @@ default discovery path).
 
 The test is parameterised over 8 envelope variations that exercise every axis
 the schema allows (to-only, topic-only, urgent, reply chain, content_type,
-body_ref, ext, ttl_seconds). For each variation it pins `--id` and `--ts`
-overrides so the CLI and the raw-file sender produce the same envelope id.
+body_ref, ext, ttl_seconds). For each variation we pin `--id` and `--ts` to
+the same value on both sender paths and route them through two isolated
+workspaces, so the inbox files can be compared byte-for-byte with no
+JSON normalization.
+
+Topic-only is Stage 2's rejected-semantics case: the CLI exits non-zero and
+no envelope is produced. The test asserts that rejection instead of parity.
 
 Run manually:
 
@@ -181,11 +186,15 @@ PAYLOADS = [
         "body": "ephemeral",
     },
     {
+        # Stage 2 does not implement topic-only delivery. The CLI must reject
+        # the send with a non-zero exit so operators see the failure instead
+        # of silently losing the message. See review cycle 1 P0 #3.
         "name": "topic-only",
         "extra": {"topic": "broadcast.deploy"},
         "cli_args": ["--topic", "broadcast.deploy"],
         "body": "topic-only body",
         "omit_to": True,
+        "cli_must_reject": True,
     },
 ]
 
@@ -241,6 +250,61 @@ def _wait_for_inbox(
     raise cmuxError(f"Envelope did not land in inbox within {timeout_s}s: {target}")
 
 
+def _create_workspace_with_surfaces(
+    c,
+    *,
+    sender_name: str,
+    receiver_name: str,
+) -> str:
+    """Create an isolated workspace, name the current surface as sender, and
+    add a receiver surface with `mailbox.delivery: silent`. Returns the
+    workspace id.
+
+    The parity test uses two workspaces so both sender paths can pin the
+    same envelope id without colliding in a shared outbox or triggering
+    the dispatcher's per-workspace `recentlySeen` dedup cache.
+    """
+    created = c._call("workspace.create") or {}
+    workspace_id = str(created.get("workspace_id") or "")
+    _must(bool(workspace_id), f"workspace.create returned no id: {created}")
+    c._call("workspace.select", {"workspace_id": workspace_id})
+
+    current = c._call("surface.current", {"workspace_id": workspace_id}) or {}
+    sender_id = str(current.get("surface_id") or "")
+    _must(bool(sender_id), f"surface.current returned no id: {current}")
+    c._call(
+        "surface.set_metadata",
+        {
+            "workspace_id": workspace_id,
+            "surface_id": sender_id,
+            "metadata": {"title": sender_name},
+            "mode": "merge",
+            "source": "explicit",
+        },
+    )
+
+    created_surface = c._call(
+        "surface.create",
+        {"workspace_id": workspace_id, "type": "terminal"},
+    ) or {}
+    receiver_id = str(created_surface.get("surface_id") or "")
+    _must(bool(receiver_id), f"surface.create returned no id: {created_surface}")
+    c._call(
+        "surface.set_metadata",
+        {
+            "workspace_id": workspace_id,
+            "surface_id": receiver_id,
+            "metadata": {
+                "title": receiver_name,
+                "mailbox.delivery": "silent",
+            },
+            "mode": "merge",
+            "source": "explicit",
+        },
+    )
+    return workspace_id
+
+
 def main() -> int:
     cli = _find_cli_binary()
     stamp = int(time.time() * 1000)
@@ -248,52 +312,25 @@ def main() -> int:
     receiver_name = f"receiver-{stamp}"
 
     with cmux(SOCKET_PATH) as c:
-        created = c._call("workspace.create") or {}
-        workspace_id = str(created.get("workspace_id") or "")
-        _must(bool(workspace_id), f"workspace.create returned no id: {created}")
-        c._call("workspace.select", {"workspace_id": workspace_id})
-
-        # Name the current surface as the sender; add a second surface as receiver.
-        current = c._call("surface.current", {"workspace_id": workspace_id}) or {}
-        sender_id = str(current.get("surface_id") or "")
-        _must(bool(sender_id), f"surface.current returned no id: {current}")
-        c._call(
-            "surface.set_metadata",
-            {
-                "workspace_id": workspace_id,
-                "surface_id": sender_id,
-                "metadata": {"title": sender_name},
-                "mode": "merge",
-                "source": "explicit",
-            },
+        # Two isolated workspaces: CLI path writes into workspace_cli, raw
+        # path writes into workspace_raw. This lets us pin the same envelope
+        # id + ts on both paths and assert cli_inbox_bytes == raw_inbox_bytes
+        # directly — the drift-enforcement lock per design doc §3 rule #6.
+        workspace_cli = _create_workspace_with_surfaces(
+            c, sender_name=sender_name, receiver_name=receiver_name
         )
-
-        created_surface = c._call(
-            "surface.create",
-            {"workspace_id": workspace_id, "type": "terminal"},
-        ) or {}
-        receiver_id = str(created_surface.get("surface_id") or "")
-        _must(bool(receiver_id), f"surface.create returned no id: {created_surface}")
-        c._call(
-            "surface.set_metadata",
-            {
-                "workspace_id": workspace_id,
-                "surface_id": receiver_id,
-                "metadata": {
-                    "title": receiver_name,
-                    "mailbox.delivery": "silent",
-                },
-                "mode": "merge",
-                "source": "explicit",
-            },
+        workspace_raw = _create_workspace_with_surfaces(
+            c, sender_name=sender_name, receiver_name=receiver_name
         )
 
         failures = []
+        parity_ok_count = 0
+        reject_ok_count = 0
         for idx, payload in enumerate(PAYLOADS):
-            ts = _fixed_ts(idx * 2)
+            pinned_ts = _fixed_ts(idx)
+            pinned_id = _new_ulid(cli)
 
-            # CLI sender — writes its own ULID and full envelope.
-            cli_id = _new_ulid(cli)
+            # CLI sender — pinned id + ts, into workspace_cli.
             args = [
                 "mailbox",
                 "send",
@@ -302,9 +339,9 @@ def main() -> int:
                 "--body",
                 payload["body"],
                 "--id",
-                cli_id,
+                pinned_id,
                 "--ts",
-                ts,
+                pinned_ts,
             ]
             if not payload.get("omit_to"):
                 args.extend(["--to", receiver_name])
@@ -312,8 +349,20 @@ def main() -> int:
             proc = _run_cli(
                 cli,
                 args,
-                env={"CMUX_WORKSPACE_ID": workspace_id},
+                env={"CMUX_WORKSPACE_ID": workspace_cli},
             )
+
+            # Topic-only (Stage 2): CLI must reject with non-zero exit.
+            if payload.get("cli_must_reject"):
+                if proc.returncode == 0:
+                    failures.append(
+                        f"[{payload['name']}] CLI must reject topic-only "
+                        f"send with non-zero exit, got 0 (stdout={proc.stdout!r})"
+                    )
+                else:
+                    reject_ok_count += 1
+                continue
+
             if proc.returncode != 0:
                 failures.append(
                     f"[{payload['name']}] CLI send failed: {proc.stderr}"
@@ -322,50 +371,46 @@ def main() -> int:
 
             cli_inbox_path = _wait_for_inbox(
                 state_root=STATE_ROOT,
-                workspace_id=workspace_id,
+                workspace_id=workspace_cli,
                 receiver=receiver_name,
-                envelope_id=cli_id,
+                envelope_id=pinned_id,
             )
             cli_inbox_bytes = cli_inbox_path.read_bytes()
 
-            # Raw-file sender — builds the exact same envelope dict and writes it.
-            raw_id = _new_ulid(cli)
-            raw_ts = _fixed_ts(idx * 2 + 1)
+            # Raw-file sender — same pinned id + ts, into workspace_raw.
             raw_envelope = _build_expected_envelope(
-                envelope_id=raw_id,
-                ts=raw_ts,
+                envelope_id=pinned_id,
+                ts=pinned_ts,
                 payload=payload,
                 sender=sender_name,
                 receiver=receiver_name,
             )
             _write_raw_envelope(
                 state_root=STATE_ROOT,
-                workspace_id=workspace_id,
+                workspace_id=workspace_raw,
                 envelope=raw_envelope,
             )
 
             raw_inbox_path = _wait_for_inbox(
                 state_root=STATE_ROOT,
-                workspace_id=workspace_id,
+                workspace_id=workspace_raw,
                 receiver=receiver_name,
-                envelope_id=raw_id,
+                envelope_id=pinned_id,
             )
             raw_inbox_bytes = raw_inbox_path.read_bytes()
 
-            # Byte-parity check: after stripping id + ts differences, the
-            # remainder must match byte-for-byte.
-            cli_decoded = json.loads(cli_inbox_bytes)
-            raw_decoded = json.loads(raw_inbox_bytes)
-            for key in ("id", "ts"):
-                cli_decoded.pop(key, None)
-                raw_decoded.pop(key, None)
-
-            cli_reencoded = _encode_envelope(cli_decoded)
-            raw_reencoded = _encode_envelope(raw_decoded)
-            if cli_reencoded != raw_reencoded:
+            # The drift-enforcement lock: direct byte-for-byte equality.
+            # No JSON re-serialization, no normalization, no key-sort dance.
+            # Any divergence — Unicode form, slash escaping, whitespace,
+            # key order, integer vs float, trailing newlines — fails here.
+            if cli_inbox_bytes != raw_inbox_bytes:
                 failures.append(
-                    f"[{payload['name']}] byte mismatch:\n  cli : {cli_reencoded!r}\n  raw : {raw_reencoded!r}"
+                    f"[{payload['name']}] byte mismatch:\n"
+                    f"  cli ({len(cli_inbox_bytes)}B): {cli_inbox_bytes!r}\n"
+                    f"  raw ({len(raw_inbox_bytes)}B): {raw_inbox_bytes!r}"
                 )
+            else:
+                parity_ok_count += 1
 
         if failures:
             print("\nFAILURES:")
@@ -373,7 +418,11 @@ def main() -> int:
                 print(f"  {msg}")
             return 1
 
-    print(f"OK: {len(PAYLOADS)} payload variations byte-equivalent across CLI + raw-file senders.")
+    print(
+        f"OK: {parity_ok_count} byte-identical parity case(s); "
+        f"{reject_ok_count} CLI-rejection case(s); "
+        f"total {len(PAYLOADS)} payload variation(s)."
+    )
     return 0
 
 
