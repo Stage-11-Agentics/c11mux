@@ -58,7 +58,12 @@ final class MailboxOutboxWatcher {
             withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700]
         )
-        knownFiles = currentSnapshot()
+        // Start with an empty known-set so any pre-existing `.msg` files
+        // surface to the dispatcher on next scan. Idempotency is provided
+        // downstream by the atomic move into `_processing/` — snapshotting
+        // existing files as "already handled" here would strand envelopes
+        // that arrived while c11 was not running.
+        knownFiles = []
         startFSEventsStream()
         startPollingTimer()
     }

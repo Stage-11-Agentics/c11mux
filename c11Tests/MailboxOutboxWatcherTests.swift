@@ -140,6 +140,41 @@ final class MailboxOutboxWatcherTests: XCTestCase {
         XCTAssertEqual(callCount, 1, "known .msg files must not refire after first report")
     }
 
+    // MARK: - Pre-existing envelopes at start
+
+    /// Envelopes that landed in `_outbox/` before c11 started (operator
+    /// writing directly while the app was down, or a previous dispatcher
+    /// run exiting before its sweep) must surface on startup — the watcher
+    /// cannot snapshot them as "already handled" or they are stranded
+    /// until a manual poke.
+    ///
+    /// Regression lock for review cycle 1 P0 #4.
+    func testPreExistingEnvelopesDispatchOnStart() throws {
+        try writeEnvelopeAtomically(name: "pre-existing.msg", body: "{}")
+
+        let expectation = expectation(description: "pre-existing handler fired")
+        expectation.assertForOverFulfill = false
+
+        let watcher = MailboxOutboxWatcher(
+            directoryURL: tempRoot,
+            debounceInterval: 0.01,
+            pollingInterval: 60.0  // force the path to come from trigger/sweep, not periodic
+        ) { urls in
+            if urls.contains(where: { $0.lastPathComponent == "pre-existing.msg" }) {
+                expectation.fulfill()
+            }
+        }
+        watcher.start()
+        defer { watcher.stop() }
+
+        // Mirrors MailboxDispatcher.start() — trigger an immediate scan so we
+        // don't wait on fsevents (which don't fire for files that already
+        // existed when the stream began).
+        watcher.triggerImmediateScan()
+
+        wait(for: [expectation], timeout: 2.0)
+    }
+
     // MARK: - Manual trigger
 
     func testTriggerImmediateScanFiresSynchronously() throws {

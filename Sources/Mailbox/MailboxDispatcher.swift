@@ -109,6 +109,13 @@ final class MailboxDispatcher {
             self?.handleOutboxChanges(urls: urls)
         }
         watcher.start()
+        // Dispatch any `.msg` files that were sitting in `_outbox/` before
+        // c11 started — either written while c11 was down, or stranded by a
+        // previous run. The periodic sweep would pick them up within 5 s
+        // anyway; this keeps the at-least-once claim prompt, not eventual.
+        // Note: crash-recovery of `_processing/` envelopes is Stage 3
+        // (see MailboxDispatcher at-least-once docs and skill).
+        watcher.triggerImmediateScan()
         self.watcher = watcher
 
         let timer = DispatchSource.makeTimerSource(queue: queue)
