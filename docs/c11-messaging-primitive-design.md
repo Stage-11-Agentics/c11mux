@@ -646,7 +646,7 @@ No orchestrator. Coordination emerges from the topic graph.
 > c11 mailbox send --to <surface> --body-ref /path/to/large.json   # for bodies >4KB
 > ```
 >
-> **Direct file write (if you need it):** drop a JSON envelope in `$C11_STATE/workspaces/$C11_WORKSPACE_ID/mailboxes/_outbox/<ulid>.tmp` and atomically rename to `.msg`. Required fields: `version`, `id`, `from`, `ts`, `body`, plus at least one of `to`/`topic`. `from` is your surface name (`$C11_SURFACE_NAME`).
+> **Direct file write (if you need it):** resolve paths through the CLI helpers so the agent never depends on raw env vars. The outbox lives at `$(c11 mailbox outbox-dir)` and your surface name is `$(c11 mailbox surface-name)`. Drop a JSON envelope as `<outbox>/.<ulid>.tmp` (dot-prefix so the dispatcher ignores it until atomic rename) then `mv` it to `<outbox>/<ulid>.msg`. Required fields: `version`, `id`, `from`, `ts`, `body`, plus `to` (topic-only sends are not delivered in Stage 2). Mint a fresh id with `$(c11 mailbox new-id)`.
 >
 > ### Receiving — two equivalent ways
 >
@@ -654,7 +654,7 @@ No orchestrator. Coordination emerges from the topic graph.
 >
 > **File reads / CLI:**
 > ```
-> c11 mailbox recv --drain     # or: ls $C11_STATE/workspaces/$C11_WORKSPACE_ID/mailboxes/$C11_SURFACE_NAME/*.msg
+> c11 mailbox recv --drain     # or: ls "$(c11 mailbox inbox-dir)"/*.msg
 > c11 mailbox watch            # live stream (blocks)
 > ```
 >
