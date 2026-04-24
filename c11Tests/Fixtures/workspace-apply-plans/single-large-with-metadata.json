@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "workspace": {
+    "title": "Driver",
+    "metadata": {
+      "description": "single-pane driver session with mailbox config"
+    }
+  },
+  "layout": {
+    "type": "pane",
+    "pane": { "surfaceIds": ["main"] }
+  },
+  "surfaces": [
+    {
+      "id": "main",
+      "kind": "terminal",
+      "title": "driver",
+      "description": "cc session with mailbox.* subscription",
+      "metadata": {
+        "role": "driver",
+        "status": "ready",
+        "task": "cmux-37",
+        "model": "claude-opus-4-7"
+      },
+      "paneMetadata": {
+        "mailbox.delivery": "stdin,watch",
+        "mailbox.subscribe": "build.*,deploy.green",
+        "mailbox.retention_days": "7"
+      }
+    }
+  ]
+}

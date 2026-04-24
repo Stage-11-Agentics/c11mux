@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "workspace": {
+    "title": "Docs + Tests"
+  },
+  "layout": {
+    "type": "split",
+    "split": {
+      "orientation": "vertical",
+      "dividerPosition": 0.6,
+      "first": {
+        "type": "split",
+        "split": {
+          "orientation": "horizontal",
+          "dividerPosition": 0.5,
+          "first": { "type": "pane", "pane": { "surfaceIds": ["docs"] } },
+          "second": { "type": "pane", "pane": { "surfaceIds": ["notes"] } }
+        }
+      },
+      "second": {
+        "type": "split",
+        "split": {
+          "orientation": "horizontal",
+          "dividerPosition": 0.5,
+          "first": { "type": "pane", "pane": { "surfaceIds": ["tests"] } },
+          "second": { "type": "pane", "pane": { "surfaceIds": ["build"] } }
+        }
+      }
+    }
+  },
+  "surfaces": [
+    { "id": "docs", "kind": "browser", "title": "docs", "url": "https://stage11.ai/docs" },
+    { "id": "notes", "kind": "markdown", "title": "plan" },
+    { "id": "tests", "kind": "terminal", "title": "vitest", "command": "vitest --watch\n" },
+    { "id": "build", "kind": "terminal", "title": "build" }
+  ]
+}

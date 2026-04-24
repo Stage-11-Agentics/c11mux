@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "workspace": {
+    "title": "Welcome Quad",
+    "customColor": "#C0392B"
+  },
+  "layout": {
+    "type": "split",
+    "split": {
+      "orientation": "horizontal",
+      "dividerPosition": 0.5,
+      "first": {
+        "type": "split",
+        "split": {
+          "orientation": "vertical",
+          "dividerPosition": 0.5,
+          "first": { "type": "pane", "pane": { "surfaceIds": ["tl"] } },
+          "second": { "type": "pane", "pane": { "surfaceIds": ["bl"] } }
+        }
+      },
+      "second": {
+        "type": "split",
+        "split": {
+          "orientation": "vertical",
+          "dividerPosition": 0.5,
+          "first": { "type": "pane", "pane": { "surfaceIds": ["tr"] } },
+          "second": { "type": "pane", "pane": { "surfaceIds": ["br"] } }
+        }
+      }
+    }
+  },
+  "surfaces": [
+    { "id": "tl", "kind": "terminal", "title": "welcome",
+      "command": "c11 welcome\n" },
+    { "id": "tr", "kind": "browser", "title": "spike",
+      "url": "https://stage11.ai" },
+    { "id": "bl", "kind": "markdown", "title": "welcome.md" },
+    { "id": "br", "kind": "terminal", "title": "claude",
+      "command": "command -v claude >/dev/null 2>&1 && claude --dangerously-skip-permissions\n" }
+  ]
+}

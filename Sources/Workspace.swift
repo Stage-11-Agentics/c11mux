@@ -5608,6 +5608,25 @@ final class Workspace: Identifiable, ObservableObject {
         surfaceIdToPanelId.first { $0.value == panelId }?.key
     }
 
+    /// Resolve the bonsplit pane hosting the given panel.
+    ///
+    /// Walks `bonsplitController.allPaneIds` searching for a pane whose tabs
+    /// include the panel's surface id. Used by split primitives to find the
+    /// source pane of a split and by `WorkspaceLayoutExecutor` to resolve the
+    /// pane that hosts a just-created panel for pane-metadata writes.
+    ///
+    /// O(panes * tabsPerPane) worst case; workspaces in the field have
+    /// single-digit pane counts so the cost is negligible.
+    func paneIdForPanel(_ panelId: UUID) -> PaneID? {
+        guard let tabId = surfaceIdFromPanelId(panelId) else { return nil }
+        for paneId in bonsplitController.allPaneIds {
+            if bonsplitController.tabs(inPane: paneId).contains(where: { $0.id == tabId }) {
+                return paneId
+            }
+        }
+        return nil
+    }
+
 
     private func installBrowserPanelSubscription(_ browserPanel: BrowserPanel) {
         let subscription = Publishers.CombineLatest3(
@@ -6037,6 +6056,29 @@ final class Workspace: Identifiable, ObservableObject {
         } else {
             customTitle = trimmed
             self.title = trimmed
+        }
+    }
+
+    /// Merge operator-authored entries into `metadata` (workspace-scoped).
+    /// Trimmed empty values clear their keys; trimmed non-empty values
+    /// overwrite. Mirrors the shape of `SessionWorkspaceSnapshot.metadata`
+    /// at the plan/snapshot boundary so `WorkspaceLayoutExecutor` and
+    /// Phase 1 Snapshot restore can land values through one setter.
+    func setOperatorMetadata(_ entries: [String: String]) {
+        guard !entries.isEmpty else { return }
+        var next = metadata
+        for (rawKey, rawValue) in entries {
+            let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else { continue }
+            let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                next.removeValue(forKey: key)
+            } else {
+                next[key] = trimmed
+            }
+        }
+        if next != metadata {
+            metadata = next
         }
     }
 
@@ -7211,33 +7253,33 @@ final class Workspace: Identifiable, ObservableObject {
         return nil
     }
 
-    /// Create a new split with a terminal panel
+    /// Create a new split with a terminal panel.
+    ///
+    /// If `workingDirectory` is provided and non-empty, it overrides the
+    /// source-panel / workspace inheritance chain below — used by
+    /// `WorkspaceLayoutExecutor` to honor explicit `SurfaceSpec.workingDirectory`
+    /// values declared in a `WorkspaceApplyPlan`.
     @discardableResult
     func newTerminalSplit(
         from panelId: UUID,
         orientation: SplitOrientation,
         insertFirst: Bool = false,
-        focus: Bool = true
+        focus: Bool = true,
+        workingDirectory: String? = nil
     ) -> TerminalPanel? {
-        // Find the pane containing the source panel
-        guard let sourceTabId = surfaceIdFromPanelId(panelId) else { return nil }
-        var sourcePaneId: PaneID?
-        for paneId in bonsplitController.allPaneIds {
-            let tabs = bonsplitController.tabs(inPane: paneId)
-            if tabs.contains(where: { $0.id == sourceTabId }) {
-                sourcePaneId = paneId
-                break
-            }
-        }
-
-        guard let paneId = sourcePaneId else { return nil }
+        guard let paneId = paneIdForPanel(panelId) else { return nil }
         let inheritedConfig = inheritedTerminalConfig(preferredPanelId: panelId, inPane: paneId)
         let remoteTerminalStartupCommand = remoteTerminalStartupCommand()
 
-        // Inherit working directory: prefer the source panel's reported cwd,
-        // then its requested startup cwd if shell integration has not reported
-        // back yet, and finally fall back to the workspace's current directory.
+        // Inherit working directory: caller-supplied override wins, then the
+        // source panel's reported cwd, then its requested startup cwd if
+        // shell integration has not reported back yet, and finally fall back
+        // to the workspace's current directory.
         let splitWorkingDirectory: String? = {
+            if let override = workingDirectory?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !override.isEmpty {
+                return override
+            }
             if let panelDirectory = panelDirectories[panelId]?.trimmingCharacters(in: .whitespacesAndNewlines),
                !panelDirectory.isEmpty {
                 return panelDirectory
@@ -7421,18 +7463,7 @@ final class Workspace: Identifiable, ObservableObject {
         preferredProfileID: UUID? = nil,
         focus: Bool = true
     ) -> BrowserPanel? {
-        // Find the pane containing the source panel
-        guard let sourceTabId = surfaceIdFromPanelId(panelId) else { return nil }
-        var sourcePaneId: PaneID?
-        for paneId in bonsplitController.allPaneIds {
-            let tabs = bonsplitController.tabs(inPane: paneId)
-            if tabs.contains(where: { $0.id == sourceTabId }) {
-                sourcePaneId = paneId
-                break
-            }
-        }
-
-        guard let paneId = sourcePaneId else { return nil }
+        guard let paneId = paneIdForPanel(panelId) else { return nil }
 
         // Create browser panel
         let browserPanel = BrowserPanel(
@@ -7580,17 +7611,7 @@ final class Workspace: Identifiable, ObservableObject {
         filePath: String? = nil,
         focus: Bool = true
     ) -> MarkdownPanel? {
-        guard let sourceTabId = surfaceIdFromPanelId(panelId) else { return nil }
-        var sourcePaneId: PaneID?
-        for paneId in bonsplitController.allPaneIds {
-            let tabs = bonsplitController.tabs(inPane: paneId)
-            if tabs.contains(where: { $0.id == sourceTabId }) {
-                sourcePaneId = paneId
-                break
-            }
-        }
-
-        guard let paneId = sourcePaneId else { return nil }
+        guard let paneId = paneIdForPanel(panelId) else { return nil }
 
         let markdownPanel = MarkdownPanel(workspaceId: id, filePath: filePath)
         panels[markdownPanel.id] = markdownPanel
