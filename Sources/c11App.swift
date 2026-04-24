@@ -3996,6 +3996,13 @@ enum WelcomeSettings {
     ///
     /// Newly-created terminal panels auto-queue `sendText` before their surfaces
     /// finish initializing and flush on ready, so we can issue commands immediately.
+    ///
+    // TODO(CMUX-37 Phase 0+): express the quad as a WorkspaceApplyPlan and
+    // apply via WorkspaceLayoutExecutor. The current implementation runs on
+    // an already-created workspace with a live terminal panel; the executor
+    // assumes workspace-creation responsibility. Migration path: extend
+    // WorkspaceLayoutExecutor with an `applyToExistingWorkspace(_:workspace:
+    // seedPanel:)` overload that skips step 2 and reuses the seed panel.
     @MainActor
     static func performQuadLayout(on workspace: Workspace, initialPanel: TerminalPanel) {
         let initialPanelId = initialPanel.id
@@ -4078,6 +4085,12 @@ enum DefaultGridSettings {
     /// Auto-spawns a 2×2 terminal grid rooted at `initialPanel`. Silently
     /// truncates the build if any split fails (partial grid is acceptable).
     /// Callers decide when the initial panel's Ghostty surface is ready.
+    ///
+    // TODO(CMUX-37 Phase 0+): express the 2x2 grid as a WorkspaceApplyPlan
+    // driven by DefaultGridSettings.gridSplitOperations(). Gated on the
+    // apply-to-existing-workspace overload (same gate as performQuadLayout).
+    // The remote-workspace guard below must move into the executor or stay
+    // at the call site post-migration.
     @MainActor
     static func performDefaultGrid(
         on workspace: Workspace,
