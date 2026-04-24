@@ -4600,8 +4600,23 @@ class TerminalController {
         if options.select && !v2FocusAllowed(requested: true) {
             options.select = false
         }
+        // Pre-apply warnings surfaced through ApplyResult.warnings below so
+        // operators see them in both JSON and the CLI's `warnings:` block.
+        var preApplyWarnings: [String] = []
         if let registryName = params["restart_registry"] as? String {
-            options.restartRegistry = AgentRestartRegistry.named(registryName)
+            let resolved = AgentRestartRegistry.named(registryName)
+            options.restartRegistry = resolved
+            if resolved == nil {
+                // Unknown wire name → fall back to Phase 0 (no synthesis) but
+                // make the silent degradation visible. Reject is the
+                // tempting alternative, but the registry is designed for
+                // Phase 5 forward compatibility — an operator submitting
+                // "phase5" against an older c11 binary should still land
+                // their restore, just without restart synthesis.
+                preApplyWarnings.append(
+                    "unknown restart_registry '\(registryName)' — falling back to no-op (no cc --resume synthesis)"
+                )
+            }
         }
 
         var result: ApplyResult?
@@ -4620,8 +4635,11 @@ class TerminalController {
             )
             result = WorkspaceLayoutExecutor.apply(plan, options: options, dependencies: deps)
         }
-        guard let applyResult = result else {
+        guard var applyResult = result else {
             return .err(code: "internal_error", message: "Executor returned no result", data: nil)
+        }
+        if !preApplyWarnings.isEmpty {
+            applyResult.warnings = preApplyWarnings + applyResult.warnings
         }
         do {
             let encoded = try JSONEncoder().encode(applyResult)
