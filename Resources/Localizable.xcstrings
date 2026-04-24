@@ -2709,42 +2709,42 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "If you'd rather not see the dialogs one by one, you can grant c11 Full Disk Access once in System Settings → Privacy & Security. Most engineers running many agents do this; it's the same tradeoff iTerm2, Warp, and Ghostty document. You can revoke it any time."
+            "value": "Grant Full Disk Access once in System Settings → Privacy & Security and you won't see individual dialogs at all. This is what iTerm2, Warp, and Ghostty recommend for engineers running many agents. You can revoke it any time."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "ダイアログを一つずつ見るのが面倒なら、システム設定 → プライバシーとセキュリティで c11 に Full Disk Access を一度だけ許可できます。多くのエージェントを動かすエンジニアの多くはこうしています — iTerm2、Warp、Ghostty でも同じトレードオフが案内されています。いつでも取り消せます。"
           }
         },
         "uk": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Якщо не хочете бачити ці діалоги по одному, можете один раз надати c11 Full Disk Access у System Settings → Privacy & Security. Саме так роблять більшість інженерів, які керують багатьма агентами; це той самий компроміс, що описують iTerm2, Warp і Ghostty. Ви можете відкликати його будь-коли."
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "대화상자를 하나씩 보고 싶지 않다면, System Settings → Privacy & Security에서 c11에 Full Disk Access를 한 번 허용하면 돼요. 여러 에이전트를 돌리는 엔지니어 대부분이 이 방식을 써요 — iTerm2, Warp, Ghostty에서도 똑같은 트레이드오프를 안내하죠. 언제든지 취소할 수 있어요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "如果不想一个个看这些对话框,可以在 System Settings → Privacy & Security 中一次性授予 c11 Full Disk Access。多数同时跑很多代理的工程师都会这么做 — iTerm2、Warp 和 Ghostty 记录的就是同样的取舍。你可以随时撤销。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "如果不想一個一個看這些對話框,可以在 System Settings → Privacy & Security 裡一次給 c11 Full Disk Access。大多同時跑很多代理的工程師都是這麼做 — iTerm2、Warp 和 Ghostty 所記載的就是同一個取捨。你隨時都能撤銷。"
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "Если не хотите видеть эти диалоги по одному, можно один раз выдать c11 Full Disk Access в System Settings → Privacy & Security. Большинство инженеров, запускающих много агентов, так и делают — это тот же компромисс, что описан у iTerm2, Warp и Ghostty. Вы можете отозвать его в любой момент."
           }
         }
@@ -2985,6 +2985,28 @@
         }
       }
     },
+    "tccPrimer.button.continueWithout": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue without it"
+          }
+        }
+      }
+    },
+    "tccPrimer.button.grantFDA": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grant Full Disk Access"
+          }
+        }
+      }
+    },
     "tccPrimer.button.openSettings": {
       "extractionState": "manual",
       "localizations": {
@@ -3132,42 +3154,42 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS will ask about folders."
+            "value": "Before your first shell opens."
           }
         },
         "ja": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "macOS がフォルダについて尋ねてきます。"
           }
         },
         "uk": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "macOS питатиме про теки."
           }
         },
         "ko": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "macOS가 폴더에 대해 물어볼 거예요."
           }
         },
         "zh-Hans": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "macOS 会询问文件夹权限。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "macOS 會詢問檔案夾權限。"
           }
         },
         "ru": {
           "stringUnit": {
-            "state": "translated",
+            "state": "needs_review",
             "value": "macOS будет спрашивать про папки."
           }
         }
