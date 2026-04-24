@@ -200,6 +200,8 @@
 					D7105BF0A1B2C3D4E5F60718 /* MailboxULIDTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7105BF1A1B2C3D4E5F60718 /* MailboxULIDTests.swift */; };
 				D7106BF0A1B2C3D4E5F60718 /* MailboxEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7106BF1A1B2C3D4E5F60718 /* MailboxEnvelope.swift */; };
 				D7107BF0A1B2C3D4E5F60718 /* MailboxEnvelopeValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7107BF1A1B2C3D4E5F60718 /* MailboxEnvelopeValidationTests.swift */; };
+				D7108BF0A1B2C3D4E5F60718 /* MailboxDispatchLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7108BF1A1B2C3D4E5F60718 /* MailboxDispatchLog.swift */; };
+				D7109BF0A1B2C3D4E5F60718 /* MailboxDispatchLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7109BF1A1B2C3D4E5F60718 /* MailboxDispatchLogTests.swift */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -446,6 +448,8 @@
 			D7105BF1A1B2C3D4E5F60718 /* MailboxULIDTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailboxULIDTests.swift; sourceTree = "<group>"; };
 			D7106BF1A1B2C3D4E5F60718 /* MailboxEnvelope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mailbox/MailboxEnvelope.swift; sourceTree = "<group>"; };
 			D7107BF1A1B2C3D4E5F60718 /* MailboxEnvelopeValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailboxEnvelopeValidationTests.swift; sourceTree = "<group>"; };
+			D7108BF1A1B2C3D4E5F60718 /* MailboxDispatchLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mailbox/MailboxDispatchLog.swift; sourceTree = "<group>"; };
+			D7109BF1A1B2C3D4E5F60718 /* MailboxDispatchLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailboxDispatchLogTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -608,6 +612,7 @@
 				D7102BF1A1B2C3D4E5F60718 /* MailboxIO.swift */,
 				D7103BF1A1B2C3D4E5F60718 /* MailboxULID.swift */,
 				D7106BF1A1B2C3D4E5F60718 /* MailboxEnvelope.swift */,
+				D7108BF1A1B2C3D4E5F60718 /* MailboxDispatchLog.swift */,
 				A5008F12 /* SurfaceTitleBarView.swift */,
 				A5008F22 /* TitleFormatting.swift */,
 				A5001225 /* SocketControlSettings.swift */,
@@ -783,6 +788,7 @@
 					D7104BF1A1B2C3D4E5F60718 /* MailboxIOTests.swift */,
 					D7105BF1A1B2C3D4E5F60718 /* MailboxULIDTests.swift */,
 					D7107BF1A1B2C3D4E5F60718 /* MailboxEnvelopeValidationTests.swift */,
+					D7109BF1A1B2C3D4E5F60718 /* MailboxDispatchLogTests.swift */,
 				);
 				path = c11Tests;
 				sourceTree = "<group>";
@@ -969,6 +975,7 @@
 			D7102BF0A1B2C3D4E5F60718 /* MailboxIO.swift in Sources */,
 			D7103BF0A1B2C3D4E5F60718 /* MailboxULID.swift in Sources */,
 			D7106BF0A1B2C3D4E5F60718 /* MailboxEnvelope.swift in Sources */,
+			D7108BF0A1B2C3D4E5F60718 /* MailboxDispatchLog.swift in Sources */,
 				A5008F11 /* SurfaceTitleBarView.swift in Sources */,
 				A5008F21 /* TitleFormatting.swift in Sources */,
 				A5001226 /* SocketControlSettings.swift in Sources */,
@@ -1107,6 +1114,7 @@
 					D7104BF0A1B2C3D4E5F60718 /* MailboxIOTests.swift in Sources */,
 					D7105BF0A1B2C3D4E5F60718 /* MailboxULIDTests.swift in Sources */,
 					D7107BF0A1B2C3D4E5F60718 /* MailboxEnvelopeValidationTests.swift in Sources */,
+					D7109BF0A1B2C3D4E5F60718 /* MailboxDispatchLogTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
