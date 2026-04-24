@@ -132,11 +132,12 @@ enum WorkspaceLayoutExecutor {
         // Resolve the seed panel that `addWorkspace` produced in the root
         // pane. Every path below expects at least one seed; if it isn't
         // available yet, record a partial failure and return what we have.
-        guard let seedPanel = workspace.focusedTerminalPanel else {
+        guard let seedPanel = workspace.focusedTerminalPanel,
+              let rootPaneId = workspace.paneIdForPanel(seedPanel.id) else {
             let failure = ApplyFailure(
                 code: "seed_panel_missing",
                 step: "layout.walk",
-                message: "TabManager.addWorkspace did not provide a seed terminal panel"
+                message: "TabManager.addWorkspace did not provide a resolvable seed terminal panel"
             )
             failures.append(failure)
             warnings.append(failure.message)
@@ -152,7 +153,11 @@ enum WorkspaceLayoutExecutor {
             )
         }
 
-        _ = walkState.materialize(plan.layout, intoAnchor: .seedTerminal(seedPanel))
+        walkState.materialize(
+            plan.layout,
+            intoPane: rootPaneId,
+            anchor: .seedTerminal(seedPanel)
+        )
 
         // Apply divider positions by walking the plan tree alongside the
         // live bonsplit tree. Same shape as
@@ -325,29 +330,34 @@ enum WorkspaceLayoutExecutor {
         /// Split-index counter used for step timing labels.
         var splitIndex: Int = 0
 
-        /// Materialize `node`. For a pane node, the first surface lands on
-        /// `anchor`; for a split node, the walker recurses into `first` using
-        /// `anchor`, then mints a new pane via `newXSplit`, then recurses
-        /// into `second` using that new panel as its anchor.
+        /// Materialize `node` into `paneId`. Top-down: at a split node the
+        /// walker splits the **current pane** into two sibling panes (first
+        /// stays in the original pane with the inbound anchor, second
+        /// inhabits a newly-minted pane), then recurses into each subtree
+        /// with its own pane context. Leaves populate their target pane with
+        /// the spec'd surfaces, replacing the anchor if kind doesn't match.
         ///
-        /// Returns the panel id that hosts this subtree's first leaf — used
-        /// as the split-from source for any outer split.
+        /// This mirrors `Workspace.restoreSessionLayoutNode` — the proven
+        /// top-down pattern the Snapshot restore path uses, which composes
+        /// correctly against bonsplit's leaf-only `splitPane` API.
         mutating func materialize(
             _ node: LayoutTreeSpec,
-            intoAnchor anchor: AnchorPanel
-        ) -> UUID? {
+            intoPane paneId: PaneID,
+            anchor: AnchorPanel
+        ) {
             switch node {
             case .pane(let paneSpec):
-                return materializePane(paneSpec, intoAnchor: anchor)
+                materializePane(paneSpec, intoPane: paneId, anchor: anchor)
             case .split(let splitSpec):
-                return materializeSplit(splitSpec, intoAnchor: anchor)
+                materializeSplit(splitSpec, intoPane: paneId, anchor: anchor)
             }
         }
 
         private mutating func materializePane(
             _ paneSpec: LayoutTreeSpec.PaneSpec,
-            intoAnchor anchor: AnchorPanel
-        ) -> UUID? {
+            intoPane paneId: PaneID,
+            anchor: AnchorPanel
+        ) {
             guard let firstSurfaceId = paneSpec.surfaceIds.first,
                   let firstSurface = surfacesById[firstSurfaceId] else {
                 failures.append(ApplyFailure(
@@ -355,7 +365,7 @@ enum WorkspaceLayoutExecutor {
                     step: "layout.walk",
                     message: "PaneSpec with no surfaces reached the walker"
                 ))
-                return nil
+                return
             }
 
             let leafClock = Clock()
@@ -363,18 +373,11 @@ enum WorkspaceLayoutExecutor {
             if anchor.kind == firstSurface.kind {
                 firstPanelId = anchor.panelId
             } else {
-                // Kind mismatch only happens on the root when the plan's
-                // first leaf is browser or markdown. Replace the seed in
-                // the same pane, then close the seed terminal.
-                guard case .seedTerminal(let seed) = anchor,
-                      let paneId = workspace.paneIdForPanel(seed.id) else {
-                    failures.append(ApplyFailure(
-                        code: "seed_panel_missing",
-                        step: "layout.walk",
-                        message: "anchor kind mismatch but no seed pane available"
-                    ))
-                    return nil
-                }
+                // Kind mismatch: replace the anchor with the target kind in
+                // the same pane, then close the old anchor. This handles the
+                // root case (plan's first leaf is browser/markdown) and any
+                // nested case where the anchor inherited from the enclosing
+                // split disagrees with this leaf's kind.
                 guard let replacement = createSurface(
                     firstSurface,
                     inPane: paneId,
@@ -383,12 +386,12 @@ enum WorkspaceLayoutExecutor {
                     failures.append(ApplyFailure(
                         code: "surface_create_failed",
                         step: "surface[\(firstSurface.id)].create",
-                        message: "failed to replace seed terminal with \(firstSurface.kind.rawValue) surface"
+                        message: "failed to replace anchor with \(firstSurface.kind.rawValue) surface"
                     ))
-                    return nil
+                    return
                 }
                 firstPanelId = replacement
-                _ = workspace.closePanel(seed.id, force: true)
+                _ = workspace.closePanel(anchor.panelId, force: true)
             }
             timings.append(StepTiming(
                 step: "surface[\(firstSurface.id)].create",
@@ -398,17 +401,14 @@ enum WorkspaceLayoutExecutor {
 
             // Apply the first surface's title via the canonical setter so
             // SurfaceMetadataStore["title"] stays in sync. Description and
-            // the rest of surface + pane metadata land in a dedicated pass
-            // immediately after, during creation (no post-hoc socket loop).
+            // the rest of surface + pane metadata land immediately after,
+            // during creation (no post-hoc socket loop).
             if let title = firstSurface.title {
                 workspace.setPanelCustomTitle(panelId: firstPanelId, title: title)
             }
             writeSurfaceMetadata(firstSurface, panelId: firstPanelId)
 
-            // Additional surfaces in the same pane.
-            guard let paneId = workspace.paneIdForPanel(firstPanelId) else {
-                return firstPanelId
-            }
+            // Additional surfaces in the same pane (tab-stacked).
             for additionalSurfaceId in paneSpec.surfaceIds.dropFirst() {
                 guard let spec = surfacesById[additionalSurfaceId] else { continue }
                 let addClock = Clock()
@@ -431,40 +431,41 @@ enum WorkspaceLayoutExecutor {
                 writeSurfaceMetadata(spec, panelId: newPanelId)
             }
 
-            // Apply selectedIndex. Default is the first surface, which bonsplit
-            // selects on creation; only deviate if the plan picks another.
+            // Apply selectedIndex. Default is the first surface, which
+            // bonsplit selects on creation; only deviate if the plan picks
+            // another.
             if let selectedIndex = paneSpec.selectedIndex,
                selectedIndex > 0,
-               selectedIndex < paneSpec.surfaceIds.count,
-               let selectedSurfaceId = Optional(paneSpec.surfaceIds[selectedIndex]),
-               let selectedPanelId = planSurfaceIdToPanelId[selectedSurfaceId],
-               let selectedTabId = workspace.surfaceIdFromPanelId(selectedPanelId) {
-                workspace.bonsplitController.selectTab(selectedTabId)
+               selectedIndex < paneSpec.surfaceIds.count {
+                let selectedSurfaceId = paneSpec.surfaceIds[selectedIndex]
+                if let selectedPanelId = planSurfaceIdToPanelId[selectedSurfaceId],
+                   let selectedTabId = workspace.surfaceIdFromPanelId(selectedPanelId) {
+                    workspace.bonsplitController.selectTab(selectedTabId)
+                }
             }
-
-            return firstPanelId
         }
 
         private mutating func materializeSplit(
             _ splitSpec: LayoutTreeSpec.SplitSpec,
-            intoAnchor anchor: AnchorPanel
-        ) -> UUID? {
-            // Build the first subtree using the inbound anchor.
-            guard let firstAnchorPanelId = materialize(splitSpec.first, intoAnchor: anchor) else {
-                return nil
-            }
-
-            // Determine the kind of the second subtree's first leaf so we
-            // pick the right split primitive.
-            let secondFirstSurfaceId = firstLeafSurfaceId(splitSpec.second)
-            guard let secondFirstSurfaceId,
+            intoPane paneId: PaneID,
+            anchor: AnchorPanel
+        ) {
+            // Pick the right split primitive based on `split.second`'s first
+            // leaf so the newly-minted pane is seeded with a panel of the
+            // correct kind. If second's leaf is terminal we use
+            // newTerminalSplit; browser uses newBrowserSplit; markdown uses
+            // newMarkdownSplit. This saves a replace-in-new-pane round-trip
+            // when the second subtree's first leaf matches the split's seed.
+            guard let secondFirstSurfaceId = firstLeafSurfaceId(splitSpec.second),
                   let secondFirstSurface = surfacesById[secondFirstSurfaceId] else {
                 failures.append(ApplyFailure(
                     code: "validation_failed",
                     step: "layout.walk",
                     message: "split's second subtree has no discoverable first surface"
                 ))
-                return firstAnchorPanelId
+                // Best-effort: populate first in the current pane, drop second.
+                materialize(splitSpec.first, intoPane: paneId, anchor: anchor)
+                return
             }
 
             let orientation: SplitOrientation = splitSpec.orientation == .vertical
@@ -474,7 +475,7 @@ enum WorkspaceLayoutExecutor {
             splitIndex += 1
             let splitClock = Clock()
             let newPanelId = splitFromPanel(
-                firstAnchorPanelId,
+                anchor.panelId,
                 orientation: orientation,
                 spec: secondFirstSurface
             )
@@ -482,22 +483,28 @@ enum WorkspaceLayoutExecutor {
                 step: "layout.split[\(label)].create",
                 durationMs: splitClock.elapsedMs
             ))
-            guard let newPanelId else {
+
+            guard let newPanelId,
+                  let newPaneId = workspace.paneIdForPanel(newPanelId) else {
                 failures.append(ApplyFailure(
                     code: "split_failed",
                     step: "layout.split[\(label)].create",
                     message: "newXSplit rejected split from panel for \(secondFirstSurface.kind.rawValue)"
                 ))
-                return firstAnchorPanelId
+                // Best-effort: populate first in the current pane, drop second.
+                materialize(splitSpec.first, intoPane: paneId, anchor: anchor)
+                return
             }
 
-            // The split returned a panel of the right kind; recurse into
-            // the second subtree with that as its anchor.
-            _ = materialize(
+            // Recurse:
+            //   first → current pane, inherits the inbound anchor
+            //   second → newly-minted pane, anchored on the split primitive's new panel
+            materialize(splitSpec.first, intoPane: paneId, anchor: anchor)
+            materialize(
                 splitSpec.second,
-                intoAnchor: .anyExisting(panelId: newPanelId, kind: secondFirstSurface.kind)
+                intoPane: newPaneId,
+                anchor: .anyExisting(panelId: newPanelId, kind: secondFirstSurface.kind)
             )
-            return firstAnchorPanelId
         }
 
         /// Dispatch to the right `Workspace.newXSplit` primitive. Always
