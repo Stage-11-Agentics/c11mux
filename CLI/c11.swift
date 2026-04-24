@@ -2727,11 +2727,12 @@ struct CMUXCLI {
         }
         var params: [String: Any] = [:]
         if let wsRaw = workspaceOpt {
-            if let wsId = parseUUIDFromRef(wsRaw) {
-                params["workspace_id"] = wsId.uuidString
-            } else {
-                throw CLIError(message: "snapshot: --workspace value '\(wsRaw)' is not a workspace ref or UUID")
-            }
+            // Route through the standard resolver so `workspace:2`
+            // (index-form ref), `workspace:<uuid>` (handle-form ref), bare
+            // UUID, and bare integer index all work — matches what the
+            // help text advertises (Trident I3). `parseUUIDFromRef` only
+            // knew the UUID shapes.
+            params["workspace_id"] = try resolveWorkspaceId(wsRaw, client: client)
         }
         let payload = try client.sendV2(method: "snapshot.create", params: params)
         let id = (payload["snapshot_id"] as? String) ?? "?"
@@ -2763,7 +2764,7 @@ struct CMUXCLI {
         print("OK snapshot=\(id) surfaces=\(count) path=\(resolvedPath)")
     }
 
-    /// `c11 restore <snapshot-id-or-path> [--select] [--json]`. Reads
+    /// `c11 restore <snapshot-id-or-path> [--json]`. Reads
     /// `C11_SESSION_RESUME` / `CMUX_SESSION_RESUME` at this site only;
     /// when set (any non-empty non-"0"/"false" value) threads
     /// `{"restart_registry": "phase1"}` into the v2 call so cc terminals
@@ -2782,10 +2783,15 @@ struct CMUXCLI {
         jsonOutput: Bool,
         idFormat: CLIIDFormat
     ) throws {
-        let (selectOpt, afterSelect) = parseOption(args, name: "--select")
-        let positional = afterSelect
+        // `--select` was advertised in help but silently ignored — the
+        // socket focus policy (`CLAUDE.md` "Socket focus policy" section)
+        // forbids `snapshot.restore` from stealing focus, and
+        // `v2SnapshotRestore` cleared `options.select` unconditionally.
+        // Per Trident I4 option (b), drop the promise rather than grant a
+        // focus-intent exception. The flag is no longer accepted.
+        let positional = args
         if let unknown = positional.first(where: { $0.hasPrefix("--") }) {
-            throw CLIError(message: "restore: unknown flag '\(unknown)'. Known flags: --select true|false")
+            throw CLIError(message: "restore: unknown flag '\(unknown)'. Known flags: (none)")
         }
         guard let target = positional.first else {
             throw CLIError(message: "restore: missing snapshot id or path")
@@ -2807,14 +2813,6 @@ struct CMUXCLI {
             params["snapshot_id"] = snapshotId
         } else {
             params["snapshot_id"] = target
-        }
-        if let selectRaw = selectOpt {
-            switch selectRaw.lowercased() {
-            case "true", "1", "yes":  params["select"] = true
-            case "false", "0", "no":  params["select"] = false
-            default:
-                throw CLIError(message: "restore: --select value '\(selectRaw)' must be true|false")
-            }
         }
         // Env gate: mirrored by `mirrorC11CmuxEnv()` so either variable works.
         let env = ProcessInfo.processInfo.environment
@@ -2939,7 +2937,10 @@ struct CMUXCLI {
             return
         }
         // Format fixed-width columns. Titles are free-form so we truncate
-        // long ones rather than bloat the row.
+        // long ones rather than bloat the row. `%s` does not work with
+        // Swift `String` (only with `CVarArg`-bridged `NSString`), so pad
+        // natively via `String.padding(toLength:withPad:startingAt:)` —
+        // emits garbage or crashes with the printf-style form (Trident I5).
         let rows: [(String, String, String, String, String, String)] = snapshotsAny.map { entry in
             let id = (entry["snapshot_id"] as? String) ?? "?"
             let created = (entry["created_at"] as? String) ?? "?"
@@ -2949,11 +2950,27 @@ struct CMUXCLI {
             let source = (entry["source"] as? String) ?? "current"
             return (id, created, truncate(title, max: 32), surfaces, origin, source)
         }
-        print(String(format: "%-26s  %-24s  %-32s  %-8s  %-12s  %-8s",
-                     "SNAPSHOT_ID", "CREATED_AT", "WORKSPACE_TITLE", "SURFACES", "ORIGIN", "SOURCE"))
+        func pad(_ s: String, _ width: Int) -> String {
+            if s.count >= width { return s }
+            return s + String(repeating: " ", count: width - s.count)
+        }
+        print(
+            pad("SNAPSHOT_ID", 26) + "  "
+            + pad("CREATED_AT", 24) + "  "
+            + pad("WORKSPACE_TITLE", 32) + "  "
+            + pad("SURFACES", 8) + "  "
+            + pad("ORIGIN", 12) + "  "
+            + pad("SOURCE", 8)
+        )
         for r in rows {
-            print(String(format: "%-26s  %-24s  %-32s  %-8s  %-12s  %-8s",
-                         r.0, r.1, r.2, r.3, r.4, r.5))
+            print(
+                pad(r.0, 26) + "  "
+                + pad(r.1, 24) + "  "
+                + pad(r.2, 32) + "  "
+                + pad(r.3, 8) + "  "
+                + pad(r.4, 12) + "  "
+                + pad(r.5, 8)
+            )
         }
     }
 
@@ -8221,7 +8238,7 @@ struct CMUXCLI {
             """
         case "restore":
             return """
-            Usage: c11 restore <snapshot-id-or-path> [--select true|false] [--json]
+            Usage: c11 restore <snapshot-id-or-path> [--json]
 
             Restore a workspace layout from a snapshot written by `c11 snapshot`.
             The argument is either a ULID (resolved under `~/.c11-snapshots/` or
@@ -8233,9 +8250,12 @@ struct CMUXCLI {
             `cc --resume <session-id>`. Unset the env var to restore the layout
             with fresh shells instead.
 
+            Per the socket focus policy (see CLAUDE.md), restore does not
+            foreground the restored workspace — select it manually with
+            `c11 workspace select <ref>` if needed.
+
             Flags:
-              --select true|false   Foreground the restored workspace (default: true)
-              --json                Emit raw snapshot.restore result as JSON
+              --json   Emit raw snapshot.restore result as JSON
 
             Examples:
               c11 restore 01KQ0XYZ…

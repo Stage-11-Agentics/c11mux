@@ -53,6 +53,48 @@ final class WorkspaceSnapshotConverterTests: XCTestCase {
         XCTAssertEqual(decoded, original)
     }
 
+    /// I9 regression guard: store writes + reads must preserve fractional
+    /// seconds on `createdAt`. The default `.iso8601` strategy truncates
+    /// to second precision, which breaks round-trip equality for a
+    /// `Date()` whose timeIntervalSince1970 has millisecond resolution.
+    func testStoreWriteReadPreservesFractionalSeconds() throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("c11-snapshot-i9-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let store = WorkspaceSnapshotStore(
+            currentDirectory: tmp,
+            legacyDirectory: tmp.appendingPathComponent("legacy"),
+            fileManager: .default
+        )
+        // A Date with millisecond precision the old `.iso8601` strategy
+        // would silently truncate to the nearest second.
+        let millis = Date(timeIntervalSince1970: 1_745_000_000.123)
+        let original = WorkspaceSnapshotFile(
+            version: 1,
+            snapshotId: "01KQ0I9FRACTIONALROUNDTRIP",
+            createdAt: millis,
+            c11Version: "i9+0",
+            origin: .manual,
+            plan: minimalPlan()
+        )
+        let writtenURL = try store.write(original)
+        let readBack = try store.read(from: writtenURL)
+        XCTAssertEqual(
+            readBack.createdAt.timeIntervalSince1970,
+            original.createdAt.timeIntervalSince1970,
+            accuracy: 0.0005,
+            "fractional seconds must survive the write/read round-trip"
+        )
+        // Raw JSON payload carries the fractional token.
+        let raw = try String(contentsOf: writtenURL, encoding: .utf8)
+        XCTAssertTrue(
+            raw.contains(".123") || raw.contains(".124") || raw.contains(".122"),
+            "serialised JSON should contain the fractional seconds segment; got:\n\(raw)"
+        )
+    }
+
     func testEnvelopeUsesSnakeCaseOnTheWire() throws {
         let value = WorkspaceSnapshotFile(
             version: 1,

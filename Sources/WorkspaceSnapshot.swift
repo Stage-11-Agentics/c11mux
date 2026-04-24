@@ -121,6 +121,15 @@ enum WorkspaceSnapshotID {
     /// Generate a fresh ULID-shaped id from the given clock and RNG. Both are
     /// injectable for deterministic tests. Defaults use wall-clock and
     /// `SystemRandomNumberGenerator`.
+    ///
+    /// Random encoding walks 16 bytes (two 64-bit draws, 128 bits) across
+    /// the upper 80 bits five at a time through a split accumulator. The
+    /// earlier implementation used a single `UInt64` but shifted out 80
+    /// bits (16 * 5), so the final four base32 characters drew from
+    /// zero-shifted bits — every generated id had a deterministic `'0'`
+    /// run near the random-portion suffix, and the effective entropy was
+    /// 64 bits, not the documented 80 (Trident I1). Splitting the
+    /// accumulator restores the full 80 bits of random.
     static func generate(
         now: Date = Date(),
         random: (() -> UInt64) = Self.defaultRandom
@@ -136,18 +145,32 @@ enum WorkspaceSnapshotID {
             t >>= 5
         }
         for c in timeChars { out.append(c) }
-        // 80-bit random → 16 base32 chars. Two 64-bit calls give us 128 bits;
-        // we only need 80. Shift out of a 128-bit accumulator.
+        // 80-bit random → 16 base32 chars. Split the 80 bits across two
+        // accumulators (upper 40 + lower 40, 8 base32 chars each) so we
+        // never shift out more than we have.
         let r1 = random()
         let r2 = random()
-        // Lay them out as 128 bits, take the top 80.
-        let high = r1
-        let lowTop16: UInt64 = r2 >> 48
-        var acc: UInt64 = (high << 16) | lowTop16
+        // 128 bits laid out as high:r1 low:r2. The top 80 bits are:
+        //   r1 (upper 64) + r2's upper 16.
+        // Split into two 40-bit halves so each fits in UInt64 with
+        // plenty of headroom:
+        //   upper40 = r1 >> 24                       // bits [64..104)
+        //   lower40 = ((r1 & 0xFFFFFF) << 16) | (r2 >> 48)  // bits [24..64) of r1 + top 16 of r2
+        // Then emit 8 chars per half, LSB-first so the shift/mask loop
+        // stays in-range.
+        let upper40: UInt64 = r1 >> 24
+        let lower40: UInt64 = ((r1 & 0xFFFFFF) << 16) | (r2 >> 48)
+
         var randChars = Array(repeating: Character("0"), count: 16)
-        for i in (0..<16).reversed() {
-            randChars[i] = alphabet[Int(acc & 0x1F)]
-            acc >>= 5
+        var accLower = lower40
+        for i in (8..<16).reversed() {
+            randChars[i] = alphabet[Int(accLower & 0x1F)]
+            accLower >>= 5
+        }
+        var accUpper = upper40
+        for i in (0..<8).reversed() {
+            randChars[i] = alphabet[Int(accUpper & 0x1F)]
+            accUpper >>= 5
         }
         for c in randChars { out.append(c) }
         return out

@@ -222,6 +222,56 @@ final class WorkspaceSnapshotCaptureTests: XCTestCase {
         }
     }
 
+    /// I1 regression guard: the earlier accumulator was 64 bits but the
+    /// loop shifted out 80 bits, forcing a deterministic `'0'` run near
+    /// the suffix of the random portion. Verify that position 10 (first
+    /// char of the random portion, LSB of the upper half) varies across
+    /// many RNG draws — with a proper 40-bit upper accumulator it should
+    /// hit all 32 alphabet characters given enough samples.
+    func testSnapshotIDRandomPortionUsesAllBits() {
+        var rng = SystemRandomNumberGenerator()
+        var seen: Set<Character> = []
+        let samples = 10_000
+        for _ in 0..<samples {
+            let id = WorkspaceSnapshotID.generate(
+                now: Date(timeIntervalSince1970: 1_745_000_000),
+                random: { rng.next() }
+            )
+            // Position 10 = first char after the 10-char time prefix,
+            // i.e. MSB of the upper-40 random half. With the old bug it
+            // was drawn from bits that included zeros forced by the
+            // accumulator overflow.
+            let chars = Array(id)
+            seen.insert(chars[10])
+        }
+        XCTAssertGreaterThan(
+            seen.count,
+            24,
+            "position 10 should sample most of the 32 alphabet characters across \(samples) draws; saw \(seen.sorted())"
+        )
+    }
+
+    /// Historical bug: position 12 of the id was always `'0'` because
+    /// the accumulator ran out of bits. Positive lock: after enough
+    /// samples, position 12 must see at least 16 distinct characters.
+    func testSnapshotIDRandomPortionNoDeterministicZeroAtPosition12() {
+        var rng = SystemRandomNumberGenerator()
+        var seenAtPos12: Set<Character> = []
+        let samples = 10_000
+        for _ in 0..<samples {
+            let id = WorkspaceSnapshotID.generate(
+                now: Date(timeIntervalSince1970: 1_745_000_000),
+                random: { rng.next() }
+            )
+            seenAtPos12.insert(Array(id)[12])
+        }
+        XCTAssertGreaterThan(
+            seenAtPos12.count,
+            16,
+            "position 12 should not be deterministic; saw \(seenAtPos12.sorted())"
+        )
+    }
+
     // MARK: - Helpers
 
     private func makeTempDirectory() throws -> URL {

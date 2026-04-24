@@ -1,5 +1,17 @@
 import Foundation
 
+/// ISO-8601 date formatter with fractional seconds (Trident I9). Phase 1
+/// plan dictated "ISO-8601 with fractional seconds", but the default
+/// `.iso8601` strategy drops subsecond precision — a `createdAt` from
+/// `Date()` (nanosecond precision) re-serialised at second precision
+/// breaks round-trip equality. Shared by both encode and decode sites in
+/// the store and envelope Codable paths.
+let workspaceSnapshotDateFormatter: ISO8601DateFormatter = {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return f
+}()
+
 /// Filesystem I/O for snapshot envelopes. Writes always go to
 /// `~/.c11-snapshots/` (the rename from `cmux` → `c11` is the one-way
 /// door). Reads support a backwards-compat fallback to `~/.cmux-snapshots/`
@@ -132,7 +144,10 @@ struct WorkspaceSnapshotStore: Sendable {
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        encoder.dateEncodingStrategy = .iso8601
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var container = encoder.singleValueContainer()
+            try container.encode(workspaceSnapshotDateFormatter.string(from: date))
+        }
         let data: Data
         do {
             data = try encoder.encode(snapshot)
@@ -179,7 +194,25 @@ struct WorkspaceSnapshotStore: Sendable {
             throw StoreError.readFailed(url.path, underlying: "\(error)")
         }
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        // Match the encoder: parse with fractional-seconds first, fall
+        // back to second-precision for legacy `~/.cmux-snapshots/` files
+        // written by the earlier pilot build.
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self)
+            if let date = workspaceSnapshotDateFormatter.date(from: raw) {
+                return date
+            }
+            let legacy = ISO8601DateFormatter()
+            legacy.formatOptions = [.withInternetDateTime]
+            if let date = legacy.date(from: raw) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Expected ISO-8601 date string, got '\(raw)'"
+            )
+        }
         do {
             return try decoder.decode(WorkspaceSnapshotFile.self, from: data)
         } catch {
