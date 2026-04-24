@@ -47459,37 +47459,37 @@
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "次の通知へ移動"
+            "value": "次の通知"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "다음 알림으로 이동"
+            "value": "다음 알림"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "转到下一条通知"
+            "value": "下一条通知"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "前往下一則通知"
+            "value": "下一則通知"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Перейти к следующему уведомлению"
+            "value": "Следующее уведомление"
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Перейти до наступного сповіщення"
+            "value": "Наступне сповіщення"
           }
         }
       }

@@ -6331,12 +6331,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         window.isReleasedWhenClosed = false
         window.level = .modalPanel
         let rootView = TCCPrimerSheet(
-            onGrantFDA: {
-                UserDefaults.standard.set(true, forKey: TCCPrimer.shownKey)
-                TCCPrimer.openFullDiskAccessPane()
-                // Window stays open — user returns from Settings and closes manually.
-                // Completion fires via willClose when they do.
-            },
+            onGrantFDA: { TCCPrimer.openFullDiskAccessPane() },
             onContinueWithout: { [weak window] in
                 UserDefaults.standard.set(true, forKey: TCCPrimer.shownKey)
                 window?.close()
