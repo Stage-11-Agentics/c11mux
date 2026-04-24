@@ -12620,6 +12620,42 @@ struct CMUXCLI {
                     cwd: parsedInput.cwd,
                     pid: claudePid
                 )
+                // CMUX-37 Phase 1: also write `claude.session_id` to the
+                // surface metadata so `c11 restore` + the Phase 1 restart
+                // registry can synthesise `cc --resume <id>` on restore.
+                // Best-effort: a missing socket (Claude running outside a
+                // c11 surface) follows the existing advisory pattern —
+                // the outer claude-hook dispatch already absorbs
+                // connectivity errors; we double-wrap here so the
+                // sessionStore write succeeds even if another CLIError
+                // bubbles up from the metadata path.
+                let trimmedSessionId = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedSessionId.isEmpty, !surfaceId.isEmpty {
+                    // Mirrors `SurfaceMetadataKeyName.claudeSessionId` in the
+                    // app target (Sources/WorkspaceMetadataKeys.swift); the
+                    // CLI target does not link that file, so the literal is
+                    // kept in lockstep by reader convention.
+                    let metadata: [String: Any] = [
+                        "claude.session_id": trimmedSessionId
+                    ]
+                    var params: [String: Any] = [
+                        "surface_id": surfaceId,
+                        "metadata": metadata,
+                        "mode": "merge",
+                        "source": "explicit"
+                    ]
+                    if !workspaceId.isEmpty {
+                        params["workspace_id"] = workspaceId
+                    }
+                    do {
+                        _ = try client.sendV2(method: "surface.set_metadata", params: params)
+                        telemetry.breadcrumb("claude-hook.session-id.metadata-write.ok")
+                    } catch let error as CLIError where isAdvisoryHookConnectivityError(error) {
+                        telemetry.breadcrumb("claude-hook.session-id.metadata-write.skipped")
+                    } catch {
+                        telemetry.breadcrumb("claude-hook.session-id.metadata-write.failed")
+                    }
+                }
             }
             // Register PID for stale-session detection and OSC suppression,
             // but don't set a visible status. "Running" only appears when the
