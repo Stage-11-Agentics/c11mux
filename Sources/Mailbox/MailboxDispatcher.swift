@@ -46,10 +46,16 @@ final class MailboxDispatcher {
     let queue: DispatchQueue
 
     private var watcher: MailboxOutboxWatcher?
+    private var gcTimer: DispatchSourceTimer?
     private var handlers: [String: HandlerFunction] = [:]
     private var recentlySeen: [String] = []
     private let recentlySeenCap = 1024
     private let lock = NSLock()
+
+    /// How often the stale-tmp sweep fires. Plan § Step 13: every 60 s.
+    static let gcSweepInterval: TimeInterval = 60
+    /// How old a `.tmp` file must be before the sweep deletes it. Plan: 5 min.
+    static let gcStaleThreshold: TimeInterval = 300
 
     init(
         workspaceId: UUID,
@@ -104,12 +110,69 @@ final class MailboxDispatcher {
         }
         watcher.start()
         self.watcher = watcher
+
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(
+            deadline: .now() + Self.gcSweepInterval,
+            repeating: Self.gcSweepInterval
+        )
+        timer.setEventHandler { [weak self] in
+            self?.sweepStaleTempFiles()
+        }
+        gcTimer = timer
+        timer.resume()
         return true
     }
 
     func stop() {
         watcher?.stop()
         watcher = nil
+        gcTimer?.cancel()
+        gcTimer = nil
+    }
+
+    // MARK: - Stale-tmp GC
+
+    /// Deletes dot-prefixed `.tmp` files in `_outbox/` older than
+    /// `gcStaleThreshold`. Writer crashes (or slow writes) can leave tmp
+    /// siblings around; the dispatcher cleans them up so they don't linger.
+    /// Exposed internal for test determinism via `runGCSweep(now:)`.
+    @discardableResult
+    func runGCSweep(now: Date = Date()) -> Int {
+        let outbox = MailboxLayout.outboxURL(state: stateURL, workspaceId: workspaceId)
+        let fm = FileManager.default
+        let entries: [URL]
+        do {
+            entries = try fm.contentsOfDirectory(
+                at: outbox,
+                includingPropertiesForKeys: [.contentModificationDateKey]
+            )
+        } catch {
+            return 0
+        }
+        var removed = 0
+        for url in entries {
+            let name = url.lastPathComponent
+            guard name.hasSuffix(".\(MailboxLayout.tempExtension)") else { continue }
+            // Only GC dot-prefixed tmp siblings written by MailboxIO.atomicWrite
+            // (or the raw-bash example). Anything else is out of our domain.
+            guard name.hasPrefix(".") else { continue }
+            let mtime = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate ?? .distantPast
+            if now.timeIntervalSince(mtime) >= Self.gcStaleThreshold {
+                if (try? fm.removeItem(at: url)) != nil {
+                    removed += 1
+                }
+            }
+        }
+        if removed > 0 {
+            log.append(.gc(tempFilesRemoved: removed))
+        }
+        return removed
+    }
+
+    private func sweepStaleTempFiles() {
+        _ = runGCSweep()
     }
 
     // MARK: - Directory setup
