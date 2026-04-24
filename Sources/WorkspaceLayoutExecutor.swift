@@ -180,12 +180,20 @@ enum WorkspaceLayoutExecutor {
         // auto-queues pre-ready and flushes when the Ghostty surface comes
         // up, so the executor does not need to await readiness here.
         //
-        // Phase 1: when `options.restartRegistry` is non-nil and a terminal
-        // surface has no explicit `command`, consult the registry with
-        // `(terminal_type, claude.session_id, surface.metadata)` and use
-        // the returned command. Explicit `SurfaceSpec.command` always wins;
-        // an empty/whitespace explicit command counts as no command and
-        // falls through to the registry. A registry miss (types matched
+        // Phase 0 parity rule: whether a command is "present" is decided
+        // from the **raw** `SurfaceSpec.command`, not a trimmed copy.
+        // Phase 0 sent the raw string to the terminal as long as it was
+        // non-nil — a command of `" "` (whitespace-only) was delivered
+        // verbatim. Trimming before the presence check would silently
+        // route whitespace-only commands into the registry, which
+        // returns `nil`, and the terminal would never receive the
+        // space. This matters for fixtures and blueprints that use a
+        // space to "kick" the shell into printing a prompt.
+        //
+        // Phase 1: when `options.restartRegistry` is non-nil **and**
+        // `SurfaceSpec.command` is genuinely `nil`, consult the registry
+        // with `(terminal_type, claude.session_id, surface.metadata)`
+        // and use the returned command. A registry miss (types matched
         // but session id absent, etc.) emits a `restart_registry_declined`
         // ApplyFailure for observability without aborting the walk.
         for surfaceSpec in plan.surfaces {
@@ -194,11 +202,12 @@ enum WorkspaceLayoutExecutor {
                   let terminalPanel = workspace.panels[panelId] as? TerminalPanel else {
                 continue
             }
-            let explicitCommand = surfaceSpec.command?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
             let effectiveCommand: String?
-            if let explicit = explicitCommand, !explicit.isEmpty {
-                effectiveCommand = surfaceSpec.command
+            if let rawCommand = surfaceSpec.command {
+                // Explicit command — Phase 0 rule: deliver verbatim,
+                // including whitespace-only strings. Registry is not
+                // consulted when the plan declared a command at all.
+                effectiveCommand = rawCommand
             } else if let registry = options.restartRegistry {
                 let surfaceMeta = stringMetadata(surfaceSpec.metadata)
                 let terminalType = surfaceMeta[SurfaceMetadataKeyName.terminalType]
@@ -222,6 +231,10 @@ enum WorkspaceLayoutExecutor {
             } else {
                 effectiveCommand = nil
             }
+            // Genuinely empty commands (`""`) are a no-op under Phase 0
+            // too — sendText of zero bytes would write nothing. Skip
+            // them to avoid a noisy timing entry. Whitespace-only
+            // commands are NOT empty; they reach sendText unchanged.
             guard let cmd = effectiveCommand, !cmd.isEmpty else { continue }
             let cmdClock = Clock()
             terminalPanel.sendText(cmd)
