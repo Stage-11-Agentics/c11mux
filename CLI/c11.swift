@@ -20,14 +20,18 @@ struct CLIError: Error, CustomStringConvertible {
 /// Returns true when a `CLIError` represents "c11 app isn't reachable on its
 /// control socket" — used by advisory pathways (like the claude-hook dispatch)
 /// that should no-op rather than surface an error when nothing is listening.
-private func isAdvisoryHookConnectivityError(_ error: CLIError) -> Bool {
-    let m = error.message
-    return m.contains("Socket not found")
-        || m.contains("socket not found")
-        || m.contains("c11 app did not start in time")
-        || m.contains("Connection refused")
-        || m.contains("Failed to connect")
-        || m.contains("No such file or directory")
+///
+/// c11 is single-user: the claude-hook writer treats "another uid owns the
+/// socket", "an orphaned socket file exists but no listener accepts", and
+/// "permission denied on the socket directory" all as "no live c11 app on
+/// this machine for me" — advisory, not failure. If multi-user support ever
+/// lands, revisit and split `failed` from advisory.
+///
+/// The string-based predicate lives in `Sources/CLIAdvisoryConnectivity.swift`
+/// so it can be unit-tested in the app test target without dragging `CLIError`
+/// (CLI-local) into the c11 module.
+func isAdvisoryHookConnectivityError(_ error: CLIError) -> Bool {
+    CLIAdvisoryConnectivity.isAdvisoryHookConnectivity(message: error.message)
 }
 
 // Mirrors CMUX_* ↔ C11_* env vars so callers can use either prefix.
