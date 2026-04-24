@@ -6237,7 +6237,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         presentAgentSkillsOnboarding()
     }
 
-    func presentAgentSkillsOnboarding() {
+    func presentAgentSkillsOnboarding(onCompletion: (() -> Void)? = nil) {
         if let existing = agentSkillsOnboardingWindow {
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -6276,11 +6276,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
             self.agentSkillsOnboardingCloseObserver = nil
             self.agentSkillsOnboardingWindow = nil
-            // Chain the TCC primer after the skills sheet closes, so a
-            // fresh user sees one sheet at a time. Short delay lets the
-            // close animation finish before the next window animates in.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                self?.presentTCCPrimerIfNeeded()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                onCompletion?()
             }
         }
     }
@@ -6301,7 +6298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         presentTCCPrimer()
     }
 
-    func presentTCCPrimer() {
+    func presentTCCPrimer(onCompletion: (() -> Void)? = nil) {
         if let existing = tccPrimerWindow {
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -6320,11 +6317,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         window.isReleasedWhenClosed = false
         window.level = .modalPanel
         let rootView = TCCPrimerSheet(
-            onGotIt: { [weak window] in
+            onGrantFDA: {
+                UserDefaults.standard.set(true, forKey: TCCPrimer.shownKey)
+                TCCPrimer.openFullDiskAccessPane()
+                // Window stays open — user returns from Settings and closes manually.
+                // Completion fires via willClose when they do.
+            },
+            onContinueWithout: { [weak window] in
                 UserDefaults.standard.set(true, forKey: TCCPrimer.shownKey)
                 window?.close()
             },
-            onOpenSettings: { TCCPrimer.openFullDiskAccessPane() },
             onDismiss: { [weak window] in window?.close() }
         )
         window.contentView = NSHostingView(rootView: rootView)
@@ -6343,6 +6345,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             }
             self.tccPrimerCloseObserver = nil
             self.tccPrimerWindow = nil
+            onCompletion?()
         }
     }
 
