@@ -50,7 +50,7 @@ no more Claude Code subagents that you have zero visibility on. let your agent f
 
 ### lineage.
 
-GNU Screen (1987) led to tmux (2007) led to [cmux](https://github.com/manaflow-ai/cmux) (2024) led to c11 (2026). each built on the last, and we are thankful to all.
+GNU Screen (1987) led to tmux (2007) led to [cmux](https://github.com/manaflow-ai/cmux) (Feb 2026) led to c11 (Apr 2026). each built on the last, and we are thankful to all.
 
 every terminal surface in c11 is running [Ghostty](https://ghostty.org). all existing ghostty customization and themes should work inside of c11 (if you hit an issue, have your own agent fix it and then file a PR for our agents to review).
 
