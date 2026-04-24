@@ -1,0 +1,375 @@
+import Foundation
+
+/// Per-workspace mailbox dispatcher. Watches `_outbox/`, atomically moves new
+/// `*.msg` files into `_processing/`, validates, resolves recipients, copies
+/// envelopes into each recipient's inbox, invokes handlers, appends NDJSON
+/// events to `_dispatch.log`, then cleans up.
+///
+/// All phases run on a dedicated `.utility` queue per CLAUDE.md's socket
+/// command threading policy. Handlers may hop to other executors internally
+/// (the `stdin` handler bounds a `@MainActor` hop with a 500 ms timeout).
+///
+/// Stage 2 scope: `to` resolution only. Topic fan-out via `mailbox.subscribe`
+/// globs is Stage 3 per `.lattice/notes/task_01KPYFX4PV4QQQYHCPE0R02GEZ.md`.
+/// Envelopes declaring only `topic` are accepted but resolve to an empty
+/// recipient set — the `resolved` log entry reflects that.
+final class MailboxDispatcher {
+
+    typealias HandlerFunction = (
+        _ envelope: MailboxEnvelope,
+        _ recipientId: UUID,
+        _ recipientName: String
+    ) async -> HandlerInvocationResult
+
+    struct HandlerInvocationResult {
+        let outcome: MailboxDispatchLog.HandlerOutcome
+        let bytes: Int?
+        let elapsedMs: Int?
+
+        init(
+            outcome: MailboxDispatchLog.HandlerOutcome,
+            bytes: Int? = nil,
+            elapsedMs: Int? = nil
+        ) {
+            self.outcome = outcome
+            self.bytes = bytes
+            self.elapsedMs = elapsedMs
+        }
+    }
+
+    // MARK: - Collaborators
+
+    let workspaceId: UUID
+    let stateURL: URL
+    let resolver: MailboxSurfaceResolver
+    let log: MailboxDispatchLog
+    let queue: DispatchQueue
+
+    private var watcher: MailboxOutboxWatcher?
+    private var handlers: [String: HandlerFunction] = [:]
+    private var recentlySeen: [String] = []
+    private let recentlySeenCap = 1024
+    private let lock = NSLock()
+
+    init(
+        workspaceId: UUID,
+        stateURL: URL,
+        resolver: MailboxSurfaceResolver,
+        queue: DispatchQueue = DispatchQueue(
+            label: "com.stage11.c11.mailbox.dispatcher",
+            qos: .utility
+        ),
+        log: MailboxDispatchLog? = nil
+    ) {
+        self.workspaceId = workspaceId
+        self.stateURL = stateURL
+        self.resolver = resolver
+        self.queue = queue
+        self.log = log ?? MailboxDispatchLog(
+            url: MailboxLayout.dispatchLogURL(state: stateURL, workspaceId: workspaceId)
+        )
+    }
+
+    deinit {
+        watcher?.stop()
+    }
+
+    // MARK: - Lifecycle
+
+    /// Registers a handler under a name referenced in `mailbox.delivery`.
+    /// Re-registration replaces the prior entry.
+    func registerHandler(name: String, _ handler: @escaping HandlerFunction) {
+        lock.withLock { handlers[name] = handler }
+    }
+
+    /// Creates the mailbox tree (if absent) and begins watching `_outbox/`.
+    /// Idempotent: calling again after `start` is a no-op. Returns whether the
+    /// dispatcher took ownership (false if the state directory couldn't be
+    /// created).
+    @discardableResult
+    func start() -> Bool {
+        if watcher != nil { return true }
+        do {
+            try createMailboxTree()
+        } catch {
+            return false
+        }
+
+        let outbox = MailboxLayout.outboxURL(state: stateURL, workspaceId: workspaceId)
+        let watcher = MailboxOutboxWatcher(
+            directoryURL: outbox,
+            queue: queue
+        ) { [weak self] urls in
+            self?.handleOutboxChanges(urls: urls)
+        }
+        watcher.start()
+        self.watcher = watcher
+        return true
+    }
+
+    func stop() {
+        watcher?.stop()
+        watcher = nil
+    }
+
+    // MARK: - Directory setup
+
+    private func createMailboxTree() throws {
+        let fm = FileManager.default
+        let attrs: [FileAttributeKey: Any] = [.posixPermissions: 0o700]
+        try fm.createDirectory(
+            at: MailboxLayout.outboxURL(state: stateURL, workspaceId: workspaceId),
+            withIntermediateDirectories: true,
+            attributes: attrs
+        )
+        try fm.createDirectory(
+            at: MailboxLayout.processingURL(state: stateURL, workspaceId: workspaceId),
+            withIntermediateDirectories: true,
+            attributes: attrs
+        )
+        try fm.createDirectory(
+            at: MailboxLayout.rejectedURL(state: stateURL, workspaceId: workspaceId),
+            withIntermediateDirectories: true,
+            attributes: attrs
+        )
+    }
+
+    // MARK: - Watcher callback
+
+    private func handleOutboxChanges(urls: [URL]) {
+        for url in urls {
+            dispatchOne(url: url)
+        }
+    }
+
+    /// Serialized by the dispatcher queue (the watcher callback is delivered
+    /// on it). Exposed internal for deterministic testing.
+    func dispatchOne(url: URL) {
+        let id = url.deletingPathExtension().lastPathComponent
+
+        if recentlySeenContains(id) { return }
+
+        // Step 1: atomic-move outbox → processing. ENOENT means another
+        // fsevent replay already handled it — skip silently.
+        let processingDir = MailboxLayout.processingURL(state: stateURL, workspaceId: workspaceId)
+        let processingURL = processingDir.appendingPathComponent(
+            MailboxLayout.envelopeFilename(id: id)
+        )
+        do {
+            try FileManager.default.moveItem(at: url, to: processingURL)
+        } catch {
+            return
+        }
+
+        recordRecentlySeen(id)
+
+        // Step 2: validate.
+        let envelope: MailboxEnvelope
+        do {
+            let data = try Data(contentsOf: processingURL)
+            envelope = try MailboxEnvelope.validate(data: data)
+        } catch {
+            quarantine(
+                id: id,
+                processingURL: processingURL,
+                reason: "\(error)"
+            )
+            return
+        }
+
+        log.append(
+            .received(
+                id: envelope.id,
+                from: envelope.from,
+                to: envelope.to,
+                topic: envelope.topic
+            )
+        )
+
+        // Step 3: resolve recipients. Stage 2 = `to` only.
+        let recipients = resolveRecipients(envelope: envelope)
+        log.append(.resolved(id: envelope.id, recipients: recipients.map(\.name)))
+
+        // Step 4: copy into each recipient inbox.
+        let envelopeBytes = (try? envelope.encode()) ?? Data()
+        for recipient in recipients {
+            copyToInbox(
+                envelope: envelope,
+                recipient: recipient,
+                envelopeBytes: envelopeBytes
+            )
+        }
+
+        // Step 5: invoke handlers.
+        runHandlers(envelope: envelope, recipients: recipients)
+
+        // Step 6: cleanup.
+        try? FileManager.default.removeItem(at: processingURL)
+        log.append(.cleaned(id: envelope.id))
+    }
+
+    // MARK: - Recipient resolution
+
+    private func resolveRecipients(
+        envelope: MailboxEnvelope
+    ) -> [MailboxSurfaceResolver.SurfaceMetadata] {
+        guard let to = envelope.to else { return [] }
+        let all = resolver.surfacesWithMailboxMetadata()
+        return all.filter { $0.name == to }
+    }
+
+    // MARK: - Inbox copy
+
+    private func copyToInbox(
+        envelope: MailboxEnvelope,
+        recipient: MailboxSurfaceResolver.SurfaceMetadata,
+        envelopeBytes: Data
+    ) {
+        do {
+            let inbox = try MailboxLayout.inboxURL(
+                state: stateURL,
+                workspaceId: workspaceId,
+                surfaceName: recipient.name
+            )
+            try FileManager.default.createDirectory(
+                at: inbox,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: 0o700]
+            )
+            let target = inbox.appendingPathComponent(
+                MailboxLayout.envelopeFilename(id: envelope.id)
+            )
+            try MailboxIO.atomicWrite(data: envelopeBytes, to: target)
+            log.append(.copied(id: envelope.id, recipient: recipient.name))
+        } catch {
+            // The `resolved` event already lists the recipient; failure to
+            // copy is logged as a handler-style failure so the operator can
+            // see it in `c11 mailbox trace`.
+            log.append(
+                .handler(
+                    id: envelope.id,
+                    recipient: recipient.name,
+                    handler: "_copy",
+                    outcome: .eio,
+                    bytes: nil,
+                    elapsedMs: nil
+                )
+            )
+        }
+    }
+
+    // MARK: - Handler invocation
+
+    private func runHandlers(
+        envelope: MailboxEnvelope,
+        recipients: [MailboxSurfaceResolver.SurfaceMetadata]
+    ) {
+        for recipient in recipients {
+            for handlerName in recipient.delivery {
+                let handler = lock.withLock { handlers[handlerName] }
+                guard let handler else {
+                    // Unknown handler — log and continue. Not a fatal error.
+                    log.append(
+                        .handler(
+                            id: envelope.id,
+                            recipient: recipient.name,
+                            handler: handlerName,
+                            outcome: .eio,
+                            bytes: nil,
+                            elapsedMs: nil
+                        )
+                    )
+                    continue
+                }
+                invokeHandlerSynchronously(
+                    handler: handler,
+                    name: handlerName,
+                    envelope: envelope,
+                    recipient: recipient
+                )
+            }
+        }
+    }
+
+    /// Bridges the async handler into the serial dispatcher queue. The outer
+    /// wait has a 2 s ceiling as a safety net; individual handlers enforce
+    /// their own (the `stdin` handler uses 500 ms per the plan).
+    private func invokeHandlerSynchronously(
+        handler: @escaping HandlerFunction,
+        name: String,
+        envelope: MailboxEnvelope,
+        recipient: MailboxSurfaceResolver.SurfaceMetadata
+    ) {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result = HandlerInvocationResult(outcome: .timeout)
+        let start = Date()
+
+        Task {
+            let outcome = await handler(envelope, recipient.surfaceId, recipient.name)
+            result = outcome
+            semaphore.signal()
+        }
+
+        let waitResult = semaphore.wait(timeout: .now() + 2.0)
+        if waitResult == .timedOut {
+            result = HandlerInvocationResult(outcome: .timeout)
+        }
+
+        let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
+        log.append(
+            .handler(
+                id: envelope.id,
+                recipient: recipient.name,
+                handler: name,
+                outcome: result.outcome,
+                bytes: result.bytes,
+                elapsedMs: result.elapsedMs ?? elapsedMs
+            )
+        )
+    }
+
+    // MARK: - Quarantine
+
+    private func quarantine(id: String, processingURL: URL, reason: String) {
+        let rejectedDir = MailboxLayout.rejectedURL(state: stateURL, workspaceId: workspaceId)
+        let rejectedMsg = rejectedDir.appendingPathComponent(
+            MailboxLayout.envelopeFilename(id: id)
+        )
+        let rejectedErr = rejectedDir.appendingPathComponent(
+            MailboxLayout.rejectedErrorFilename(id: id)
+        )
+        try? FileManager.default.createDirectory(
+            at: rejectedDir,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        try? FileManager.default.moveItem(at: processingURL, to: rejectedMsg)
+        try? Data(reason.utf8).write(to: rejectedErr)
+        log.append(.rejected(id: id, reason: reason))
+    }
+
+    // MARK: - Dedupe
+
+    private func recentlySeenContains(_ id: String) -> Bool {
+        lock.withLock { recentlySeen.contains(id) }
+    }
+
+    private func recordRecentlySeen(_ id: String) {
+        lock.withLock {
+            recentlySeen.append(id)
+            if recentlySeen.count > recentlySeenCap {
+                recentlySeen.removeFirst(recentlySeen.count - recentlySeenCap)
+            }
+        }
+    }
+}
+
+// MARK: - Minor helpers
+
+private extension NSLock {
+    func withLock<T>(_ body: () throws -> T) rethrows -> T {
+        lock()
+        defer { unlock() }
+        return try body()
+    }
+}
