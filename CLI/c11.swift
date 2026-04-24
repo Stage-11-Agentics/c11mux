@@ -1767,6 +1767,39 @@ struct CMUXCLI {
                 idFormat: idFormat
             )
 
+        case "snapshot":
+            // CMUX-37 Phase 1: `c11 snapshot [--workspace <ref>] [--out <path>]`
+            // captures the current workspace (or a named one) to
+            // `~/.c11-snapshots/<ulid>.json`. Backed by the `snapshot.create`
+            // v2 method.
+            try runSnapshotCreate(
+                commandArgs,
+                client: client,
+                jsonOutput: jsonOutput
+            )
+
+        case "restore":
+            // CMUX-37 Phase 1: `c11 restore <snapshot-id|path>`. Reads
+            // `C11_SESSION_RESUME` / `CMUX_SESSION_RESUME` at this site and,
+            // when set, threads the `phase1` restart registry into
+            // `snapshot.restore` so cc terminals resume via
+            // `cc --resume <session-id>`.
+            try runSnapshotRestore(
+                commandArgs,
+                client: client,
+                jsonOutput: jsonOutput,
+                idFormat: idFormat
+            )
+
+        case "list-snapshots":
+            // CMUX-37 Phase 1: `c11 list-snapshots [--json]`. Merges
+            // `~/.c11-snapshots/` + legacy `~/.cmux-snapshots/`.
+            try runListSnapshots(
+                commandArgs,
+                client: client,
+                jsonOutput: jsonOutput
+            )
+
         case "new-workspace":
             let (commandOpt, rem0) = parseOption(commandArgs, name: "--command")
             let (cwdOpt, remaining) = parseOption(rem0, name: "--cwd")
@@ -2669,6 +2702,185 @@ struct CMUXCLI {
                 }
             }
         }
+    }
+
+    // MARK: - CMUX-37 Phase 1: snapshot commands
+
+    /// `c11 snapshot [--workspace <ref>] [--out <path>] [--json]`. Defaults
+    /// to the current workspace (`$CMUX_WORKSPACE_ID`). Prints the resolved
+    /// path + snapshot id. Backed by `snapshot.create` v2.
+    private func runSnapshotCreate(
+        _ args: [String],
+        client: SocketClient,
+        jsonOutput: Bool
+    ) throws {
+        let (workspaceOpt, afterWorkspace) = parseOption(args, name: "--workspace")
+        let (outOpt, afterOut) = parseOption(afterWorkspace, name: "--out")
+        if let unknown = afterOut.first(where: { $0.hasPrefix("--") }) {
+            throw CLIError(message: "snapshot: unknown flag '\(unknown)'. Known flags: --workspace <ref>, --out <path>")
+        }
+        var params: [String: Any] = [:]
+        if let wsRaw = workspaceOpt {
+            if let wsId = parseUUIDFromRef(wsRaw) {
+                params["workspace_id"] = wsId.uuidString
+            } else {
+                throw CLIError(message: "snapshot: --workspace value '\(wsRaw)' is not a workspace ref or UUID")
+            }
+        }
+        if let outRaw = outOpt {
+            params["path"] = resolvePath(outRaw)
+        }
+        let payload = try client.sendV2(method: "snapshot.create", params: params)
+        if jsonOutput {
+            print(jsonString(payload))
+            return
+        }
+        let id = (payload["snapshot_id"] as? String) ?? "?"
+        let path = (payload["path"] as? String) ?? "?"
+        let count = (payload["surface_count"] as? Int) ?? 0
+        print("OK snapshot=\(id) surfaces=\(count) path=\(path)")
+    }
+
+    /// `c11 restore <snapshot-id-or-path> [--select] [--json]`. Reads
+    /// `C11_SESSION_RESUME` / `CMUX_SESSION_RESUME` at this site only;
+    /// when set (any non-empty non-"0"/"false" value) threads
+    /// `{"restart_registry": "phase1"}` into the v2 call so cc terminals
+    /// resume via `cc --resume <session-id>`.
+    private func runSnapshotRestore(
+        _ args: [String],
+        client: SocketClient,
+        jsonOutput: Bool,
+        idFormat: CLIIDFormat
+    ) throws {
+        let (selectOpt, afterSelect) = parseOption(args, name: "--select")
+        let positional = afterSelect
+        if let unknown = positional.first(where: { $0.hasPrefix("--") }) {
+            throw CLIError(message: "restore: unknown flag '\(unknown)'. Known flags: --select true|false")
+        }
+        guard let target = positional.first else {
+            throw CLIError(message: "restore: missing snapshot id or path")
+        }
+        if positional.count > 1 {
+            throw CLIError(message: "restore: unexpected trailing argument '\(positional[1])'")
+        }
+        var params: [String: Any] = [:]
+        // A path-like argument (absolute or contains `/` or `.json`) is
+        // passed as `path`; otherwise treated as a snapshot id.
+        if target.hasPrefix("/") || target.contains(".json") || target.hasPrefix("~") {
+            params["path"] = resolvePath(target)
+        } else {
+            params["snapshot_id"] = target
+        }
+        if let selectRaw = selectOpt {
+            switch selectRaw.lowercased() {
+            case "true", "1", "yes":  params["select"] = true
+            case "false", "0", "no":  params["select"] = false
+            default:
+                throw CLIError(message: "restore: --select value '\(selectRaw)' must be true|false")
+            }
+        }
+        // Env gate: mirrored by `mirrorC11CmuxEnv()` so either variable works.
+        let env = ProcessInfo.processInfo.environment
+        let raw = env["C11_SESSION_RESUME"] ?? env["CMUX_SESSION_RESUME"]
+        if let raw, isTruthyFlag(raw) {
+            params["restart_registry"] = "phase1"
+        }
+        let payload = try client.sendV2(method: "snapshot.restore", params: params)
+        if jsonOutput {
+            print(jsonString(formatIDs(payload, mode: idFormat)))
+            return
+        }
+        let ref = (payload["workspaceRef"] as? String) ?? "?"
+        let surfaceRefs = payload["surfaceRefs"] as? [String: String] ?? [:]
+        let paneRefs = payload["paneRefs"] as? [String: String] ?? [:]
+        let warnings = payload["warnings"] as? [String] ?? []
+        let failures = payload["failures"] as? [[String: Any]] ?? []
+        print("OK workspace=\(ref) surfaces=\(surfaceRefs.count) panes=\(paneRefs.count)")
+        if !warnings.isEmpty {
+            print("warnings: \(warnings.count)")
+            for w in warnings { print("  - \(w)") }
+        }
+        if !failures.isEmpty {
+            print("failures: \(failures.count)")
+            for f in failures {
+                let code = (f["code"] as? String) ?? "?"
+                let step = (f["step"] as? String) ?? "?"
+                let msg = (f["message"] as? String) ?? ""
+                print("  - [\(code)] \(step): \(msg)")
+            }
+        }
+    }
+
+    /// `c11 list-snapshots [--json]`. Columns:
+    /// SNAPSHOT_ID, CREATED_AT, WORKSPACE_TITLE, SURFACES, ORIGIN, SOURCE.
+    private func runListSnapshots(
+        _ args: [String],
+        client: SocketClient,
+        jsonOutput: Bool
+    ) throws {
+        if let unknown = args.first(where: { $0.hasPrefix("--") }) {
+            throw CLIError(message: "list-snapshots: unknown flag '\(unknown)'. Known flags: --json")
+        }
+        let payload = try client.sendV2(method: "snapshot.list", params: [:])
+        guard let snapshotsAny = payload["snapshots"] as? [[String: Any]] else {
+            if jsonOutput {
+                print(jsonString(payload))
+                return
+            }
+            print("no snapshots")
+            return
+        }
+        if jsonOutput {
+            print(jsonString(payload))
+            return
+        }
+        if snapshotsAny.isEmpty {
+            print("no snapshots")
+            return
+        }
+        // Format fixed-width columns. Titles are free-form so we truncate
+        // long ones rather than bloat the row.
+        let rows: [(String, String, String, String, String, String)] = snapshotsAny.map { entry in
+            let id = (entry["snapshot_id"] as? String) ?? "?"
+            let created = (entry["created_at"] as? String) ?? "?"
+            let title = (entry["workspace_title"] as? String) ?? "(no title)"
+            let surfaces = (entry["surface_count"] as? Int).map(String.init) ?? "?"
+            let origin = (entry["origin"] as? String) ?? "?"
+            let source = (entry["source"] as? String) ?? "current"
+            return (id, created, truncate(title, max: 32), surfaces, origin, source)
+        }
+        print(String(format: "%-26s  %-24s  %-32s  %-8s  %-12s  %-8s",
+                     "SNAPSHOT_ID", "CREATED_AT", "WORKSPACE_TITLE", "SURFACES", "ORIGIN", "SOURCE"))
+        for r in rows {
+            print(String(format: "%-26s  %-24s  %-32s  %-8s  %-12s  %-8s",
+                         r.0, r.1, r.2, r.3, r.4, r.5))
+        }
+    }
+
+    /// `parseUUIDFromRef("workspace:abc…")` → UUID. Also accepts a bare
+    /// UUID string. Returns nil on anything else.
+    private func parseUUIDFromRef(_ raw: String) -> UUID? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let uuid = UUID(uuidString: trimmed) { return uuid }
+        if let colon = trimmed.firstIndex(of: ":") {
+            let suffix = String(trimmed[trimmed.index(after: colon)...])
+            return UUID(uuidString: suffix)
+        }
+        return nil
+    }
+
+    /// Truthiness rule used by `C11_SESSION_RESUME`: any non-empty value
+    /// that isn't `"0"` or `"false"` (case-insensitive) counts as on.
+    private func isTruthyFlag(_ raw: String) -> Bool {
+        let v = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if v.isEmpty { return false }
+        return v != "0" && v != "false" && v != "no" && v != "off"
+    }
+
+    private func truncate(_ s: String, max: Int) -> String {
+        if s.count <= max { return s }
+        let idx = s.index(s.startIndex, offsetBy: max - 1)
+        return String(s[..<idx]) + "…"
     }
 
     private func sanitizedFilenameComponent(_ raw: String) -> String {
@@ -7889,6 +8101,59 @@ struct CMUXCLI {
               c11 markdown open plan.md
               c11 markdown ~/project/CHANGELOG.md
               c11 markdown open ./docs/design.md --workspace 0
+            """
+        case "snapshot":
+            return """
+            Usage: c11 snapshot [--workspace <ref>] [--out <path>] [--json]
+
+            Capture the current workspace (or a named one) to
+            `~/.c11-snapshots/<ulid>.json`. No args → current workspace
+            (resolved from $CMUX_WORKSPACE_ID / $C11_WORKSPACE_ID).
+
+            Flags:
+              --workspace <ref>   Workspace to capture (ref or UUID)
+              --out <path>        Override the default output path
+              --json              Emit raw snapshot.create result as JSON
+
+            Examples:
+              c11 snapshot
+              c11 snapshot --workspace workspace:2 --out ~/snapshots/phase1.json
+            """
+        case "restore":
+            return """
+            Usage: c11 restore <snapshot-id-or-path> [--select true|false] [--json]
+
+            Restore a workspace layout from a snapshot written by `c11 snapshot`.
+            The argument is either a ULID (resolved under `~/.c11-snapshots/` or
+            the legacy `~/.cmux-snapshots/`) or an absolute path to a `.json`
+            snapshot file.
+
+            When $C11_SESSION_RESUME (mirror: $CMUX_SESSION_RESUME) is set to a
+            truthy value, Claude Code terminals resume their prior session via
+            `cc --resume <session-id>`. Unset the env var to restore the layout
+            with fresh shells instead.
+
+            Flags:
+              --select true|false   Foreground the restored workspace (default: true)
+              --json                Emit raw snapshot.restore result as JSON
+
+            Examples:
+              c11 restore 01KQ0XYZ…
+              C11_SESSION_RESUME=1 c11 restore ~/snapshots/phase1.json
+            """
+        case "list-snapshots":
+            return """
+            Usage: c11 list-snapshots [--json]
+
+            List snapshots under `~/.c11-snapshots/` merged with the legacy
+            `~/.cmux-snapshots/` path. Newest first.
+
+            Columns: SNAPSHOT_ID, CREATED_AT, WORKSPACE_TITLE, SURFACES, ORIGIN, SOURCE.
+            SOURCE is `current` for `~/.c11-snapshots/`, `legacy` for the fallback.
+
+            Examples:
+              c11 list-snapshots
+              c11 list-snapshots --json
             """
         default:
             return nil
