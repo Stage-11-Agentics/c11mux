@@ -360,10 +360,13 @@ enum WorkspaceLayoutExecutor {
             planSurfaceIdToPanelId[firstSurface.id] = firstPanelId
 
             // Apply the first surface's title via the canonical setter so
-            // SurfaceMetadataStore["title"] stays in sync.
+            // SurfaceMetadataStore["title"] stays in sync. Description and
+            // the rest of surface + pane metadata land in a dedicated pass
+            // immediately after, during creation (no post-hoc socket loop).
             if let title = firstSurface.title {
                 workspace.setPanelCustomTitle(panelId: firstPanelId, title: title)
             }
+            writeSurfaceMetadata(firstSurface, panelId: firstPanelId)
 
             // Additional surfaces in the same pane.
             guard let paneId = workspace.paneIdForPanel(firstPanelId) else {
@@ -388,6 +391,7 @@ enum WorkspaceLayoutExecutor {
                 if let title = spec.title {
                     workspace.setPanelCustomTitle(panelId: newPanelId, title: title)
                 }
+                writeSurfaceMetadata(spec, panelId: newPanelId)
             }
 
             // Apply selectedIndex. Default is the first surface, which bonsplit
@@ -493,6 +497,136 @@ enum WorkspaceLayoutExecutor {
                     focus: false
                 )?.id
             }
+        }
+
+        /// Apply `spec.description`, the rest of `spec.metadata`, and
+        /// `spec.paneMetadata` for a just-created surface. Writes happen
+        /// during creation (not post-hoc), all with source `.explicit`.
+        /// The `mailbox.*` namespace in pane metadata is enforced
+        /// strings-only per docs/c11-13-cmux-37-alignment.md.
+        mutating func writeSurfaceMetadata(_ spec: SurfaceSpec, panelId: UUID) {
+            let surfaceClock = Clock()
+            let workspaceId = workspace.id
+
+            // Surface description — reserved key validated by the store.
+            if let raw = spec.description?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !raw.isEmpty {
+                do {
+                    _ = try SurfaceMetadataStore.shared.setMetadata(
+                        workspaceId: workspaceId,
+                        surfaceId: panelId,
+                        partial: ["description": raw],
+                        mode: .merge,
+                        source: .explicit
+                    )
+                } catch {
+                    let message = "surface[\(spec.id)] description write failed: \(error)"
+                    warnings.append(message)
+                    failures.append(ApplyFailure(
+                        code: "metadata_write_failed",
+                        step: "metadata.surface[\(spec.id)].write",
+                        message: message
+                    ))
+                }
+            }
+
+            // Rest of surface metadata. title/description collisions with
+            // the dedicated setters above emit a `metadata_override` warning
+            // but the explicit metadata value still wins (it's written last
+            // with merge mode + explicit source).
+            if let metadata = spec.metadata, !metadata.isEmpty {
+                for (key, value) in metadata {
+                    if key == "title", spec.title != nil {
+                        failures.append(ApplyFailure(
+                            code: "metadata_override",
+                            step: "metadata.surface[\(spec.id)].write",
+                            message: "surface[\(spec.id)] sets both SurfaceSpec.title and metadata[\"title\"]; metadata value wins"
+                        ))
+                    }
+                    if key == "description", spec.description != nil {
+                        failures.append(ApplyFailure(
+                            code: "metadata_override",
+                            step: "metadata.surface[\(spec.id)].write",
+                            message: "surface[\(spec.id)] sets both SurfaceSpec.description and metadata[\"description\"]; metadata value wins"
+                        ))
+                    }
+                    let decoded = PersistedMetadataBridge.decodeValues([key: value])
+                    do {
+                        _ = try SurfaceMetadataStore.shared.setMetadata(
+                            workspaceId: workspaceId,
+                            surfaceId: panelId,
+                            partial: decoded,
+                            mode: .merge,
+                            source: .explicit
+                        )
+                    } catch {
+                        let message = "surface[\(spec.id)] metadata[\"\(key)\"] write failed: \(error)"
+                        warnings.append(message)
+                        failures.append(ApplyFailure(
+                            code: "metadata_write_failed",
+                            step: "metadata.surface[\(spec.id)].write",
+                            message: message
+                        ))
+                    }
+                }
+            }
+            timings.append(StepTiming(
+                step: "metadata.surface[\(spec.id)].write",
+                durationMs: surfaceClock.elapsedMs
+            ))
+
+            // Pane metadata. mailbox.* is strings-only in v1.
+            guard let paneMetadata = spec.paneMetadata, !paneMetadata.isEmpty else {
+                return
+            }
+            let paneClock = Clock()
+            guard let paneId = workspace.paneIdForPanel(panelId) else {
+                let message = "surface[\(spec.id)] pane metadata skipped: no bonsplit pane resolved for panel"
+                warnings.append(message)
+                failures.append(ApplyFailure(
+                    code: "metadata_write_failed",
+                    step: "metadata.pane[\(spec.id)].write",
+                    message: message
+                ))
+                return
+            }
+            let paneUUID = paneId.id
+            for (key, value) in paneMetadata {
+                if key.hasPrefix("mailbox."), case .string = value {
+                    // string — OK
+                } else if key.hasPrefix("mailbox.") {
+                    let message = "surface[\(spec.id)] pane metadata[\"\(key)\"] dropped: mailbox.* values must be strings in v1"
+                    warnings.append(message)
+                    failures.append(ApplyFailure(
+                        code: "mailbox_non_string_value",
+                        step: "metadata.pane[\(spec.id)].write",
+                        message: message
+                    ))
+                    continue
+                }
+                let decoded = PersistedMetadataBridge.decodeValues([key: value])
+                do {
+                    _ = try PaneMetadataStore.shared.setMetadata(
+                        workspaceId: workspaceId,
+                        paneId: paneUUID,
+                        partial: decoded,
+                        mode: .merge,
+                        source: .explicit
+                    )
+                } catch {
+                    let message = "surface[\(spec.id)] pane metadata[\"\(key)\"] write failed: \(error)"
+                    warnings.append(message)
+                    failures.append(ApplyFailure(
+                        code: "metadata_write_failed",
+                        step: "metadata.pane[\(spec.id)].write",
+                        message: message
+                    ))
+                }
+            }
+            timings.append(StepTiming(
+                step: "metadata.pane[\(spec.id)].write",
+                durationMs: paneClock.elapsedMs
+            ))
         }
 
         /// Create an in-pane surface of the right kind. Returns the new
