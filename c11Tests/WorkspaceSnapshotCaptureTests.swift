@@ -251,6 +251,44 @@ final class WorkspaceSnapshotCaptureTests: XCTestCase {
         )
     }
 
+    /// Time prefix of a ULID-shaped id must decode back to the millisecond
+    /// value of the injected clock. Capture reads the clock once and passes
+    /// that value to both `WorkspaceSnapshotID.generate(now:)` and the
+    /// envelope's `createdAt`, so verifying the decode invariant lets us
+    /// rely on "ULID prefix millis == createdAt millis" byte-for-byte.
+    func testSnapshotIDTimePrefixDecodesToInjectedClockMillis() {
+        let instants: [TimeInterval] = [
+            1_745_000_000.000,
+            1_745_000_000.999,
+            1_600_000_123.456,
+            0.000
+        ]
+        for interval in instants {
+            let now = Date(timeIntervalSince1970: interval)
+            let id = WorkspaceSnapshotID.generate(now: now)
+            let prefix = String(id.prefix(10))
+            let decoded = Self.decodeCrockfordBase32(prefix)
+            let expected = UInt64(now.timeIntervalSince1970 * 1000)
+            XCTAssertEqual(
+                decoded,
+                expected,
+                "ULID time prefix '\(prefix)' must decode to \(expected) ms"
+            )
+        }
+    }
+
+    /// Crockford base32 decoder for the 10-char time prefix. Kept inside the
+    /// test class so it stays scoped to the invariant it is verifying.
+    private static func decodeCrockfordBase32(_ input: String) -> UInt64 {
+        let alphabet = Array("0123456789ABCDEFGHJKMNPQRSTVWXYZ")
+        var result: UInt64 = 0
+        for char in input {
+            guard let idx = alphabet.firstIndex(of: char) else { return 0 }
+            result = (result << 5) | UInt64(idx)
+        }
+        return result
+    }
+
     /// Historical bug: position 12 of the id was always `'0'` because
     /// the accumulator ran out of bits. Positive lock: after enough
     /// samples, position 12 must see at least 16 distinct characters.

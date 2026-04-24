@@ -64,7 +64,13 @@ struct AgentRestartRegistry: Sendable {
 
     init(rows: [Row]) {
         var map: [String: Row] = [:]
-        for row in rows { map[row.terminalType] = row }
+        // Trim on insert to match the symmetric trim in `resolveCommand`;
+        // avoids an asymmetric-trim footgun where a row registered with
+        // surrounding whitespace is silently un-resolvable.
+        for row in rows {
+            let key = row.terminalType.trimmingCharacters(in: .whitespacesAndNewlines)
+            map[key] = row
+        }
         self.rowsByType = map
     }
 
