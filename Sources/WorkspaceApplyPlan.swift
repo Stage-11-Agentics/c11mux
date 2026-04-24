@@ -240,7 +240,10 @@ struct ApplyFailure: Codable, Sendable, Equatable {
     /// `"validation_failed"`, `"surface_create_failed"`,
     /// `"metadata_write_failed"`, `"metadata_override"`, `"split_failed"`,
     /// `"unknown_surface_ref"`, `"duplicate_surface_id"`,
-    /// `"mailbox_non_string_value"`.
+    /// `"duplicate_surface_reference"`, `"mailbox_non_string_value"`,
+    /// `"unsupported_version"`, `"working_directory_not_applied"`,
+    /// `"divider_apply_failed"`, `"per_step_timeout_exceeded"`,
+    /// `"seed_panel_missing"`.
     var code: String
     /// Matches a `StepTiming.step` when possible.
     var step: String

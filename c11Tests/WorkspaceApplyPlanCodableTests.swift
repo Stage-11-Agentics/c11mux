@@ -230,4 +230,95 @@ final class WorkspaceApplyPlanCodableTests: XCTestCase {
         )
         try roundTrip(result)
     }
+
+    // MARK: - Validation (review cycle 1 R6: I4a/I4b/I4d)
+
+    /// Helper: build a plan with the minimum valid layout (one terminal).
+    private func minimalPlan(
+        version: Int = 1,
+        surfaces: [SurfaceSpec]? = nil,
+        layout: LayoutTreeSpec? = nil
+    ) -> WorkspaceApplyPlan {
+        let resolvedSurfaces = surfaces ?? [SurfaceSpec(id: "a", kind: .terminal)]
+        let resolvedLayout = layout ?? .pane(LayoutTreeSpec.PaneSpec(surfaceIds: ["a"]))
+        return WorkspaceApplyPlan(
+            version: version,
+            workspace: WorkspaceSpec(),
+            layout: resolvedLayout,
+            surfaces: resolvedSurfaces
+        )
+    }
+
+    func testValidateAcceptsVersionOne() {
+        XCTAssertNil(WorkspaceLayoutExecutor.validate(plan: minimalPlan(version: 1)))
+    }
+
+    func testValidateRejectsUnsupportedVersion() {
+        let failure = WorkspaceLayoutExecutor.validate(plan: minimalPlan(version: 2))
+        XCTAssertEqual(failure?.code, "unsupported_version")
+        XCTAssertEqual(failure?.step, "validate")
+    }
+
+    func testValidateRejectsDuplicateSurfaceId() {
+        let plan = WorkspaceApplyPlan(
+            version: 1,
+            workspace: WorkspaceSpec(),
+            layout: .pane(LayoutTreeSpec.PaneSpec(surfaceIds: ["a"])),
+            surfaces: [
+                SurfaceSpec(id: "a", kind: .terminal),
+                SurfaceSpec(id: "a", kind: .terminal)
+            ]
+        )
+        let failure = WorkspaceLayoutExecutor.validate(plan: plan)
+        XCTAssertEqual(failure?.code, "duplicate_surface_id")
+    }
+
+    func testValidateRejectsDuplicateSurfaceReferenceAcrossPanes() {
+        let plan = WorkspaceApplyPlan(
+            version: 1,
+            workspace: WorkspaceSpec(),
+            layout: .split(LayoutTreeSpec.SplitSpec(
+                orientation: .horizontal,
+                dividerPosition: 0.5,
+                first: .pane(LayoutTreeSpec.PaneSpec(surfaceIds: ["a"])),
+                second: .pane(LayoutTreeSpec.PaneSpec(surfaceIds: ["a"]))
+            )),
+            surfaces: [SurfaceSpec(id: "a", kind: .terminal)]
+        )
+        let failure = WorkspaceLayoutExecutor.validate(plan: plan)
+        XCTAssertEqual(failure?.code, "duplicate_surface_reference")
+    }
+
+    func testValidateRejectsDuplicateSurfaceReferenceWithinSinglePane() {
+        let plan = WorkspaceApplyPlan(
+            version: 1,
+            workspace: WorkspaceSpec(),
+            layout: .pane(LayoutTreeSpec.PaneSpec(surfaceIds: ["a", "a"])),
+            surfaces: [SurfaceSpec(id: "a", kind: .terminal)]
+        )
+        let failure = WorkspaceLayoutExecutor.validate(plan: plan)
+        XCTAssertEqual(failure?.code, "duplicate_surface_reference")
+    }
+
+    func testValidateRejectsUnknownSurfaceReference() {
+        let plan = WorkspaceApplyPlan(
+            version: 1,
+            workspace: WorkspaceSpec(),
+            layout: .pane(LayoutTreeSpec.PaneSpec(surfaceIds: ["ghost"])),
+            surfaces: [SurfaceSpec(id: "a", kind: .terminal)]
+        )
+        let failure = WorkspaceLayoutExecutor.validate(plan: plan)
+        XCTAssertEqual(failure?.code, "unknown_surface_ref")
+    }
+
+    func testValidateRejectsOutOfRangeSelectedIndex() {
+        let plan = WorkspaceApplyPlan(
+            version: 1,
+            workspace: WorkspaceSpec(),
+            layout: .pane(LayoutTreeSpec.PaneSpec(surfaceIds: ["a"], selectedIndex: 5)),
+            surfaces: [SurfaceSpec(id: "a", kind: .terminal)]
+        )
+        let failure = WorkspaceLayoutExecutor.validate(plan: plan)
+        XCTAssertEqual(failure?.code, "validation_failed")
+    }
 }

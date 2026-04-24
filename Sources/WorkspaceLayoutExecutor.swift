@@ -162,12 +162,19 @@ enum WorkspaceLayoutExecutor {
         // Apply divider positions by walking the plan tree alongside the
         // live bonsplit tree. Same shape as
         // `Workspace.applySessionDividerPositions`; a no-op for trees with
-        // only default 0.5 dividers.
-        applyDividerPositions(
+        // only default 0.5 dividers. A plan/live shape mismatch (e.g., a
+        // pane on the live side where the plan expected a split — which
+        // would indicate a walker fault or an unsupported plan) now emits
+        // a typed ApplyFailure instead of being dropped silently (I4c).
+        let dividerFailures = applyDividerPositions(
             planNode: plan.layout,
             liveNode: workspace.bonsplitController.treeSnapshot(),
             workspace: workspace
         )
+        for failure in dividerFailures {
+            walkState.failures.append(failure)
+            walkState.warnings.append(failure.message)
+        }
 
         // Step 7 — terminal initial commands. TerminalPanel.sendText
         // auto-queues pre-ready and flushes when the Ghostty surface comes
@@ -209,6 +216,26 @@ enum WorkspaceLayoutExecutor {
         timings = walkState.timings
         warnings = walkState.warnings
         failures = walkState.failures
+
+        // Enforce the per-step timeout as a soft limit (I4a). Any step that
+        // exceeded options.perStepTimeoutMs emits a typed warning; the
+        // executor never aborts — partial-failure semantics per the plan's
+        // "truncate-on-failure" principle. A value of 0 disables the
+        // check. The synthetic "total" step is exempt; its budget is the
+        // acceptance fixture's concern, not per-step.
+        if options.perStepTimeoutMs > 0 {
+            let threshold = Double(options.perStepTimeoutMs)
+            for timing in timings where timing.step != "total" && timing.durationMs > threshold {
+                let message = "step '\(timing.step)' took \(String(format: "%.2f", timing.durationMs))ms, exceeding perStepTimeoutMs=\(options.perStepTimeoutMs)ms"
+                warnings.append(message)
+                failures.append(ApplyFailure(
+                    code: "per_step_timeout_exceeded",
+                    step: timing.step,
+                    message: message
+                ))
+            }
+        }
+
         timings.append(StepTiming(step: "total", durationMs: total.elapsedMs))
         return ApplyResult(
             workspaceRef: workspaceRef,
@@ -222,13 +249,31 @@ enum WorkspaceLayoutExecutor {
 
     // MARK: - Plan validation
 
+    /// Plan schema versions this executor understands. Bumping the format
+    /// (new required fields, breaking semantics) adds a version here and
+    /// at the same time updates callers that emit plans (Blueprint parser,
+    /// Snapshot reader). Phase 0 ships only version 1.
+    nonisolated static let supportedPlanVersions: Set<Int> = [1]
+
     /// Returns the first validation failure encountered, or `nil` if the plan
     /// is structurally sound. Pure — safe to call off the main actor before
     /// dispatching to `apply(_:options:dependencies:)`. Per review cycle 1 I3,
     /// the v2 socket handler pre-checks via this entry point so validation
     /// never rides the main actor.
     nonisolated static func validate(plan: WorkspaceApplyPlan) -> ApplyFailure? {
-        // Duplicate surface ids.
+        // Schema version (I4b). Unsupported versions short-circuit before
+        // we inspect surfaces or the layout tree — a mis-versioned plan has
+        // no guarantees about the rest of the shape.
+        if !supportedPlanVersions.contains(plan.version) {
+            let supported = supportedPlanVersions.sorted()
+            return ApplyFailure(
+                code: "unsupported_version",
+                step: "validate",
+                message: "WorkspaceApplyPlan.version=\(plan.version) unsupported (Phase 0 accepts \(supported))"
+            )
+        }
+
+        // Duplicate surface ids in plan.surfaces.
         var seen = Set<String>()
         for surface in plan.surfaces {
             if !seen.insert(surface.id).inserted {
@@ -240,9 +285,15 @@ enum WorkspaceLayoutExecutor {
             }
         }
 
-        // Every id referenced from the layout tree must exist in `surfaces`.
+        // Every id referenced from the layout tree must exist in `surfaces`,
+        // and no id may be referenced from more than one PaneSpec (I4d).
         let known = Set(plan.surfaces.map(\.id))
-        if let failure = validateLayout(plan.layout, knownSurfaceIds: known) {
+        var referencedIds = Set<String>()
+        if let failure = validateLayout(
+            plan.layout,
+            knownSurfaceIds: known,
+            referencedIds: &referencedIds
+        ) {
             return failure
         }
         return nil
@@ -250,7 +301,8 @@ enum WorkspaceLayoutExecutor {
 
     nonisolated private static func validateLayout(
         _ node: LayoutTreeSpec,
-        knownSurfaceIds: Set<String>
+        knownSurfaceIds: Set<String>,
+        referencedIds: inout Set<String>
     ) -> ApplyFailure? {
         switch node {
         case .pane(let pane):
@@ -261,12 +313,29 @@ enum WorkspaceLayoutExecutor {
                     message: "LayoutTreeSpec.pane.surfaceIds must not be empty"
                 )
             }
-            for surfaceId in pane.surfaceIds where !knownSurfaceIds.contains(surfaceId) {
-                return ApplyFailure(
-                    code: "unknown_surface_ref",
-                    step: "validate",
-                    message: "LayoutTreeSpec references unknown surface id '\(surfaceId)'"
-                )
+            var paneSeen = Set<String>()
+            for surfaceId in pane.surfaceIds {
+                if !knownSurfaceIds.contains(surfaceId) {
+                    return ApplyFailure(
+                        code: "unknown_surface_ref",
+                        step: "validate",
+                        message: "LayoutTreeSpec references unknown surface id '\(surfaceId)'"
+                    )
+                }
+                if !paneSeen.insert(surfaceId).inserted {
+                    return ApplyFailure(
+                        code: "duplicate_surface_reference",
+                        step: "validate",
+                        message: "LayoutTreeSpec.pane.surfaceIds contains '\(surfaceId)' twice in the same pane"
+                    )
+                }
+                if !referencedIds.insert(surfaceId).inserted {
+                    return ApplyFailure(
+                        code: "duplicate_surface_reference",
+                        step: "validate",
+                        message: "surface id '\(surfaceId)' referenced by more than one pane"
+                    )
+                }
             }
             if let idx = pane.selectedIndex, idx < 0 || idx >= pane.surfaceIds.count {
                 return ApplyFailure(
@@ -277,10 +346,18 @@ enum WorkspaceLayoutExecutor {
             }
             return nil
         case .split(let split):
-            if let failure = validateLayout(split.first, knownSurfaceIds: knownSurfaceIds) {
+            if let failure = validateLayout(
+                split.first,
+                knownSurfaceIds: knownSurfaceIds,
+                referencedIds: &referencedIds
+            ) {
                 return failure
             }
-            if let failure = validateLayout(split.second, knownSurfaceIds: knownSurfaceIds) {
+            if let failure = validateLayout(
+                split.second,
+                knownSurfaceIds: knownSurfaceIds,
+                referencedIds: &referencedIds
+            ) {
                 return failure
             }
             return nil
@@ -766,13 +843,20 @@ enum WorkspaceLayoutExecutor {
     /// plan-side `dividerPosition`. Same shape as
     /// `Workspace.applySessionDividerPositions` — plan tree replaces the
     /// session snapshot side.
+    ///
+    /// Returns any `ApplyFailure` records produced when the plan and live
+    /// trees disagree on shape (plan expected a split but live has a pane,
+    /// or vice versa). Pane-vs-pane is a legitimate no-op (no dividers to
+    /// apply), not a failure.
     private static func applyDividerPositions(
         planNode: LayoutTreeSpec,
         liveNode: ExternalTreeNode,
-        workspace: Workspace
-    ) {
+        workspace: Workspace,
+        path: String = "layout"
+    ) -> [ApplyFailure] {
         switch (planNode, liveNode) {
         case (.split(let planSplit), .split(let liveSplit)):
+            var out: [ApplyFailure] = []
             if let splitID = UUID(uuidString: liveSplit.id) {
                 let clamped = min(max(planSplit.dividerPosition, 0), 1)
                 _ = workspace.bonsplitController.setDividerPosition(
@@ -781,18 +865,33 @@ enum WorkspaceLayoutExecutor {
                     fromExternal: true
                 )
             }
-            applyDividerPositions(
+            out.append(contentsOf: applyDividerPositions(
                 planNode: planSplit.first,
                 liveNode: liveSplit.first,
-                workspace: workspace
-            )
-            applyDividerPositions(
+                workspace: workspace,
+                path: "\(path).first"
+            ))
+            out.append(contentsOf: applyDividerPositions(
                 planNode: planSplit.second,
                 liveNode: liveSplit.second,
-                workspace: workspace
-            )
-        default:
-            return
+                workspace: workspace,
+                path: "\(path).second"
+            ))
+            return out
+        case (.split, .pane):
+            return [ApplyFailure(
+                code: "divider_apply_failed",
+                step: "\(path).dividerPosition",
+                message: "plan/live tree shape mismatch at \(path); plan expected split, live has pane — dividerPosition cannot be applied"
+            )]
+        case (.pane, .split):
+            return [ApplyFailure(
+                code: "divider_apply_failed",
+                step: "\(path).dividerPosition",
+                message: "plan/live tree shape mismatch at \(path); plan expected pane, live has split — divider slot is unexpected"
+            )]
+        case (.pane, .pane):
+            return []
         }
     }
 
