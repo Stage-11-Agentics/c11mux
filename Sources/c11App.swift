@@ -3980,6 +3980,83 @@ enum ClaudeCodeIntegrationSettings {
     }
 }
 
+/// Controls which terminal agent the "A" tab-bar button spawns.
+/// The button creates a new terminal surface and sends `shellCommand` as if
+/// the operator typed it — the agent runs inside the user's login shell, so
+/// quitting the agent leaves the shell running.
+enum AgentLauncherSettings {
+    static let kindKey = "agentLauncherKind"
+    static let customCommandKey = "agentLauncherCustomCommand"
+
+    enum Kind: String, CaseIterable, Identifiable {
+        case claudeCode
+        case codex
+        case opencode
+        case kimi
+        case other
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .claudeCode:
+                return String(localized: "agentLauncher.kind.claudeCode", defaultValue: "Claude Code")
+            case .codex:
+                return String(localized: "agentLauncher.kind.codex", defaultValue: "Codex")
+            case .opencode:
+                return String(localized: "agentLauncher.kind.opencode", defaultValue: "OpenCode")
+            case .kimi:
+                return String(localized: "agentLauncher.kind.kimi", defaultValue: "Kimi")
+            case .other:
+                return String(localized: "agentLauncher.kind.other", defaultValue: "Other…")
+            }
+        }
+
+        /// Default shell command for each built-in agent. The "Other" case
+        /// reads its command from a user-supplied text field; everything else
+        /// is hardcoded to the launcher form that runs the agent as an
+        /// interactive TUI.
+        fileprivate var builtInCommand: String {
+            switch self {
+            case .claudeCode:
+                return "claude --dangerously-skip-permissions"
+            case .codex:
+                return "codex --yolo"
+            case .opencode:
+                return "opencode"
+            case .kimi:
+                return "kimi"
+            case .other:
+                return ""
+            }
+        }
+    }
+
+    static let defaultKind: Kind = .claudeCode
+    static let defaultCustomCommand = ""
+
+    struct Resolved {
+        let kind: Kind
+        let shellCommand: String
+
+        var displayName: String { kind.displayName }
+    }
+
+    static func current(defaults: UserDefaults = .standard) -> Resolved {
+        let kindRaw = defaults.string(forKey: kindKey) ?? defaultKind.rawValue
+        let kind = Kind(rawValue: kindRaw) ?? defaultKind
+        let command: String
+        switch kind {
+        case .other:
+            command = (defaults.string(forKey: customCommandKey) ?? defaultCustomCommand)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        default:
+            command = kind.builtInCommand
+        }
+        return Resolved(kind: kind, shellCommand: command)
+    }
+}
+
 enum WelcomeSettings {
     static let shownKey = "cmuxWelcomeShown"
     static let spikeURL = "https://stage11.ai"
@@ -4262,6 +4339,10 @@ struct SettingsView: View {
     @AppStorage(SocketControlSettings.appStorageKey) private var socketControlMode = SocketControlSettings.defaultMode.rawValue
     @AppStorage(ClaudeCodeIntegrationSettings.hooksEnabledKey)
     private var claudeCodeHooksEnabled = ClaudeCodeIntegrationSettings.defaultHooksEnabled
+    @AppStorage(AgentLauncherSettings.kindKey)
+    private var agentLauncherKindRaw = AgentLauncherSettings.defaultKind.rawValue
+    @AppStorage(AgentLauncherSettings.customCommandKey)
+    private var agentLauncherCustomCommand = AgentLauncherSettings.defaultCustomCommand
     @AppStorage(TelemetrySettings.sendAnonymousTelemetryKey)
     private var sendAnonymousTelemetry = TelemetrySettings.defaultSendAnonymousTelemetry
     @AppStorage("cmuxPortBase") private var cmuxPortBase = 9100
@@ -5998,6 +6079,41 @@ struct SettingsView: View {
             SettingsCardDivider()
 
             SettingsCardNote(String(localized: "settings.automation.claudeCode.note", defaultValue: "When enabled, c11 wraps the claude command to inject session tracking and notification hooks. Disable if you prefer to manage Claude Code hooks yourself."))
+        }
+
+        SettingsSectionHeader(title: String(localized: "settings.section.agentLauncher", defaultValue: "Agent Launcher Button"))
+        SettingsCard {
+            SettingsPickerRow(
+                String(localized: "settings.agentLauncher.kind", defaultValue: "Launch Agent"),
+                subtitle: String(localized: "settings.agentLauncher.kind.subtitle", defaultValue: "The \"A\" button in each pane's tab bar spawns a new terminal and runs this agent."),
+                controlWidth: pickerColumnWidth,
+                selection: $agentLauncherKindRaw,
+                accessibilityId: "SettingsAgentLauncherKindPicker"
+            ) {
+                ForEach(AgentLauncherSettings.Kind.allCases) { kind in
+                    Text(kind.displayName).tag(kind.rawValue)
+                }
+            }
+
+            if AgentLauncherSettings.Kind(rawValue: agentLauncherKindRaw) == .other {
+                SettingsCardDivider()
+                SettingsCardRow(
+                    String(localized: "settings.agentLauncher.customCommand", defaultValue: "Custom Command"),
+                    subtitle: String(localized: "settings.agentLauncher.customCommand.subtitle", defaultValue: "Sent to the new terminal as if typed. Runs inside your shell.")
+                ) {
+                    TextField(
+                        String(localized: "settings.agentLauncher.customCommand.placeholder", defaultValue: "my-agent --flag"),
+                        text: $agentLauncherCustomCommand
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 240)
+                    .accessibilityIdentifier("SettingsAgentLauncherCustomCommandField")
+                }
+            }
+
+            SettingsCardDivider()
+
+            SettingsCardNote(String(localized: "settings.agentLauncher.note", defaultValue: "The agent runs as a child of the new terminal's login shell, so quitting the agent leaves the shell available."))
         }
     }
 

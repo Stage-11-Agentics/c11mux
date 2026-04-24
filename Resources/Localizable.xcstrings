@@ -660,6 +660,61 @@
         }
       }
     },
+    "agentLauncher.kind.claudeCode": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code"
+          }
+        }
+      }
+    },
+    "agentLauncher.kind.codex": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex"
+          }
+        }
+      }
+    },
+    "agentLauncher.kind.kimi": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimi"
+          }
+        }
+      }
+    },
+    "agentLauncher.kind.opencode": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode"
+          }
+        }
+      }
+    },
+    "agentLauncher.kind.other": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other…"
+          }
+        }
+      }
+    },
     "agentSkills.action.envelope": {
       "extractionState": "manual",
       "localizations": {
@@ -28036,6 +28091,72 @@
         }
       }
     },
+    "settings.agentLauncher.customCommand": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom Command"
+          }
+        }
+      }
+    },
+    "settings.agentLauncher.customCommand.placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "my-agent --flag"
+          }
+        }
+      }
+    },
+    "settings.agentLauncher.customCommand.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent to the new terminal as if typed. Runs inside your shell."
+          }
+        }
+      }
+    },
+    "settings.agentLauncher.kind": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch Agent"
+          }
+        }
+      }
+    },
+    "settings.agentLauncher.kind.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The \"A\" button in each pane's tab bar spawns a new terminal and runs this agent."
+          }
+        }
+      }
+    },
+    "settings.agentLauncher.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The agent runs as a child of the new terminal's login shell, so quitting the agent leaves the shell available."
+          }
+        }
+      }
+    },
     "settings.agentSkills.note": {
       "extractionState": "manual",
       "localizations": {
@@ -38137,6 +38258,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сбросить настройки"
+          }
+        }
+      }
+    },
+    "settings.section.agentLauncher": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent Launcher Button"
           }
         }
       }
@@ -51254,6 +51386,72 @@
         }
       }
     },
+    "workspace.closePane.alert.body.empty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This pane will be removed from the workspace. This cannot be undone."
+          }
+        }
+      }
+    },
+    "workspace.closePane.alert.body.many": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This will close %lld tabs in this pane. This cannot be undone."
+          }
+        }
+      }
+    },
+    "workspace.closePane.alert.body.one": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This will close 1 tab in this pane. This cannot be undone."
+          }
+        }
+      }
+    },
+    "workspace.closePane.alert.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "workspace.closePane.alert.confirm": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Pane"
+          }
+        }
+      }
+    },
+    "workspace.closePane.alert.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close this pane?"
+          }
+        }
+      }
+    },
     "workspace.displayName.fallback": {
       "extractionState": "manual",
       "localizations": {
@@ -51767,6 +51965,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Нові робочі простори з'являються вгорі."
+          }
+        }
+      }
+    },
+    "workspace.tooltip.closePane": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Pane"
+          }
+        }
+      }
+    },
+    "workspace.tooltip.newAgent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch Agent (%@)"
           }
         }
       }
