@@ -56,7 +56,10 @@ final class WorkspaceSnapshotRoundTripAcceptanceTests: XCTestCase {
     // MARK: - Scenarios
 
     func testCaptureAndRestoreMixedClaudeMailboxWithRegistry() throws {
-        // Step 1 — seed.
+        #if !DEBUG
+        throw XCTSkip("pendingInitialInputForTests is a DEBUG-only accessor; this acceptance test requires a debug build.")
+        #endif
+        // Step 1: seed.
         let seedPlan = try loadFixturePlan(named: "mixed-claude-mailbox")
         let deps = makeDependencies()
         let seedResult = WorkspaceLayoutExecutor.apply(
@@ -191,6 +194,9 @@ final class WorkspaceSnapshotRoundTripAcceptanceTests: XCTestCase {
     }
 
     func testRestoreWithoutRegistrySendsNoCommand() throws {
+        #if !DEBUG
+        throw XCTSkip("pendingInitialInputForTests is a DEBUG-only accessor; this acceptance test requires a debug build.")
+        #endif
         // Step 5-only negative case: restore the captured envelope through
         // the converter with `restartRegistry: nil` and assert no terminal
         // receives a synthesised command. Phase 0 behaviour preserved.
