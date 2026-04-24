@@ -10622,6 +10622,26 @@ extension Workspace: BonsplitDelegate {
         panel.sendText(command + "\n")
     }
 
+    func splitTabBar(_ controller: BonsplitController, menuItemsForNewTabKind kind: String, inPane pane: PaneID) -> [BonsplitNewTabMenuItem] {
+        guard kind == "agent" else { return [] }
+        let current = AgentLauncherSettings.current().kind
+        return AgentLauncherSettings.Kind.allCases.map { k in
+            BonsplitNewTabMenuItem(
+                id: k.rawValue,
+                label: k.displayName,
+                isCurrent: k == current
+            )
+        }
+    }
+
+    func splitTabBar(_ controller: BonsplitController, didSelectNewTabMenuItem itemId: String, forKind kind: String, inPane pane: PaneID) {
+        guard kind == "agent",
+              let chosen = AgentLauncherSettings.Kind(rawValue: itemId) else { return }
+        UserDefaults.standard.set(chosen.rawValue, forKey: AgentLauncherSettings.kindKey)
+        refreshSplitButtonTooltips()
+        launchAgentSurface(inPane: pane)
+    }
+
     func splitTabBar(_ controller: BonsplitController, didRequestClosePane pane: PaneID) {
         let tabs = controller.tabs(inPane: pane)
         let paneCount = controller.allPaneIds.count

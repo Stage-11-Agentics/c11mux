@@ -5974,6 +5974,41 @@ struct SettingsView: View {
             defaultValue: "c11 installs its skill files into detected agent skill folders only with your approval. Linked skill folders are shown as shared so one remove action cannot silently affect another agent."
         ))
 
+        SettingsSectionHeader(title: String(localized: "settings.section.agentLauncher", defaultValue: "Agent Launcher Button"))
+        SettingsCard {
+            SettingsPickerRow(
+                String(localized: "settings.agentLauncher.kind", defaultValue: "Launch Agent"),
+                subtitle: String(localized: "settings.agentLauncher.kind.subtitle", defaultValue: "The \"A\" button in each pane's tab bar spawns a new terminal and runs this agent."),
+                controlWidth: pickerColumnWidth,
+                selection: $agentLauncherKindRaw,
+                accessibilityId: "SettingsAgentLauncherKindPicker"
+            ) {
+                ForEach(AgentLauncherSettings.Kind.allCases) { kind in
+                    Text(kind.displayName).tag(kind.rawValue)
+                }
+            }
+
+            if AgentLauncherSettings.Kind(rawValue: agentLauncherKindRaw) == .other {
+                SettingsCardDivider()
+                SettingsCardRow(
+                    String(localized: "settings.agentLauncher.customCommand", defaultValue: "Custom Command"),
+                    subtitle: String(localized: "settings.agentLauncher.customCommand.subtitle", defaultValue: "Sent to the new terminal as if typed. Runs inside your shell.")
+                ) {
+                    TextField(
+                        String(localized: "settings.agentLauncher.customCommand.placeholder", defaultValue: "my-agent --flag"),
+                        text: $agentLauncherCustomCommand
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 240)
+                    .accessibilityIdentifier("SettingsAgentLauncherCustomCommandField")
+                }
+            }
+
+            SettingsCardDivider()
+
+            SettingsCardNote(String(localized: "settings.agentLauncher.note", defaultValue: "The agent runs as a child of the new terminal's login shell, so quitting the agent leaves the shell available."))
+        }
+
         SettingsSectionHeader(title: String(
             localized: "settings.section.permissions",
             defaultValue: "Permissions"
@@ -6079,41 +6114,6 @@ struct SettingsView: View {
             SettingsCardDivider()
 
             SettingsCardNote(String(localized: "settings.automation.claudeCode.note", defaultValue: "When enabled, c11 wraps the claude command to inject session tracking and notification hooks. Disable if you prefer to manage Claude Code hooks yourself."))
-        }
-
-        SettingsSectionHeader(title: String(localized: "settings.section.agentLauncher", defaultValue: "Agent Launcher Button"))
-        SettingsCard {
-            SettingsPickerRow(
-                String(localized: "settings.agentLauncher.kind", defaultValue: "Launch Agent"),
-                subtitle: String(localized: "settings.agentLauncher.kind.subtitle", defaultValue: "The \"A\" button in each pane's tab bar spawns a new terminal and runs this agent."),
-                controlWidth: pickerColumnWidth,
-                selection: $agentLauncherKindRaw,
-                accessibilityId: "SettingsAgentLauncherKindPicker"
-            ) {
-                ForEach(AgentLauncherSettings.Kind.allCases) { kind in
-                    Text(kind.displayName).tag(kind.rawValue)
-                }
-            }
-
-            if AgentLauncherSettings.Kind(rawValue: agentLauncherKindRaw) == .other {
-                SettingsCardDivider()
-                SettingsCardRow(
-                    String(localized: "settings.agentLauncher.customCommand", defaultValue: "Custom Command"),
-                    subtitle: String(localized: "settings.agentLauncher.customCommand.subtitle", defaultValue: "Sent to the new terminal as if typed. Runs inside your shell.")
-                ) {
-                    TextField(
-                        String(localized: "settings.agentLauncher.customCommand.placeholder", defaultValue: "my-agent --flag"),
-                        text: $agentLauncherCustomCommand
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 240)
-                    .accessibilityIdentifier("SettingsAgentLauncherCustomCommandField")
-                }
-            }
-
-            SettingsCardDivider()
-
-            SettingsCardNote(String(localized: "settings.agentLauncher.note", defaultValue: "The agent runs as a child of the new terminal's login shell, so quitting the agent leaves the shell available."))
         }
     }
 
