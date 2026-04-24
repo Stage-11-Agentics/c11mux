@@ -48,11 +48,15 @@ enum WorkspaceLayoutExecutor {
 
     /// Execute `plan`. Returns an `ApplyResult` with timings and any
     /// partial-failure warnings. Never throws.
+    ///
+    /// Synchronous in Phase 0 — the walk has no await points. Phase 1's
+    /// readiness pass (awaiting `ready` on each surface) will upgrade this
+    /// to `async`, at which point callers gain real backpressure.
     static func apply(
         _ plan: WorkspaceApplyPlan,
         options: ApplyOptions = ApplyOptions(),
         dependencies: WorkspaceLayoutExecutorDependencies
-    ) async -> ApplyResult {
+    ) -> ApplyResult {
         let total = Clock()
         var timings: [StepTiming] = []
         var warnings: [String] = []

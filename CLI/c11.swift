@@ -1710,6 +1710,56 @@ struct CMUXCLI {
         case "ssh-session-end":
             try runSSHSessionEnd(commandArgs: commandArgs, client: client)
 
+        case "workspace-apply":
+            // CMUX-37 Phase 0 debug/test entry point for WorkspaceLayoutExecutor.
+            // Reads a JSON-encoded WorkspaceApplyPlan from a file path (or `-` for
+            // stdin), POSTs it to the workspace.apply socket method, and prints
+            // the ApplyResult.
+            let (fileOpt, remaining) = parseOption(commandArgs, name: "--file")
+            if let unknown = remaining.first(where: { $0.hasPrefix("--") }) {
+                throw CLIError(message: "workspace-apply: unknown flag '\(unknown)'. Known flags: --file <path|->")
+            }
+            guard let fileArg = fileOpt else {
+                throw CLIError(message: "workspace-apply requires --file <path|->")
+            }
+            let planData: Data
+            if fileArg == "-" {
+                planData = FileHandle.standardInput.readDataToEndOfFile()
+            } else {
+                let resolvedPath = resolvePath(fileArg)
+                guard let data = FileManager.default.contents(atPath: resolvedPath) else {
+                    throw CLIError(message: "workspace-apply: could not read '\(resolvedPath)'")
+                }
+                planData = data
+            }
+            guard let planObject = try? JSONSerialization.jsonObject(with: planData, options: []) else {
+                throw CLIError(message: "workspace-apply: --file contents are not valid JSON")
+            }
+            let payload = try client.sendV2(method: "workspace.apply", params: ["plan": planObject])
+            if jsonOutput {
+                print(jsonString(formatIDs(payload, mode: idFormat)))
+            } else {
+                let ref = (payload["workspaceRef"] as? String) ?? "?"
+                let surfaceRefs = payload["surfaceRefs"] as? [String: String] ?? [:]
+                let paneRefs = payload["paneRefs"] as? [String: String] ?? [:]
+                let warnings = payload["warnings"] as? [String] ?? []
+                let failures = payload["failures"] as? [[String: Any]] ?? []
+                print("OK workspace=\(ref) surfaces=\(surfaceRefs.count) panes=\(paneRefs.count)")
+                if !warnings.isEmpty {
+                    print("warnings: \(warnings.count)")
+                    for w in warnings { print("  - \(w)") }
+                }
+                if !failures.isEmpty {
+                    print("failures: \(failures.count)")
+                    for f in failures {
+                        let code = (f["code"] as? String) ?? "?"
+                        let step = (f["step"] as? String) ?? "?"
+                        let msg = (f["message"] as? String) ?? ""
+                        print("  - [\(code)] \(step): \(msg)")
+                    }
+                }
+            }
+
         case "new-workspace":
             let (commandOpt, rem0) = parseOption(commandArgs, name: "--command")
             let (cwdOpt, remaining) = parseOption(rem0, name: "--cwd")

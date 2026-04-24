@@ -2102,6 +2102,8 @@ class TerminalController {
             return v2Result(id: id, self.v2WorkspaceClearMetadata(params: params))
         case "workspace.set_custom_color":
             return v2Result(id: id, self.v2WorkspaceSetCustomColor(params: params))
+        case "workspace.apply":
+            return v2Result(id: id, self.v2WorkspaceApply(params: params))
 
         // Themes (CMUX-35)
         case "theme.list":
@@ -2531,6 +2533,7 @@ class TerminalController {
             "workspace.set_metadata",
             "workspace.get_metadata",
             "workspace.clear_metadata",
+            "workspace.apply",
             "settings.open",
             "feedback.open",
             "feedback.submit",
@@ -4331,6 +4334,85 @@ class TerminalController {
                 return nil
             }
             return (tabManager, selected)
+        }
+    }
+
+    /// CMUX-37 Phase 0: `workspace.apply` v2 handler. Decodes a
+    /// `WorkspaceApplyPlan` from params, runs it through
+    /// `WorkspaceLayoutExecutor` on the main actor, and returns the
+    /// `ApplyResult` as a JSON object. The debug/test surface for the
+    /// Phase 0 primitive — Blueprints (Phase 2) and Snapshots (Phase 1)
+    /// layer on top of the same executor.
+    private func v2WorkspaceApply(params: [String: Any]) -> V2CallResult {
+        // Decode the plan and (optional) options off-main. Validation
+        // failures never touch the main actor.
+        guard let planRaw = params["plan"] else {
+            return .err(code: "invalid_params", message: "Missing 'plan'", data: nil)
+        }
+        let plan: WorkspaceApplyPlan
+        do {
+            let planData = try JSONSerialization.data(withJSONObject: planRaw, options: [])
+            plan = try JSONDecoder().decode(WorkspaceApplyPlan.self, from: planData)
+        } catch {
+            return .err(
+                code: "invalid_params",
+                message: "Failed to decode WorkspaceApplyPlan: \(error)",
+                data: nil
+            )
+        }
+
+        let options: ApplyOptions
+        if let optionsRaw = params["options"] {
+            do {
+                let optionsData = try JSONSerialization.data(withJSONObject: optionsRaw, options: [])
+                options = try JSONDecoder().decode(ApplyOptions.self, from: optionsData)
+            } catch {
+                return .err(
+                    code: "invalid_params",
+                    message: "Failed to decode ApplyOptions: \(error)",
+                    data: nil
+                )
+            }
+        } else {
+            options = ApplyOptions()
+        }
+
+        guard let tabManager = v2ResolveTabManager(params: params) else {
+            return .err(code: "unavailable", message: "TabManager not available", data: nil)
+        }
+
+        var result: ApplyResult?
+        v2MainSync {
+            let deps = WorkspaceLayoutExecutorDependencies(
+                tabManager: tabManager,
+                workspaceRefMinter: { [weak self] uuid in
+                    self?.v2EnsureHandleRef(kind: .workspace, uuid: uuid) ?? "workspace:\(uuid.uuidString)"
+                },
+                surfaceRefMinter: { [weak self] uuid in
+                    self?.v2EnsureHandleRef(kind: .surface, uuid: uuid) ?? "surface:\(uuid.uuidString)"
+                },
+                paneRefMinter: { [weak self] uuid in
+                    self?.v2EnsureHandleRef(kind: .pane, uuid: uuid) ?? "pane:\(uuid.uuidString)"
+                }
+            )
+            result = WorkspaceLayoutExecutor.apply(plan, options: options, dependencies: deps)
+        }
+
+        guard let applyResult = result else {
+            return .err(code: "internal_error", message: "Executor returned no result", data: nil)
+        }
+
+        // Encode ApplyResult back to [String: Any] for the v2 JSON envelope.
+        do {
+            let encoded = try JSONEncoder().encode(applyResult)
+            let asAny = try JSONSerialization.jsonObject(with: encoded, options: [])
+            return .ok(asAny)
+        } catch {
+            return .err(
+                code: "internal_error",
+                message: "Failed to encode ApplyResult: \(error)",
+                data: nil
+            )
         }
     }
 

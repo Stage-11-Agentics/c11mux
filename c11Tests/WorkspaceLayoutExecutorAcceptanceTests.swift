@@ -46,16 +46,16 @@ final class WorkspaceLayoutExecutorAcceptanceTests: XCTestCase {
 
     // MARK: - Per-fixture tests
 
-    func testAppliesWelcomeQuadFixture() async throws {
-        try await runFixture(named: "welcome-quad", expectedSurfaceIds: ["tl", "tr", "bl", "br"])
+    func testAppliesWelcomeQuadFixture() throws {
+        try runFixture(named: "welcome-quad", expectedSurfaceIds: ["tl", "tr", "bl", "br"])
     }
 
-    func testAppliesDefaultGridFixture() async throws {
-        try await runFixture(named: "default-grid", expectedSurfaceIds: ["tl", "tr", "bl", "br"])
+    func testAppliesDefaultGridFixture() throws {
+        try runFixture(named: "default-grid", expectedSurfaceIds: ["tl", "tr", "bl", "br"])
     }
 
-    func testAppliesSingleLargeWithMetadataFixture() async throws {
-        let result = try await runFixture(
+    func testAppliesSingleLargeWithMetadataFixture() throws {
+        let result = try runFixture(
             named: "single-large-with-metadata",
             expectedSurfaceIds: ["main"]
         )
@@ -87,15 +87,15 @@ final class WorkspaceLayoutExecutorAcceptanceTests: XCTestCase {
         XCTAssertEqual(paneMetadata["mailbox.retention_days"] as? String, "7")
     }
 
-    func testAppliesMixedBrowserMarkdownFixture() async throws {
-        try await runFixture(
+    func testAppliesMixedBrowserMarkdownFixture() throws {
+        try runFixture(
             named: "mixed-browser-markdown",
             expectedSurfaceIds: ["docs", "notes", "tests", "build"]
         )
     }
 
-    func testAppliesDeepNestedSplitsFixture() async throws {
-        try await runFixture(
+    func testAppliesDeepNestedSplitsFixture() throws {
+        try runFixture(
             named: "deep-nested-splits",
             expectedSurfaceIds: ["a", "b", "c", "d", "e"]
         )
@@ -107,7 +107,7 @@ final class WorkspaceLayoutExecutorAcceptanceTests: XCTestCase {
     private func runFixture(
         named name: String,
         expectedSurfaceIds: [String]
-    ) async throws -> ApplyResult {
+    ) throws -> ApplyResult {
         let plan = try loadFixture(named: name)
         let deps = WorkspaceLayoutExecutorDependencies(
             tabManager: tabManager,
@@ -115,7 +115,7 @@ final class WorkspaceLayoutExecutorAcceptanceTests: XCTestCase {
             surfaceRefMinter: { "surface:\($0.uuidString)" },
             paneRefMinter: { "pane:\($0.uuidString)" }
         )
-        let result = await WorkspaceLayoutExecutor.apply(
+        let result = WorkspaceLayoutExecutor.apply(
             plan,
             options: ApplyOptions(select: true),
             dependencies: deps
