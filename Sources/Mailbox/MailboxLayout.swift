@@ -21,6 +21,13 @@ enum MailboxLayout {
 
     // MARK: - Names
 
+    /// Directory name under `~/Library/Application Support/` where c11 keeps
+    /// the socket, workspace snapshots, and the mailbox tree. Mirrors
+    /// `SocketControlSettings.socketDirectoryName`; duplicated here so the
+    /// CLI target (which compiles without SocketControlSettings.swift) can
+    /// resolve the state root without a cross-target import.
+    static let stateDirectoryName = "c11mux"
+
     static let workspacesDirectoryName = "workspaces"
     static let mailboxesDirectoryName = "mailboxes"
     static let outboxDirectoryName = "_outbox"
@@ -57,14 +64,17 @@ enum MailboxLayout {
 
     // MARK: - State root
 
-    /// Resolves the c11 state root (default: `~/Library/Application Support/c11mux`)
-    /// via `SocketControlSettings.stableSocketDirectoryURL`. Tests that need
-    /// isolation override HOME on the c11 process rather than this function.
+    /// Resolves the c11 state root (default:
+    /// `~/Library/Application Support/c11mux`). Tests that need isolation
+    /// override HOME on the c11 process rather than overriding this function.
     static func defaultStateURL(fileManager: FileManager = .default) throws -> URL {
-        guard let url = SocketControlSettings.stableSocketDirectoryURL(fileManager: fileManager) else {
+        guard let appSupport = fileManager.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
             throw Error.stateDirectoryUnavailable
         }
-        return url
+        return appSupport.appendingPathComponent(stateDirectoryName, isDirectory: true)
     }
 
     // MARK: - Path builders

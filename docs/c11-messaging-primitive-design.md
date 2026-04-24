@@ -306,26 +306,27 @@ $C11_STATE/workspaces/<ws>/mailboxes/
 
 ### Sending — two equivalent ways
 
-**As a file write** (any process, any language, no c11 SDK). `$C11_WORKSPACE_ID` and `$C11_SURFACE_NAME` are env vars c11 sets in every surface's shell. `$C11_SURFACE_NAME` holds the nameable-panes name (CMUX-11).
+**As a file write** (any process, any language, no c11 SDK). The raw writer pulls its own outbox directory and surface title via three helper subcommands — no c11-specific env vars required.
 
 ```bash
-MBOX="$C11_STATE/workspaces/$C11_WORKSPACE_ID/mailboxes"
-ULID=$(c11 new-ulid)
-cat > "$MBOX/_outbox/$ULID.tmp" <<EOF
+OUTBOX=$(c11 mailbox outbox-dir)
+MY_NAME=$(c11 mailbox surface-name)
+ULID=$(c11 mailbox new-id)
+cat > "$OUTBOX/.$ULID.tmp" <<EOF
 {
   "version": 1,
   "id": "$ULID",
-  "from": "$C11_SURFACE_NAME",
+  "from": "$MY_NAME",
   "to": "watcher",
   "topic": "ci.status",
   "ts": "$(date -u +%FT%TZ)",
   "body": "build green sha=abc"
 }
 EOF
-mv "$MBOX/_outbox/$ULID.tmp" "$MBOX/_outbox/$ULID.msg"
+mv "$OUTBOX/.$ULID.tmp" "$OUTBOX/$ULID.msg"
 ```
 
-The `.tmp → .msg` rename is atomic within a filesystem. c11's fsevent watcher only sees the final `.msg` state. Stale `.tmp` files are GC'd after 5 minutes (writer crash protection).
+The `.tmp → .msg` rename is atomic within a filesystem. c11's fsevent watcher only sees the final `.msg` state. Stale `.tmp` files are GC'd after 5 minutes (writer crash protection). The dot-prefix on the temp file keeps it hidden from shell globs and the watcher's filename filter.
 
 **As a CLI call:**
 
@@ -333,15 +334,15 @@ The `.tmp → .msg` rename is atomic within a filesystem. c11's fsevent watcher 
 c11 mailbox send --to watcher --topic ci.status --body "build green sha=abc"
 ```
 
-Equivalent to the above; auto-fills `version`, `from`, `ts`, `id`.
+Equivalent to the above; auto-fills `version`, `from`, `ts`, `id`. Prints the envelope id on success.
 
 ### Receiving — two equivalent ways
 
 **As file reads:**
 
 ```bash
-MBOX="$C11_STATE/workspaces/$C11_WORKSPACE_ID/mailboxes"
-for msg in "$MBOX/$C11_SURFACE_NAME"/*.msg; do
+INBOX=$(c11 mailbox inbox-dir)
+for msg in "$INBOX"/*.msg; do
   cat "$msg"
   rm  "$msg"
 done

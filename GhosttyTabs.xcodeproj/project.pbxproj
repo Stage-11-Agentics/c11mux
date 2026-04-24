@@ -211,6 +211,10 @@
 				D7110BF0A1B2C3D4E5F60718 /* MailboxHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7110BF1A1B2C3D4E5F60718 /* MailboxHandler.swift */; };
 				D7111BF0A1B2C3D4E5F60718 /* StdinMailboxHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7111BF1A1B2C3D4E5F60718 /* StdinMailboxHandler.swift */; };
 				D7112BF0A1B2C3D4E5F60718 /* StdinHandlerFormattingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7112BF1A1B2C3D4E5F60718 /* StdinHandlerFormattingTests.swift */; };
+				D7200BF0A1B2C3D4E5F60719 /* MailboxLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7100BF1A1B2C3D4E5F60718 /* MailboxLayout.swift */; };
+				D7202BF0A1B2C3D4E5F60719 /* MailboxIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7102BF1A1B2C3D4E5F60718 /* MailboxIO.swift */; };
+				D7203BF0A1B2C3D4E5F60719 /* MailboxULID.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7103BF1A1B2C3D4E5F60718 /* MailboxULID.swift */; };
+				D7206BF0A1B2C3D4E5F60719 /* MailboxEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7106BF1A1B2C3D4E5F60718 /* MailboxEnvelope.swift */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -1160,6 +1164,10 @@
 			files = (
 				B9000002A1B2C3D4E5F60719 /* c11.swift in Sources */,
 				CC401003A1B2C3D4E5F60719 /* SkillInstaller.swift in Sources */,
+				D7200BF0A1B2C3D4E5F60719 /* MailboxLayout.swift in Sources */,
+				D7202BF0A1B2C3D4E5F60719 /* MailboxIO.swift in Sources */,
+				D7203BF0A1B2C3D4E5F60719 /* MailboxULID.swift in Sources */,
+				D7206BF0A1B2C3D4E5F60719 /* MailboxEnvelope.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
