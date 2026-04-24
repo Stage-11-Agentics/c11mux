@@ -42,6 +42,12 @@ c11 restore 01KQ0XYZ…
 
 # Restore with cc session resume
 C11_SESSION_RESUME=1 c11 restore 01KQ0XYZ…
+
+# Replace the current workspace's content in place (no duplicate tab).
+# The target workspace's existing panels and splits are closed first;
+# the new workspace inherits the plan. Note: the workspace UUID changes
+# (a fresh workspace is minted and the prior one is closed).
+c11 restore --in-place 01KQ0XYZ…
 ```
 
 - `C11_SESSION_RESUME` (mirror: `CMUX_SESSION_RESUME`) is read at the CLI layer only.  A truthy value (anything except empty / `0` / `false` / `no` / `off`) threads `restart_registry: "phase1"` into the `snapshot.restore` v2 call.

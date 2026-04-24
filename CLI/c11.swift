@@ -2793,9 +2793,23 @@ struct CMUXCLI {
         // `v2SnapshotRestore` cleared `options.select` unconditionally.
         // Per Trident I4 option (b), drop the promise rather than grant a
         // focus-intent exception. The flag is no longer accepted.
-        let positional = args
-        if let unknown = positional.first(where: { $0.hasPrefix("--") }) {
-            throw CLIError(message: "restore: unknown flag '\(unknown)'. Known flags: (none)")
+        //
+        // I2: `--in-place` / `--replace` (aliases) replaces the current
+        // workspace's content with the restored plan instead of creating
+        // a fresh workspace. Without it, running `c11 restore <id>` twice
+        // produces two duplicate workspaces.
+        var inPlace = false
+        var positional: [String] = []
+        for arg in args {
+            switch arg {
+            case "--in-place", "--replace":
+                inPlace = true
+            default:
+                if arg.hasPrefix("--") {
+                    throw CLIError(message: "restore: unknown flag '\(arg)'. Known flags: --in-place / --replace")
+                }
+                positional.append(arg)
+            }
         }
         guard let target = positional.first else {
             throw CLIError(message: "restore: missing snapshot id or path")
@@ -2823,6 +2837,22 @@ struct CMUXCLI {
         let raw = env["C11_SESSION_RESUME"] ?? env["CMUX_SESSION_RESUME"]
         if let raw, isTruthyFlag(raw) {
             params["restart_registry"] = "phase1"
+        }
+        if inPlace {
+            params["in_place"] = true
+            // Resolve the current workspace id so the handler knows which
+            // workspace to replace. The v2 `workspace.current` call returns
+            // `workspace_id` as a UUID string directly.
+            let currentPayload = try client.sendV2(method: "workspace.current", params: [:])
+            if let wsId = currentPayload["workspace_id"] as? String,
+               UUID(uuidString: wsId) != nil {
+                params["target_workspace_id"] = wsId
+            } else if let ref = currentPayload["workspace_ref"] as? String,
+                      let uuid = parseUUIDFromRef(ref) {
+                params["target_workspace_id"] = uuid.uuidString
+            } else {
+                throw CLIError(message: "restore: --in-place could not resolve the current workspace id")
+            }
         }
         let payload = try client.sendV2(method: "snapshot.restore", params: params)
         if jsonOutput {
@@ -8273,13 +8303,25 @@ struct CMUXCLI {
               c11 snapshot --workspace workspace:2 --out ~/snapshots/phase1.json
             """
         case "restore":
+            let inPlaceHelp = String(
+                localized: "cli.restore.usage.inPlace",
+                defaultValue:
+                    "--in-place, --replace   Replace the current workspace's content instead of creating a new workspace"
+            )
+            let inPlaceNote = String(
+                localized: "cli.restore.usage.inPlace.note",
+                defaultValue:
+                    "Running `c11 restore <id>` twice creates two workspaces unless --in-place is passed."
+            )
             return """
-            Usage: c11 restore <snapshot-id-or-path> [--json]
+            Usage: c11 restore <snapshot-id-or-path> [--in-place] [--json]
 
             Restore a workspace layout from a snapshot written by `c11 snapshot`.
             The argument is either a ULID (resolved under `~/.c11-snapshots/` or
             the legacy `~/.cmux-snapshots/`) or an absolute path to a `.json`
             snapshot file.
+
+            \(inPlaceNote)
 
             When $C11_SESSION_RESUME (mirror: $CMUX_SESSION_RESUME) is set to a
             truthy value, Claude Code terminals resume their prior session via
@@ -8287,14 +8329,16 @@ struct CMUXCLI {
             with fresh shells instead.
 
             Per the socket focus policy (see CLAUDE.md), restore does not
-            foreground the restored workspace — select it manually with
+            foreground the restored workspace; select it manually with
             `c11 workspace select <ref>` if needed.
 
             Flags:
-              --json   Emit raw snapshot.restore result as JSON
+              \(inPlaceHelp)
+              --json                  Emit raw snapshot.restore result as JSON
 
             Examples:
               c11 restore 01KQ0XYZ…
+              c11 restore --in-place 01KQ0XYZ…
               C11_SESSION_RESUME=1 c11 restore ~/snapshots/phase1.json
             """
         case "list-snapshots":

@@ -4619,6 +4619,20 @@ class TerminalController {
             }
         }
 
+        // In-place restore (I2): resolve the target workspace UUID either
+        // from the `target_workspace_id` param or from the focus-policy
+        // default. When the target doesn't resolve the executor surfaces
+        // `invalid_params` via ApplyResult.failures.
+        let inPlace = (params["in_place"] as? Bool) == true
+        let inPlaceTarget: UUID? = {
+            guard inPlace else { return nil }
+            if let raw = params["target_workspace_id"] as? String,
+               let uuid = UUID(uuidString: raw) {
+                return uuid
+            }
+            return nil
+        }()
+
         var result: ApplyResult?
         v2MainSync {
             let deps = WorkspaceLayoutExecutorDependencies(
@@ -4633,7 +4647,32 @@ class TerminalController {
                     self?.v2EnsureHandleRef(kind: .pane, uuid: uuid) ?? "pane:\(uuid.uuidString)"
                 }
             )
-            result = WorkspaceLayoutExecutor.apply(plan, options: options, dependencies: deps)
+            if inPlace, let target = inPlaceTarget {
+                result = WorkspaceLayoutExecutor.applyToExistingWorkspace(
+                    plan,
+                    options: options,
+                    dependencies: deps,
+                    existingWorkspaceId: target
+                )
+            } else if inPlace {
+                // Requested in_place but no target resolver succeeded.
+                // Synthesise the same invalid_params failure the executor
+                // would emit so callers see a consistent shape.
+                result = ApplyResult(
+                    workspaceRef: "",
+                    surfaceRefs: [:],
+                    paneRefs: [:],
+                    timings: [],
+                    warnings: ["in_place restore requires a resolvable target_workspace_id"],
+                    failures: [ApplyFailure(
+                        code: "invalid_params",
+                        step: "validate",
+                        message: "in_place restore requires 'target_workspace_id' as a UUID string"
+                    )]
+                )
+            } else {
+                result = WorkspaceLayoutExecutor.apply(plan, options: options, dependencies: deps)
+            }
         }
         guard var applyResult = result else {
             return .err(code: "internal_error", message: "Executor returned no result", data: nil)

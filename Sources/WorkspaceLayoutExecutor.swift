@@ -30,19 +30,25 @@ struct WorkspaceLayoutExecutorDependencies {
 }
 
 /// App-side executor for `WorkspaceApplyPlan`. One `apply` call materializes
-/// an entire workspace — workspace create, layout tree, titles, descriptions,
-/// surface/pane metadata, terminal initial commands — in one transaction.
+/// an entire workspace (workspace create, layout tree, titles, descriptions,
+/// surface/pane metadata, terminal initial commands) in one transaction.
 ///
-/// The executor runs on the main actor (AppKit/bonsplit state). Phase 0
-/// ships only the creation-centric path; Phase 1 adds
-/// `applyToExistingWorkspace(_:_:_:)` for Snapshot restore over a live
-/// workspace + seed panel.
+/// The executor runs on the main actor (AppKit/bonsplit state). Two entry
+/// points:
+///
+/// - `apply(_:options:dependencies:)` creates a new workspace and applies
+///   the plan to it. Used by Phase 0 `c11 workspace apply` and Phase 1
+///   `c11 restore` (default behaviour).
+/// - `applyToExistingWorkspace(_:options:dependencies:existingWorkspaceId:)`
+///   replaces an existing workspace's content by closing it and applying
+///   the plan in its place. Used by Phase 1 `c11 restore --in-place`. See
+///   the method's own doc comment for the UUID-change caveat.
 ///
 /// Partial-failure semantics: validation failures short-circuit before any
 /// UI state mutates (`ApplyResult.workspaceRef` stays empty). Anything after
 /// workspace creation appends `ApplyFailure` records but leaves the workspace
-/// on-screen — matching `DefaultGridSettings.performDefaultGrid`'s
-/// truncate-on-failure behavior rather than silent disappearance.
+/// on-screen, matching the truncate-on-failure behaviour of other workspace
+/// creation paths rather than silent disappearance.
 @MainActor
 enum WorkspaceLayoutExecutor {
 
@@ -294,6 +300,74 @@ enum WorkspaceLayoutExecutor {
             warnings: warnings,
             failures: failures
         )
+    }
+
+    // MARK: - Apply in place
+
+    /// Replace the content of an existing workspace with `plan`. Used by
+    /// `c11 restore --in-place` to avoid the "run restore twice, get two
+    /// duplicate workspaces" footgun.
+    ///
+    /// Implementation strategy is deliberately simple: locate the target
+    /// workspace, close it through `TabManager.closeWorkspace(_:)`, then
+    /// call `apply(_:options:dependencies:)` to create a fresh workspace
+    /// carrying the plan's content. Partial-failure semantics follow
+    /// `apply`: validation short-circuits cleanly, post-creation failures
+    /// leave the new workspace on-screen with `failures`/`warnings`
+    /// attached.
+    ///
+    /// **UUID changes.** The returned `workspaceRef` is the new workspace's
+    /// ref, not the original `existingWorkspaceId`. Callers driving
+    /// scripting should re-read the ref from the result; operators doing
+    /// interactive restore see their existing workspace's tab replaced by
+    /// a new one. Preserving the original UUID + tab position is noted as
+    /// a follow-up (F4) rather than attempted here; the cost is mostly in
+    /// `TabManager` surface that is not in scope for C11-14.
+    ///
+    /// Returns a failure-populated `ApplyResult` (with `workspaceRef = ""`)
+    /// when `existingWorkspaceId` does not resolve. Callers should inspect
+    /// `failures` for the `invalid_params` code before consuming refs.
+    static func applyToExistingWorkspace(
+        _ plan: WorkspaceApplyPlan,
+        options: ApplyOptions = ApplyOptions(),
+        dependencies: WorkspaceLayoutExecutorDependencies,
+        existingWorkspaceId: UUID
+    ) -> ApplyResult {
+        // Step 1: validation short-circuits before we touch any workspace
+        // state. Same semantics as `apply`.
+        if let failure = validate(plan: plan) {
+            return ApplyResult(
+                workspaceRef: "",
+                surfaceRefs: [:],
+                paneRefs: [:],
+                timings: [],
+                warnings: [failure.message],
+                failures: [failure]
+            )
+        }
+        // Step 2: locate and close the existing workspace. A missing id is
+        // a user/scripting mistake, not a partial failure: surface it as
+        // `invalid_params` so the v2 handler can map to the right socket
+        // error code.
+        guard let existing = dependencies.tabManager.tabs.first(where: { $0.id == existingWorkspaceId }) else {
+            let failure = ApplyFailure(
+                code: "invalid_params",
+                step: "validate",
+                message: "workspace id '\(existingWorkspaceId.uuidString)' does not match any open workspace"
+            )
+            return ApplyResult(
+                workspaceRef: "",
+                surfaceRefs: [:],
+                paneRefs: [:],
+                timings: [],
+                warnings: [failure.message],
+                failures: [failure]
+            )
+        }
+        dependencies.tabManager.closeWorkspace(existing)
+        // Step 3: create a fresh workspace by running the standard apply
+        // path. The workspace UUID changes; see doc-comment caveat.
+        return apply(plan, options: options, dependencies: dependencies)
     }
 
     // MARK: - Plan validation
