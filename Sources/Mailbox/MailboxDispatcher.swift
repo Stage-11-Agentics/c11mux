@@ -362,8 +362,13 @@ final class MailboxDispatcher {
     }
 
     /// Bridges the async handler into the serial dispatcher queue. The outer
-    /// wait has a 2 s ceiling as a safety net; individual handlers enforce
-    /// their own (the `stdin` handler uses 500 ms per the plan).
+    /// 2 s ceiling is a reporting bound: if the handler Task has not
+    /// signalled within 2 s, this method logs `timeout` and returns so the
+    /// dispatcher's serial queue can move on. The underlying handler Task
+    /// is not cancellable in the runtime sense — it keeps running on
+    /// whatever actor it took — so "main thread freed after 2 s" is a
+    /// property of the handler closure, not of this wait. See
+    /// `StdinMailboxHandler` for the per-handler story.
     private func invokeHandlerSynchronously(
         handler: @escaping HandlerFunction,
         name: String,

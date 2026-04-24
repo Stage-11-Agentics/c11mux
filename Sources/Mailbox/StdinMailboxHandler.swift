@@ -2,7 +2,23 @@ import Foundation
 
 /// Writes the envelope as a `<c11-msg>` framed block into the recipient
 /// surface's PTY. Formatting is a pure function (off-main); the PTY write
-/// is a main-actor hop bounded by a 500 ms deadline per the plan.
+/// itself is a main-actor hop.
+///
+/// **The 500 ms `timeout` is a reporting bound, not a runtime bound.**
+/// `MainActor.run { writer(...) }` is synchronous, and Swift task
+/// cancellation is cooperative — the `withTaskGroup` race returns
+/// `.timeout` after 500 ms but cannot interrupt a `writer` closure that
+/// is already executing on the main thread. If Ghostty's PTY write blocks
+/// for three seconds, main is blocked for three seconds, we log "timeout"
+/// after 500 ms, and the dispatcher moves on. The main thread's actual
+/// occupancy is governed by the writer closure, not this deadline.
+///
+/// In practice the production writer at `Sources/Workspace.swift` calls
+/// `TerminalPanel.sendText(text)` which is a buffered byte append — it
+/// returns in microseconds. But "in practice" is not a guarantee, and
+/// the honest path forward (genuine async-cancellable PTY writes) is
+/// follow-up work. The reporting bound keeps the dispatcher live; that
+/// is what this code enforces, and what tests here verify.
 ///
 /// Framed block shape (exact, byte-for-byte, trailing newline included):
 ///
