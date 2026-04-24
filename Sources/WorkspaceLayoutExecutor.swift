@@ -160,18 +160,51 @@ enum WorkspaceLayoutExecutor {
             workspace: workspace
         )
 
-        // Phase 0 commit 4 stub: layout built. Surface/pane metadata writes,
-        // terminal initial commands, and ref assembly arrive in commits 5-6.
-        // `surfaceRefs` / `paneRefs` stay empty here.
+        // Step 7 — terminal initial commands. TerminalPanel.sendText
+        // auto-queues pre-ready and flushes when the Ghostty surface comes
+        // up, so the executor does not need to await readiness here.
+        for surfaceSpec in plan.surfaces {
+            guard surfaceSpec.kind == .terminal,
+                  let command = surfaceSpec.command,
+                  !command.isEmpty,
+                  let panelId = walkState.planSurfaceIdToPanelId[surfaceSpec.id],
+                  let terminalPanel = workspace.panels[panelId] as? TerminalPanel else {
+                continue
+            }
+            let cmdClock = Clock()
+            terminalPanel.sendText(command)
+            walkState.timings.append(StepTiming(
+                step: "surface[\(surfaceSpec.id)].command.enqueue",
+                durationMs: cmdClock.elapsedMs
+            ))
+        }
+
+        // Step 8 — assemble refs. The executor mints refs for every surface
+        // and pane that was successfully created; plan-local surface ids map
+        // 1:1 to live `surface:N` / `pane:N` refs via the injected minters.
+        let refsClock = Clock()
+        var surfaceRefs: [String: String] = [:]
+        var paneRefs: [String: String] = [:]
+        for (planSurfaceId, panelId) in walkState.planSurfaceIdToPanelId {
+            surfaceRefs[planSurfaceId] = dependencies.surfaceRefMinter(panelId)
+            if let paneId = workspace.paneIdForPanel(panelId) {
+                paneRefs[planSurfaceId] = dependencies.paneRefMinter(paneId.id)
+            }
+        }
         let workspaceRef = dependencies.workspaceRefMinter(workspace.id)
+        walkState.timings.append(StepTiming(
+            step: "refs.assemble",
+            durationMs: refsClock.elapsedMs
+        ))
+
         timings = walkState.timings
         warnings = walkState.warnings
         failures = walkState.failures
         timings.append(StepTiming(step: "total", durationMs: total.elapsedMs))
         return ApplyResult(
             workspaceRef: workspaceRef,
-            surfaceRefs: [:],
-            paneRefs: [:],
+            surfaceRefs: surfaceRefs,
+            paneRefs: paneRefs,
             timings: timings,
             warnings: warnings,
             failures: failures
