@@ -3068,7 +3068,7 @@ private struct AboutPanelView: View {
 
     private let upstreamURL = URL(string: "https://github.com/manaflow-ai/cmux")
     private let forkURL = URL(string: "https://github.com/Stage-11-Agentics/c11mux")
-    private let docsURL = URL(string: "https://cmux.com/docs")
+    private let docsURL = URL(string: "https://github.com/Stage-11-Agentics/c11")
 
     private var version: String? { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String }
     private var build: String? { Bundle.main.infoDictionary?["CFBundleVersion"] as? String }
