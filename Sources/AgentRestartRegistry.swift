@@ -108,11 +108,9 @@ struct AgentRestartRegistry: Sendable {
     /// otherwise every executor caller would have to remember to append
     /// one.
     ///
-    /// Codex, opencode, and kimi use `--last` / `--continue` best-effort
-    /// flags rather than a session-id argument: those CLIs resume the most
-    /// recent session globally, which may differ from the exact session in
-    /// the snapshot. Best-effort is preferable to no resume; operators can
-    /// always restart with a fresh context if the resumed session diverges.
+    /// Codex uses `--last` best-effort to resume the most recent session
+    /// globally. Opencode and kimi have no verified resume flag and launch
+    /// fresh — best-effort is preferable to a broken flag.
     static let phase1: AgentRestartRegistry = .init(rows: [
         Row(terminalType: "claude-code") { sessionId, _ in
             guard let raw = sessionId?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -126,14 +124,12 @@ struct AgentRestartRegistry: Sendable {
             "codex resume --last\n"
         },
         Row(terminalType: "opencode") { _, _ in
-            // opencode --continue resumes the last opencode session.
-            // Best-effort: same caveat as codex --last.
-            "opencode --continue\n"
+            // no stable resume flag known; launches fresh.
+            "opencode\n"
         },
         Row(terminalType: "kimi") { _, _ in
-            // kimi --continue resumes the last kimi session.
-            // Best-effort: same caveat as codex --last.
-            "kimi --continue\n"
+            // no stable resume flag known; launches fresh.
+            "kimi\n"
         }
     ])
 }

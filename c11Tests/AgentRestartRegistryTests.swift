@@ -265,13 +265,13 @@ final class AgentRestartRegistryTests: XCTestCase {
         )
     }
 
-    /// Opencode uses best-effort `--continue` semantics.
-    func testOpencodeRowReturnsBestEffortContinueCommand() {
+    /// Opencode has no verified resume flag — launches fresh.
+    func testOpencodeRowReturnsBareCommand() {
         let registry = AgentRestartRegistry.phase1
         XCTAssertEqual(
             registry.resolveCommand(terminalType: "opencode", sessionId: nil, metadata: [:]),
-            "opencode --continue\n",
-            "opencode row returns best-effort --continue"
+            "opencode\n",
+            "opencode row returns bare launch (no resume flag)"
         )
         XCTAssertEqual(
             registry.resolveCommand(
@@ -279,18 +279,18 @@ final class AgentRestartRegistryTests: XCTestCase {
                 sessionId: "11111111-2222-3333-4444-555566667777",
                 metadata: [:]
             ),
-            "opencode --continue\n",
-            "opencode row ignores session id"
+            "opencode\n",
+            "opencode row ignores session id and returns bare launch"
         )
     }
 
-    /// Kimi uses best-effort `--continue` semantics.
-    func testKimiRowReturnsBestEffortContinueCommand() {
+    /// Kimi has no verified resume flag — launches fresh.
+    func testKimiRowReturnsBareCommand() {
         let registry = AgentRestartRegistry.phase1
         XCTAssertEqual(
             registry.resolveCommand(terminalType: "kimi", sessionId: nil, metadata: [:]),
-            "kimi --continue\n",
-            "kimi row returns best-effort --continue"
+            "kimi\n",
+            "kimi row returns bare launch (no resume flag)"
         )
         XCTAssertEqual(
             registry.resolveCommand(
@@ -298,8 +298,8 @@ final class AgentRestartRegistryTests: XCTestCase {
                 sessionId: "aaaabbbb-cccc-dddd-eeee-ffff00001111",
                 metadata: [:]
             ),
-            "kimi --continue\n",
-            "kimi row ignores session id"
+            "kimi\n",
+            "kimi row ignores session id and returns bare launch"
         )
     }
 
