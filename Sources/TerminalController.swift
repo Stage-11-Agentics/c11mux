@@ -4568,6 +4568,43 @@ class TerminalController {
         let origin: WorkspaceSnapshotFile.Origin =
             (originRaw == "auto-restart") ? .autoRestart : .manual
 
+        // --all: capture every open workspace and return {snapshots: [...]}.
+        let captureAll = (params["all"] as? Bool) == true
+        if captureAll {
+            var snapshots: [(envelope: WorkspaceSnapshotFile, ref: String)] = []
+            v2MainSync {
+                let source = LiveWorkspaceSnapshotSource(tabManager: tabManager)
+                for ws in tabManager.tabs {
+                    if let envelope = source.capture(
+                        workspaceId: ws.id, origin: origin, clock: { Date() }
+                    ) {
+                        let ref = self.v2EnsureHandleRef(kind: .workspace, uuid: ws.id)
+                        snapshots.append((envelope, ref))
+                    }
+                }
+            }
+            let store = WorkspaceSnapshotStore()
+            var results: [[String: Any]] = []
+            for (envelope, ref) in snapshots {
+                do {
+                    let path = try store.writeToDefaultDirectory(envelope)
+                    results.append([
+                        "snapshot_id": envelope.snapshotId,
+                        "path": path.path,
+                        "surface_count": envelope.plan.surfaces.count,
+                        "workspace_ref": ref
+                    ])
+                } catch {
+                    results.append([
+                        "snapshot_id": envelope.snapshotId,
+                        "error": "\(error)",
+                        "workspace_ref": ref
+                    ])
+                }
+            }
+            return .ok(["snapshots": results])
+        }
+
         var snapshot: WorkspaceSnapshotFile?
         var workspaceRef = ""
         v2MainSync {

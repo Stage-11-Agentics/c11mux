@@ -2907,7 +2907,7 @@ struct CMUXCLI {
 
     // MARK: - CMUX-37 Phase 1: snapshot commands
 
-    /// `c11 snapshot [--workspace <ref>] [--out <path>] [--json]`. Defaults
+    /// `c11 snapshot [--workspace <ref>] [--out <path>] [--all] [--json]`. Defaults
     /// to the current workspace (`$CMUX_WORKSPACE_ID`). Prints the resolved
     /// path + snapshot id. Backed by `snapshot.create` v2.
     ///
@@ -2916,6 +2916,9 @@ struct CMUXCLI {
     /// captures cannot choose their destination). After the socket returns,
     /// the CLI — running with the user's real FS permissions — moves the
     /// emitted file to the requested path.
+    ///
+    /// `--all` captures every open workspace. Mutually exclusive with
+    /// `--workspace` and `--out`.
     private func runSnapshotCreate(
         _ args: [String],
         client: SocketClient,
@@ -2923,9 +2926,34 @@ struct CMUXCLI {
     ) throws {
         let (workspaceOpt, afterWorkspace) = parseOption(args, name: "--workspace")
         let (outOpt, afterOut) = parseOption(afterWorkspace, name: "--out")
-        if let unknown = afterOut.first(where: { $0.hasPrefix("--") }) {
-            throw CLIError(message: "snapshot: unknown flag '\(unknown)'. Known flags: --workspace <ref>, --out <path>")
+        let (afterAll, hasAll) = parseFlag(afterOut, name: "--all")
+        if let unknown = afterAll.first(where: { $0.hasPrefix("--") }) {
+            throw CLIError(message: "snapshot: unknown flag '\(unknown)'. Known flags: --workspace <ref>, --out <path>, --all")
         }
+
+        if hasAll {
+            if workspaceOpt != nil {
+                throw CLIError(message: "snapshot: --all and --workspace are mutually exclusive")
+            }
+            if outOpt != nil {
+                throw CLIError(message: "snapshot: --all and --out are mutually exclusive")
+            }
+            let payload = try client.sendV2(method: "snapshot.create", params: ["all": true])
+            let snapshots = payload["snapshots"] as? [[String: Any]] ?? []
+            if jsonOutput {
+                print(jsonString(payload))
+                return
+            }
+            for snap in snapshots {
+                let id = (snap["snapshot_id"] as? String) ?? "?"
+                let path = (snap["path"] as? String) ?? "?"
+                let count = (snap["surface_count"] as? Int) ?? 0
+                let wsRef = (snap["workspace_ref"] as? String) ?? "?"
+                print("OK snapshot=\(id) surfaces=\(count) workspace=\(wsRef) path=\(path)")
+            }
+            return
+        }
+
         var params: [String: Any] = [:]
         if let wsRaw = workspaceOpt {
             // Route through the standard resolver so `workspace:2`
@@ -9574,6 +9602,20 @@ struct CMUXCLI {
             .replacingOccurrences(of: "\r", with: "\\r")
         return "\"\(escaped)\""
     }
+    /// Returns `(remaining, found)` — `found` is true when `name` is present.
+    private func parseFlag(_ args: [String], name: String) -> ([String], Bool) {
+        var remaining: [String] = []
+        var found = false
+        for arg in args {
+            if arg == name {
+                found = true
+            } else {
+                remaining.append(arg)
+            }
+        }
+        return (remaining, found)
+    }
+
     private func parseOption(_ args: [String], name: String) -> (String?, [String]) {
         var remaining: [String] = []
         var value: String?
