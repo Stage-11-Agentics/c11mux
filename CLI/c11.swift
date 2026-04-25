@@ -2790,7 +2790,8 @@ struct CMUXCLI {
     /// from stdin, and returns the selected plan object ready for
     /// `workspace.apply`. Throws `CLIError` on cancel ("q") or invalid input.
     private func workspaceBlueprintPicker(client: SocketClient, jsonOutput: Bool) throws -> Any {
-        let payload = try client.sendV2(method: "workspace.list_blueprints", params: [:])
+        let cwd = FileManager.default.currentDirectoryPath
+        let payload = try client.sendV2(method: "workspace.list_blueprints", params: ["cwd": cwd])
         guard let blueprints = payload["blueprints"] as? [[String: Any]], !blueprints.isEmpty else {
             throw CLIError(message: String(localized: "workspace.blueprint.picker.noBlueprints",
                 defaultValue: "workspace new: no blueprints found. Use --blueprint <path> to apply one directly."))
@@ -2944,12 +2945,21 @@ struct CMUXCLI {
                 print(jsonString(payload))
                 return
             }
+            var anyFailure = false
             for snap in snapshots {
-                let id = (snap["snapshot_id"] as? String) ?? "?"
-                let path = (snap["path"] as? String) ?? "?"
-                let count = (snap["surface_count"] as? Int) ?? 0
                 let wsRef = (snap["workspace_ref"] as? String) ?? "?"
-                print("OK snapshot=\(id) surfaces=\(count) workspace=\(wsRef) path=\(path)")
+                if let err = snap["error"] as? String {
+                    print("ERROR workspace=\(wsRef) reason=\(err)")
+                    anyFailure = true
+                } else {
+                    let id = (snap["snapshot_id"] as? String) ?? "?"
+                    let path = (snap["path"] as? String) ?? "?"
+                    let count = (snap["surface_count"] as? Int) ?? 0
+                    print("OK snapshot=\(id) surfaces=\(count) workspace=\(wsRef) path=\(path)")
+                }
+            }
+            if anyFailure {
+                throw CLIError(message: "snapshot --all: one or more workspaces failed to write")
             }
             return
         }
@@ -2967,6 +2977,7 @@ struct CMUXCLI {
         let id = (payload["snapshot_id"] as? String) ?? "?"
         var resolvedPath = (payload["path"] as? String) ?? "?"
         let count = (payload["surface_count"] as? Int) ?? 0
+        let wsRef = (payload["workspace_ref"] as? String) ?? "?"
         if let outRaw = outOpt {
             let src = URL(fileURLWithPath: resolvedPath)
             let dst = URL(fileURLWithPath: resolvePath(outRaw))
@@ -2990,7 +3001,7 @@ struct CMUXCLI {
             print(jsonString(mutable))
             return
         }
-        print("OK snapshot=\(id) surfaces=\(count) path=\(resolvedPath)")
+        print("OK snapshot=\(id) surfaces=\(count) workspace=\(wsRef) path=\(resolvedPath)")
     }
 
     /// `c11 restore <snapshot-id-or-path> [--json]`. Reads
@@ -8450,7 +8461,7 @@ struct CMUXCLI {
             """
         case "snapshot":
             return """
-            Usage: c11 snapshot [--workspace <ref>] [--out <path>] [--json]
+            Usage: c11 snapshot [--workspace <ref>] [--out <path>] [--all] [--json]
 
             Capture the current workspace (or a named one) to
             `~/.c11-snapshots/<ulid>.json`. No args → current workspace
@@ -8459,11 +8470,15 @@ struct CMUXCLI {
             Flags:
               --workspace <ref>   Workspace to capture (ref or UUID)
               --out <path>        Override the default output path
+              --all               Capture every open workspace in one pass
               --json              Emit raw snapshot.create result as JSON
+
+            Note: --all and --workspace / --out are mutually exclusive.
 
             Examples:
               c11 snapshot
               c11 snapshot --workspace workspace:2 --out ~/snapshots/phase1.json
+              c11 snapshot --all
             """
         case "restore":
             return """
