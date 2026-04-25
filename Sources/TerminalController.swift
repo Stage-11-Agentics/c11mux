@@ -4614,7 +4614,7 @@ class TerminalController {
                 // "phase5" against an older c11 binary should still land
                 // their restore, just without restart synthesis.
                 preApplyWarnings.append(
-                    "unknown restart_registry '\(registryName)' — falling back to no-op (no cc --resume synthesis)"
+                    "unknown restart_registry '\(registryName)': falling back to no-op (no cc --resume synthesis)"
                 )
             }
         }

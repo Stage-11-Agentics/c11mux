@@ -308,21 +308,27 @@ enum WorkspaceLayoutExecutor {
     /// `c11 restore --in-place` to avoid the "run restore twice, get two
     /// duplicate workspaces" footgun.
     ///
-    /// Implementation strategy is deliberately simple: locate the target
-    /// workspace, close it through `TabManager.closeWorkspace(_:)`, then
-    /// call `apply(_:options:dependencies:)` to create a fresh workspace
-    /// carrying the plan's content. Partial-failure semantics follow
-    /// `apply`: validation short-circuits cleanly, post-creation failures
-    /// leave the new workspace on-screen with `failures`/`warnings`
-    /// attached.
+    /// Implementation strategy: validate the plan, then apply it (which
+    /// creates a new workspace) *before* closing the target, and close the
+    /// target only once the replacement is in place. This ordering:
+    ///
+    /// - Avoids `TabManager.closeWorkspace`'s `tabs.count > 1` guard
+    ///   silently no-op'ing on single-workspace windows (there are always
+    ///   at least two tabs at the moment we call `closeWorkspace(existing)`
+    ///   because `apply` just added the replacement).
+    /// - Makes a failed apply non-destructive: if `apply` returns an empty
+    ///   `workspaceRef` (validation failure, `addWorkspace` trouble), the
+    ///   old workspace is left intact and the operator is not stranded.
     ///
     /// **UUID changes.** The returned `workspaceRef` is the new workspace's
     /// ref, not the original `existingWorkspaceId`. Callers driving
     /// scripting should re-read the ref from the result; operators doing
     /// interactive restore see their existing workspace's tab replaced by
-    /// a new one. Preserving the original UUID + tab position is noted as
-    /// a follow-up (F4) rather than attempted here; the cost is mostly in
-    /// `TabManager` surface that is not in scope for C11-14.
+    /// a new one. A `workspace_uuid_changed` warning is surfaced on
+    /// `ApplyResult.warnings` so scripted consumers notice in the same
+    /// channel as other pre-apply warnings. Preserving the original UUID
+    /// + tab position is noted as a follow-up (F4) rather than attempted
+    /// here.
     ///
     /// Returns a failure-populated `ApplyResult` (with `workspaceRef = ""`)
     /// when `existingWorkspaceId` does not resolve. Callers should inspect
@@ -345,10 +351,9 @@ enum WorkspaceLayoutExecutor {
                 failures: [failure]
             )
         }
-        // Step 2: locate and close the existing workspace. A missing id is
-        // a user/scripting mistake, not a partial failure: surface it as
-        // `invalid_params` so the v2 handler can map to the right socket
-        // error code.
+        // Step 2: resolve the target. A missing id is a user/scripting
+        // mistake, not a partial failure: surface it as `invalid_params`
+        // so the v2 handler can map to the right socket error code.
         guard let existing = dependencies.tabManager.tabs.first(where: { $0.id == existingWorkspaceId }) else {
             let failure = ApplyFailure(
                 code: "invalid_params",
@@ -364,10 +369,20 @@ enum WorkspaceLayoutExecutor {
                 failures: [failure]
             )
         }
-        dependencies.tabManager.closeWorkspace(existing)
-        // Step 3: create a fresh workspace by running the standard apply
-        // path. The workspace UUID changes; see doc-comment caveat.
-        return apply(plan, options: options, dependencies: dependencies)
+        // Step 3: apply first, then close. Apply adds the replacement
+        // workspace before we touch the old one; close only runs if
+        // apply produced a usable workspace.
+        var result = apply(plan, options: options, dependencies: dependencies)
+        if !result.workspaceRef.isEmpty {
+            dependencies.tabManager.closeWorkspace(existing)
+            // Scripted consumers consume `workspaceRef` directly; the
+            // UUID change is otherwise invisible until a follow-up
+            // restore fails. Surface it as a warning so callers can log
+            // the original id alongside the new one (F4 preserves UUID).
+            let note = "workspace_uuid_changed: in_place restore minted a new workspace UUID; original id \(existingWorkspaceId.uuidString) closed"
+            result.warnings.insert(note, at: 0)
+        }
+        return result
     }
 
     // MARK: - Plan validation

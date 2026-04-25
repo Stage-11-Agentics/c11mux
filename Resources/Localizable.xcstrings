@@ -11304,6 +11304,28 @@
         }
       }
     },
+    "cli.restore.usage.inPlace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "--in-place, --replace   Replace the current workspace's content instead of creating a new workspace"
+          }
+        }
+      }
+    },
+    "cli.restore.usage.inPlace.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Running `c11 restore <id>` twice creates two workspaces unless --in-place is passed."
+          }
+        }
+      }
+    },
     "cli.uninstall.adminRequired": {
       "extractionState": "manual",
       "localizations": {

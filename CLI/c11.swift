@@ -2840,18 +2840,30 @@ struct CMUXCLI {
         }
         if inPlace {
             params["in_place"] = true
-            // Resolve the current workspace id so the handler knows which
-            // workspace to replace. The v2 `workspace.current` call returns
-            // `workspace_id` as a UUID string directly.
-            let currentPayload = try client.sendV2(method: "workspace.current", params: [:])
-            if let wsId = currentPayload["workspace_id"] as? String,
-               UUID(uuidString: wsId) != nil {
-                params["target_workspace_id"] = wsId
-            } else if let ref = currentPayload["workspace_ref"] as? String,
-                      let uuid = parseUUIDFromRef(ref) {
-                params["target_workspace_id"] = uuid.uuidString
+            // Resolve the target workspace. Destructive commands must
+            // prefer the caller's own workspace (CMUX_WORKSPACE_ID /
+            // C11_WORKSPACE_ID) per the socket focus policy in CLAUDE.md:
+            // a background agent running `c11 restore --in-place` should
+            // replace its own workspace, not whatever the operator
+            // currently has selected. Only when the CLI is invoked
+            // outside a c11 surface (no env) do we fall back to
+            // `workspace.current`.
+            let callerWs = env["CMUX_WORKSPACE_ID"] ?? env["C11_WORKSPACE_ID"]
+            if let trimmed = callerWs?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !trimmed.isEmpty,
+               UUID(uuidString: trimmed) != nil {
+                params["target_workspace_id"] = trimmed
             } else {
-                throw CLIError(message: "restore: --in-place could not resolve the current workspace id")
+                let currentPayload = try client.sendV2(method: "workspace.current", params: [:])
+                if let wsId = currentPayload["workspace_id"] as? String,
+                   UUID(uuidString: wsId) != nil {
+                    params["target_workspace_id"] = wsId
+                } else if let ref = currentPayload["workspace_ref"] as? String,
+                          let uuid = parseUUIDFromRef(ref) {
+                    params["target_workspace_id"] = uuid.uuidString
+                } else {
+                    throw CLIError(message: "restore: --in-place could not resolve the target workspace (set CMUX_WORKSPACE_ID or invoke from a c11 surface)")
+                }
             }
         }
         let payload = try client.sendV2(method: "snapshot.restore", params: params)
@@ -2945,24 +2957,40 @@ struct CMUXCLI {
 
     /// `c11 list-snapshots [--json]`. Columns:
     /// SNAPSHOT_ID, CREATED_AT, WORKSPACE_TITLE, SURFACES, ORIGIN, SOURCE.
+    ///
+    /// `--json` is accepted both as a global pre-subcommand flag (handled
+    /// by the main parser and threaded in via `jsonOutput`) and as a
+    /// subcommand-local flag. The help text advertises
+    /// `c11 list-snapshots --json`; callers writing that literally should
+    /// not have to know about the global/local distinction.
     private func runListSnapshots(
         _ args: [String],
         client: SocketClient,
         jsonOutput: Bool
     ) throws {
-        if let unknown = args.first(where: { $0.hasPrefix("--") }) {
-            throw CLIError(message: "list-snapshots: unknown flag '\(unknown)'. Known flags: --json")
+        var localJson = false
+        for arg in args {
+            switch arg {
+            case "--json":
+                localJson = true
+            default:
+                if arg.hasPrefix("--") {
+                    throw CLIError(message: "list-snapshots: unknown flag '\(arg)'. Known flags: --json")
+                }
+                throw CLIError(message: "list-snapshots: unexpected argument '\(arg)'")
+            }
         }
+        let wantJson = jsonOutput || localJson
         let payload = try client.sendV2(method: "snapshot.list", params: [:])
         guard let snapshotsAny = payload["snapshots"] as? [[String: Any]] else {
-            if jsonOutput {
+            if wantJson {
                 print(jsonString(payload))
                 return
             }
             print("no snapshots")
             return
         }
-        if jsonOutput {
+        if wantJson {
             print(jsonString(payload))
             return
         }
@@ -3035,7 +3063,7 @@ struct CMUXCLI {
                                 defaultValue: "unreadable: ")
             print("")
             for (id, path, reason) in unreadables {
-                print("  \(prefix)\(id) [\(path)] — \(reason)")
+                print("  \(prefix)\(id) [\(path)]: \(reason)")
             }
         }
     }

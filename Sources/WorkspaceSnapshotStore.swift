@@ -306,10 +306,13 @@ struct WorkspaceSnapshotStore: Sendable {
         return result
     }
 
-    /// Walk a directory and emit one `WorkspaceSnapshotIndex` per decodable
-    /// `.json` file. Malformed files are skipped silently; the listing's
-    /// job is to show what's usable, not to surface every parse error.
-    /// (Callers who want strict-mode reads call `read(from:)` directly.)
+    /// Walk a directory and emit one `WorkspaceSnapshotIndex` per `.json`
+    /// file. Decodable rows get `readability: .ok` with envelope fields
+    /// populated; malformed rows emit `readability: .unreadable(reason)`
+    /// with a best-effort id (filename stem) and `createdAt =
+    /// .distantPast` so they sort to the bottom of the newest-first list
+    /// (I8). Callers who want strict-mode reads call `read(from:)`
+    /// directly; listing only surfaces per-file errors for the operator.
     ///
     /// Uses a `JSONSerialization`-based shallow decode that reads envelope
     /// keys (`snapshot_id`, `created_at`, `c11_version`, `origin`,
