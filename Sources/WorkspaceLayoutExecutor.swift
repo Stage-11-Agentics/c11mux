@@ -63,13 +63,13 @@ enum WorkspaceLayoutExecutor {
         options: ApplyOptions = ApplyOptions(),
         dependencies: WorkspaceLayoutExecutorDependencies
     ) -> ApplyResult {
-        let total = Clock()
+        let total = StepClock()
         var timings: [StepTiming] = []
         var warnings: [String] = []
         var failures: [ApplyFailure] = []
 
         // Step 1 — validate the plan locally before any AppKit state changes.
-        let validateClock = Clock()
+        let validateClock = StepClock()
         if let failure = validate(plan: plan) {
             timings.append(StepTiming(step: "validate", durationMs: validateClock.elapsedMs))
             failures.append(failure)
@@ -90,7 +90,7 @@ enum WorkspaceLayoutExecutor {
         // welcome/default-grid auto-spawns so the layout walker owns the
         // tree shape entirely; the `autoWelcomeIfNeeded` field on options
         // is informational for future callers.
-        let createClock = Clock()
+        let createClock = StepClock()
         let workspace = dependencies.tabManager.addWorkspace(
             workingDirectory: plan.workspace.workingDirectory,
             initialTerminalCommand: nil,
@@ -108,7 +108,7 @@ enum WorkspaceLayoutExecutor {
 
         // Step 3 — apply workspace-level metadata (operator-authored).
         if let entries = plan.workspace.metadata, !entries.isEmpty {
-            let metaClock = Clock()
+            let metaClock = StepClock()
             workspace.setOperatorMetadata(entries)
             timings.append(StepTiming(
                 step: "metadata.workspace.write",
@@ -132,7 +132,8 @@ enum WorkspaceLayoutExecutor {
             surfacesById: surfacesById,
             warnings: warnings,
             failures: failures,
-            timings: timings
+            timings: timings,
+            selectAllowed: options.select
         )
 
         // Resolve the seed panel that `addWorkspace` produced in the root
@@ -242,7 +243,7 @@ enum WorkspaceLayoutExecutor {
             // them to avoid a noisy timing entry. Whitespace-only
             // commands are NOT empty; they reach sendText unchanged.
             guard let cmd = effectiveCommand, !cmd.isEmpty else { continue }
-            let cmdClock = Clock()
+            let cmdClock = StepClock()
             terminalPanel.sendText(cmd)
             walkState.timings.append(StepTiming(
                 step: "surface[\(surfaceSpec.id)].command.enqueue",
@@ -253,7 +254,7 @@ enum WorkspaceLayoutExecutor {
         // Step 8 — assemble refs. The executor mints refs for every surface
         // and pane that was successfully created; plan-local surface ids map
         // 1:1 to live `surface:N` / `pane:N` refs via the injected minters.
-        let refsClock = Clock()
+        let refsClock = StepClock()
         var surfaceRefs: [String: String] = [:]
         var paneRefs: [String: String] = [:]
         for (planSurfaceId, panelId) in walkState.planSurfaceIdToPanelId {
@@ -558,6 +559,13 @@ enum WorkspaceLayoutExecutor {
         var planSurfaceIdToPanelId: [String: UUID] = [:]
         /// Split-index counter used for step timing labels.
         var splitIndex: Int = 0
+        /// B-IM2: mirror of ApplyOptions.select — gates bonsplit tab selection
+        /// so background applies (select: false) never steal focus mid-tree.
+        let selectAllowed: Bool
+        /// Claude-P5: tracks which pane UUIDs have already had paneMetadata
+        /// written so a second tab-stacked surface declaring paneMetadata
+        /// produces a visible warning instead of silently overwriting.
+        var panesWithMetadataWritten: Set<UUID> = []
 
         /// Materialize `node` into `paneId`. Top-down: at a split node the
         /// walker splits the **current pane** into two sibling panes (first
@@ -597,7 +605,7 @@ enum WorkspaceLayoutExecutor {
                 return
             }
 
-            let leafClock = Clock()
+            let leafClock = StepClock()
             let firstPanelId: UUID
             if anchor.kind == firstSurface.kind {
                 firstPanelId = anchor.panelId
@@ -655,7 +663,7 @@ enum WorkspaceLayoutExecutor {
             // Additional surfaces in the same pane (tab-stacked).
             for additionalSurfaceId in paneSpec.surfaceIds.dropFirst() {
                 guard let spec = surfacesById[additionalSurfaceId] else { continue }
-                let addClock = Clock()
+                let addClock = StepClock()
                 guard let newPanelId = createSurface(spec, inPane: paneId, focus: false) else {
                     failures.append(ApplyFailure(
                         code: "surface_create_failed",
@@ -675,11 +683,11 @@ enum WorkspaceLayoutExecutor {
                 writeSurfaceMetadata(spec, panelId: newPanelId)
             }
 
-            // Apply selectedIndex. Default is the first surface, which
-            // bonsplit selects on creation; only deviate if the plan picks
-            // another.
-            if let selectedIndex = paneSpec.selectedIndex,
-               selectedIndex > 0,
+            // Apply selectedIndex. Only when selectAllowed (B-IM2): background
+            // applies (select: false) must not steal bonsplit tab focus.
+            if selectAllowed,
+               let selectedIndex = paneSpec.selectedIndex,
+               selectedIndex >= 0,
                selectedIndex < paneSpec.surfaceIds.count {
                 let selectedSurfaceId = paneSpec.surfaceIds[selectedIndex]
                 if let selectedPanelId = planSurfaceIdToPanelId[selectedSurfaceId],
@@ -717,7 +725,7 @@ enum WorkspaceLayoutExecutor {
                 : .horizontal
             let label = splitIndex
             splitIndex += 1
-            let splitClock = Clock()
+            let splitClock = StepClock()
             let newPanelId = splitFromPanel(
                 anchor.panelId,
                 orientation: orientation,
@@ -821,7 +829,7 @@ enum WorkspaceLayoutExecutor {
         /// The `mailbox.*` namespace in pane metadata is enforced
         /// strings-only per docs/c11-13-cmux-37-alignment.md.
         mutating func writeSurfaceMetadata(_ spec: SurfaceSpec, panelId: UUID) {
-            let surfaceClock = Clock()
+            let surfaceClock = StepClock()
             let workspaceId = workspace.id
 
             // Surface description — reserved key validated by the store.
@@ -853,17 +861,21 @@ enum WorkspaceLayoutExecutor {
             if let metadata = spec.metadata, !metadata.isEmpty {
                 for (key, value) in metadata {
                     if key == "title", spec.title != nil {
+                        let msg = "surface[\(spec.id)] sets both SurfaceSpec.title and metadata[\"title\"]; metadata value wins"
+                        warnings.append(msg)
                         failures.append(ApplyFailure(
                             code: "metadata_override",
                             step: "metadata.surface[\(spec.id)].write",
-                            message: "surface[\(spec.id)] sets both SurfaceSpec.title and metadata[\"title\"]; metadata value wins"
+                            message: msg
                         ))
                     }
                     if key == "description", spec.description != nil {
+                        let msg = "surface[\(spec.id)] sets both SurfaceSpec.description and metadata[\"description\"]; metadata value wins"
+                        warnings.append(msg)
                         failures.append(ApplyFailure(
                             code: "metadata_override",
                             step: "metadata.surface[\(spec.id)].write",
-                            message: "surface[\(spec.id)] sets both SurfaceSpec.description and metadata[\"description\"]; metadata value wins"
+                            message: msg
                         ))
                     }
                     let decoded = PersistedMetadataBridge.decodeValues([key: value])
@@ -895,7 +907,7 @@ enum WorkspaceLayoutExecutor {
             guard let paneMetadata = spec.paneMetadata, !paneMetadata.isEmpty else {
                 return
             }
-            let paneClock = Clock()
+            let paneClock = StepClock()
             guard let paneId = workspace.paneIdForPanel(panelId) else {
                 let message = "surface[\(spec.id)] pane metadata skipped: no bonsplit pane resolved for panel"
                 warnings.append(message)
@@ -907,6 +919,20 @@ enum WorkspaceLayoutExecutor {
                 return
             }
             let paneUUID = paneId.id
+            // Claude-P5: multi-tab panes share one bonsplit pane; writing
+            // paneMetadata from a non-first surface overwrites the first
+            // surface's keys. Detect and warn so Blueprint authors see the
+            // collision instead of losing data silently.
+            if panesWithMetadataWritten.contains(paneUUID) {
+                let message = "surface[\(spec.id)] paneMetadata skipped: pane already received metadata from the first surface in this tab group (multi-tab pane collision)"
+                warnings.append(message)
+                failures.append(ApplyFailure(
+                    code: "pane_metadata_collision",
+                    step: "metadata.pane[\(spec.id)].write",
+                    message: message
+                ))
+                return
+            }
             for (key, value) in paneMetadata {
                 if key.hasPrefix("mailbox."), case .string = value {
                     // string — OK
@@ -939,6 +965,7 @@ enum WorkspaceLayoutExecutor {
                     ))
                 }
             }
+            panesWithMetadataWritten.insert(paneUUID)
             timings.append(StepTiming(
                 step: "metadata.pane[\(spec.id)].write",
                 durationMs: paneClock.elapsedMs
@@ -1100,7 +1127,7 @@ enum WorkspaceLayoutExecutor {
     /// Thin wrapper around `DispatchTime` for timing a step without the
     /// noise of `DispatchTime.now()` arithmetic at every call site. One per
     /// step; read `elapsedMs` when the step ends.
-    fileprivate struct Clock {
+    fileprivate struct StepClock {
         let start: DispatchTime = .now()
         var elapsedMs: Double {
             let ns = DispatchTime.now().uptimeNanoseconds &- start.uptimeNanoseconds
