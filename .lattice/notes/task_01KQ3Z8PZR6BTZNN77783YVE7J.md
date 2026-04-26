@@ -1,6 +1,8 @@
-# C11-20 — Upstream pull: CLI hygiene & focus policy (7 picks)
+# C11-20: Upstream cmux issues, CLI hygiene and focus policy (7 picks)
 
-**Bundle theme:** Small upstream-cmux issues that align tightly with c11's documented Socket focus policy and CLI hygiene. Every pick lives in shared CLI/socket code.
+> **Origin reminder:** every `#NNNN` in this note refers to an open **issue** in the upstream parent project [`manaflow-ai/cmux`](https://github.com/manaflow-ai/cmux), not to a c11 issue or PR. The picks were drawn from `code/c11-private/upstream-watch/issues/open.md` after the daily refresh on 2026-04-26.
+
+**Bundle theme:** Small upstream cmux issues that align tightly with c11's documented Socket focus policy and CLI hygiene. Every pick lives in shared CLI/socket code.
 
 **Source feed:** `code/c11-private/upstream-watch/` (auto-refreshed daily at 08:00 local).
 **Original triage:** `code/c11-private/upstream-watch/picks/2026-04-26-pick-10.md` and `picks/2026-04-26-pick-11-25.md`.
