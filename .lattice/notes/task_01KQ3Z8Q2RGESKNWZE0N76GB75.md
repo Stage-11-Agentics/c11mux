@@ -1,6 +1,8 @@
-# C11-21 — Upstream pull: Input handling — keyboard, IME, paste, clipboard, signals (8 picks)
+# C11-21: Upstream cmux issues, Input handling (8 picks)
 
-**Bundle theme:** Small upstream-cmux issues affecting input handling: keyboard layouts, IME, paste/clipboard, signals, and keystroke-triggered UI. Disproportionately important because c11 ships in 6 non-English locales (ja, uk, ko, zh-Hans, zh-Hant, ru) and any input-path bug compounds across them.
+> **Origin reminder:** every `#NNNN` in this note refers to an open **issue** in the upstream parent project [`manaflow-ai/cmux`](https://github.com/manaflow-ai/cmux), not to a c11 issue or PR. The picks were drawn from `code/c11-private/upstream-watch/issues/open.md` after the daily refresh on 2026-04-26.
+
+**Bundle theme:** Small upstream cmux issues affecting input handling: keyboard layouts, IME, paste/clipboard, signals, and keystroke-triggered UI. Disproportionately important because c11 ships in 6 non-English locales (ja, uk, ko, zh-Hans, zh-Hant, ru) and any input-path bug compounds across them.
 
 **Source feed:** `code/c11-private/upstream-watch/` (auto-refreshed daily at 08:00 local).
 **Original triage:** `code/c11-private/upstream-watch/picks/2026-04-26-pick-10.md` and `picks/2026-04-26-pick-11-25.md`.

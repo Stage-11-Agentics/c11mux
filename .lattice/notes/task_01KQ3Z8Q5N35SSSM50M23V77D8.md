@@ -1,6 +1,8 @@
-# C11-22 — Upstream pull: Stability — render, theme, crashes, perf, config, infra (10 picks)
+# C11-22: Upstream cmux issues, Stability (10 picks)
 
-**Bundle theme:** Stability sweep — small upstream-cmux issues covering crashes, render bugs, theme regressions, performance fixes, config-parser regressions, and infrastructure (SSH, AppKit). Disproportionately valuable because each landed fix is a removed source of user-visible failure.
+> **Origin reminder:** every `#NNNN` in this note refers to an open **issue** in the upstream parent project [`manaflow-ai/cmux`](https://github.com/manaflow-ai/cmux), not to a c11 issue or PR. The picks were drawn from `code/c11-private/upstream-watch/issues/open.md` after the daily refresh on 2026-04-26.
+
+**Bundle theme:** Stability sweep covering crashes, render bugs, theme regressions, performance fixes, config-parser regressions, and infrastructure (SSH, AppKit). Disproportionately valuable because each landed fix is a removed source of user-visible failure.
 
 **Source feed:** `code/c11-private/upstream-watch/` (auto-refreshed daily at 08:00 local).
 **Original triage:** `code/c11-private/upstream-watch/picks/2026-04-26-pick-10.md` and `picks/2026-04-26-pick-11-25.md`.
