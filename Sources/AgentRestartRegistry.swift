@@ -60,11 +60,23 @@ struct AgentRestartRegistry: Sendable {
         }
     }
 
+    /// Stable identity for `Equatable` comparisons. The registry carries
+    /// closures (not `Equatable`); callers (the v2 handler, tests) identify
+    /// a registry by the name it was minted with — `"phase1"` for the
+    /// canonical singleton, test-chosen names for fixtures.
+    let name: String
     private let rowsByType: [String: Row]
 
-    init(rows: [Row]) {
+    init(name: String, rows: [Row]) {
+        self.name = name
         var map: [String: Row] = [:]
-        for row in rows { map[row.terminalType] = row }
+        // Trim on insert to match the symmetric trim in `resolveCommand`;
+        // avoids an asymmetric-trim footgun where a row registered with
+        // surrounding whitespace is silently un-resolvable.
+        for row in rows {
+            let key = row.terminalType.trimmingCharacters(in: .whitespacesAndNewlines)
+            map[key] = row
+        }
         self.rowsByType = map
     }
 
@@ -106,12 +118,14 @@ struct AgentRestartRegistry: Sendable {
     /// returns the **submit form** of the command, not the typed form.
     /// How to submit is the registry's concern, not the executor's —
     /// otherwise every executor caller would have to remember to append
-    /// one.
+    /// one. Without it, `TerminalPanel.sendText` writes the bytes verbatim
+    /// and the command sits at the prompt unexecuted. Phase 5 rows for
+    /// codex/opencode/kimi follow the same "return submit form" contract.
     ///
     /// Codex uses `--last` best-effort to resume the most recent session
     /// globally. Opencode and kimi have no verified resume flag and launch
     /// fresh — best-effort is preferable to a broken flag.
-    static let phase1: AgentRestartRegistry = .init(rows: [
+    static let phase1: AgentRestartRegistry = .init(name: "phase1", rows: [
         Row(terminalType: "claude-code") { sessionId, _ in
             guard let raw = sessionId?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !raw.isEmpty,
