@@ -128,7 +128,7 @@ final class SidebarHelpMenuUITests: XCTestCase {
         )
         XCTAssertTrue(
             app.staticTexts[
-                "A human will read this! You can also reach us at founders@manaflow.com."
+                "A human will read this! You can also reach us at hello@stage11.ai."
             ].waitForExistence(timeout: 2.0)
         )
 

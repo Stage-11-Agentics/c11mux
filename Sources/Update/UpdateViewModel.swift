@@ -502,7 +502,7 @@ enum UpdateState: Equatable {
                 return nil
             }
 
-            if let url = URL(string: "https://github.com/manaflow-ai/cmux/commit/\(newHash)") {
+            if let url = URL(string: "https://github.com/Stage-11-Agentics/c11/commit/\(newHash)") {
                 self = .commit(url)
             } else {
                 return nil

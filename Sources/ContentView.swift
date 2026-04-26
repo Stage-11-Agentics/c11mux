@@ -8691,8 +8691,12 @@ enum DevBuildBannerDebugSettings {
 private enum FeedbackComposerSettings {
     static let storedEmailKey = "sidebarHelpFeedbackEmail"
     static let endpointEnvironmentKey = "CMUX_FEEDBACK_API_URL"
-    static let defaultEndpoint = "https://cmux.com/api/feedback"
-    static let foundersEmail = "founders@manaflow.com"
+    // Empty default no-ops the feedback POST unless CMUX_FEEDBACK_API_URL is
+    // set. Pending: stand up a Stage 11-owned feedback endpoint and wire it
+    // here. UI already renders a "Feedback is unavailable" fallback when
+    // endpointURL() returns nil.
+    static let defaultEndpoint = ""
+    static let foundersEmail = "hello@stage11.ai"
     static let maxMessageLength = 4_000
     static let maxAttachmentCount = 10
     // Keep the multipart body below Vercel's 4.5 MB request limit.
@@ -9744,7 +9748,7 @@ private struct SidebarFeedbackComposerSheet: View {
             Text(
                 String(
                     localized: "sidebar.help.feedback.successBody",
-                    defaultValue: "You can also reach us at founders@manaflow.com."
+                    defaultValue: "You can also reach us at hello@stage11.ai."
                 )
             )
             .font(.system(size: 12))
@@ -9766,7 +9770,7 @@ private struct SidebarFeedbackComposerSheet: View {
             Text(
                 String(
                     localized: "sidebar.help.feedback.note",
-                    defaultValue: "A human will read this! You can also reach us at founders@manaflow.com."
+                    defaultValue: "A human will read this! You can also reach us at hello@stage11.ai."
                 )
             )
             .font(.system(size: 12))
@@ -10019,7 +10023,7 @@ private struct SidebarFeedbackComposerSheet: View {
         case .invalidEndpoint:
             return String(
                 localized: "sidebar.help.feedback.endpointError",
-                defaultValue: "Feedback is unavailable right now. Email founders@manaflow.com instead."
+                defaultValue: "Feedback is unavailable right now. Email hello@stage11.ai instead."
             )
         case .invalidResponse:
             return String(
@@ -10062,7 +10066,7 @@ private struct SidebarFeedbackComposerSheet: View {
             case 500...599:
                 return String(
                     localized: "sidebar.help.feedback.endpointError",
-                    defaultValue: "Feedback is unavailable right now. Email founders@manaflow.com instead."
+                    defaultValue: "Feedback is unavailable right now. Email hello@stage11.ai instead."
                 )
             default:
                 return String(
@@ -10163,7 +10167,7 @@ enum FeedbackComposerBridge {
 
         switch submissionError {
         case .invalidEndpoint:
-            return "Feedback is unavailable right now. Email founders@manaflow.com instead."
+            return "Feedback is unavailable right now. Email hello@stage11.ai instead."
         case .invalidResponse:
             return "Couldn't send feedback. Please try again."
         case .attachmentReadFailed:
@@ -10182,7 +10186,7 @@ enum FeedbackComposerBridge {
             case 429:
                 return "Too many feedback attempts. Please try again later."
             case 500...599:
-                return "Feedback is unavailable right now. Email founders@manaflow.com instead."
+                return "Feedback is unavailable right now. Email hello@stage11.ai instead."
             default:
                 return "Couldn't send feedback. Please try again."
             }
