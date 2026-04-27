@@ -4842,6 +4842,13 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
     private var keyTextAccumulator: [String]? = nil
     private var markedText = NSMutableAttributedString()
     private var lastPerformKeyEvent: TimeInterval?
+    // Snapshot of modifier flags from the most recent flagsChanged event so we
+    // can compute press/release deltas. AppKit fires flagsChanged on every
+    // modifier transition without telling us whether the bit was set or
+    // cleared; diffing against this snapshot is how we know which to send.
+    // Stack value (NSEvent.ModifierFlags is OptionSet) so this stays
+    // allocation-free in the typing-latency hot path.
+    private var lastModifierFlags: NSEvent.ModifierFlags = []
     private struct SelectionSnapshot {
         let range: NSRange
         let string: String
@@ -5177,6 +5184,34 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
             if handled { return }
         }
 
+        // Fast path for Option+Delete (alt+backspace).
+        //
+        // AppKit's interpretKeyEvents would translate Option+Delete to a
+        // deleteWordBackward: action selector or to insertText with a
+        // pre-deleted string, both of which strip the alt prefix Ghostty
+        // needs to encode the backward-kill-word escape sequence
+        // (ESC DEL = \x1b\x7f) that lazygit, vim, fish, zsh, Claude Code,
+        // and Codex all expect for word-deletion in TUI input fields.
+        //
+        // Mirrors the Ctrl fast path above. See cmux#1153 (@sldx report,
+        // @judekim0507 diagnosis, @pandec PR #2246 root-cause).
+        if event.keyCode == 51,
+           flags.contains(.option),
+           !flags.contains(.command),
+           !flags.contains(.control),
+           !hasMarkedText() {
+            ghostty_surface_set_focus(surface, true)
+            var keyEvent = ghostty_input_key_s()
+            keyEvent.action = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
+            keyEvent.keycode = UInt32(event.keyCode)
+            keyEvent.mods = modsFromEvent(event)
+            keyEvent.consumed_mods = GHOSTTY_MODS_NONE
+            keyEvent.composing = false
+            keyEvent.unshifted_codepoint = unshiftedCodepointFromEvent(event)
+            keyEvent.text = nil
+            if ghostty_surface_key(surface, keyEvent) { return }
+        }
+
         let action = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
 
         // Translate mods to respect Ghostty config (e.g., macos-option-as-alt)
@@ -5501,13 +5536,38 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
             return
         }
 
+        // AppKit's flagsChanged fires on every modifier transition without
+        // telling us whether the bit was set or cleared. Without a press/
+        // release distinction Ghostty's input state always thinks modifiers
+        // are held: that breaks alt+backspace word-delete in TUI apps after
+        // Option releases (cmux#1153) and breaks IME composition flows where
+        // Shift/Cmd are tapped during preedit (cmux#2949).
+        //
+        // Diff against the previous snapshot (stack value, allocation-free
+        // since NSEvent.ModifierFlags is OptionSet) and emit the appropriate
+        // action. New bits = PRESS, cleared bits = RELEASE.
+        let newFlags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let oldFlags = lastModifierFlags
+        lastModifierFlags = newFlags
+
         var keyEvent = ghostty_input_key_s()
-        keyEvent.action = GHOSTTY_ACTION_PRESS
         keyEvent.keycode = UInt32(event.keyCode)
         keyEvent.mods = modsFromEvent(event)
         keyEvent.consumed_mods = GHOSTTY_MODS_NONE
         keyEvent.text = nil
         keyEvent.composing = false
+
+        if !newFlags.subtracting(oldFlags).isEmpty {
+            keyEvent.action = GHOSTTY_ACTION_PRESS
+        } else if !oldFlags.subtracting(newFlags).isEmpty {
+            keyEvent.action = GHOSTTY_ACTION_RELEASE
+        } else {
+            // No bit changed (e.g. caps lock toggle on a layout where the
+            // diff cancels out). Default to PRESS for backwards compat with
+            // anything that relied on the previous unconditional behavior.
+            keyEvent.action = GHOSTTY_ACTION_PRESS
+        }
+
         _ = ghostty_surface_key(surface, keyEvent)
     }
 
