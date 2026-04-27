@@ -1196,6 +1196,11 @@ private final class WindowCommandPaletteOverlayController: NSObject {
 
     func update(rootView: AnyView, isVisible: Bool) {
         guard ensureInstalled() else { return }
+        // Skip redundant work when the palette is not visible and the new update
+        // also hides it. SwiftUI calls this on every parent render cycle; without
+        // this guard each cycle would re-set hostingView.rootView = EmptyView(),
+        // driving unnecessary SwiftUI layout work and contributing to idle spin.
+        guard isVisible || isPaletteVisible else { return }
         let shouldPromote = CommandPaletteOverlayPromotionPolicy.shouldPromote(
             previouslyVisible: isPaletteVisible,
             isVisible: isVisible

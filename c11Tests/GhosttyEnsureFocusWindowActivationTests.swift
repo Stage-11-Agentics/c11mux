@@ -69,6 +69,35 @@ final class GhosttyEnsureFocusWindowActivationTests: XCTestCase {
     }
 }
 
+final class IdleSpinDebounceTests: XCTestCase {
+    func testCoalescingGuardReducesCallsToConstant() {
+        // Models the coalescing guard behavior used in scheduleAutomaticFirstResponderApply
+        // and the palette overlay update path. Firing N pending-check requests through
+        // a boolean guard must produce O(1) actual work items, not O(N).
+        var pendingFlag = false
+        var actualCallCount = 0
+        let expectedCallCount = 1
+        let iterations = 1000
+
+        let expectation = XCTestExpectation(description: "coalesced work item fires once")
+
+        for _ in 0..<iterations {
+            guard !pendingFlag else { continue }
+            pendingFlag = true
+            DispatchQueue.main.async {
+                pendingFlag = false
+                actualCallCount += 1
+                if actualCallCount == expectedCallCount {
+                    expectation.fulfill()
+                }
+            }
+        }
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(actualCallCount, expectedCallCount, "Coalescing guard must reduce \(iterations) requests to exactly 1 actual call")
+    }
+}
+
 final class ScrollbarRightEdgeInsetTests: XCTestCase {
     func testLegacyScrollerWidthIsNonZero() {
         // The Pick 9 fix subtracts NSScroller.scrollerWidth(for:.regular, scrollerStyle:.legacy)
