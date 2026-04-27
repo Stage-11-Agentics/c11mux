@@ -338,7 +338,10 @@ struct GhosttyConfig {
         let multipliers: [(String, Int)] = [("G", 1_073_741_824), ("M", 1_048_576), ("K", 1_024)]
         for (suffix, mult) in multipliers {
             if upper.hasSuffix(suffix), let n = Int(upper.dropLast()) {
-                return n * mult
+                guard n >= 0 else { return nil }
+                let (result, overflow) = n.multipliedReportingOverflow(by: mult)
+                guard !overflow else { return nil }
+                return result
             }
         }
         return Int(s)

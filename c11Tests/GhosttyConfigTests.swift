@@ -802,6 +802,27 @@ final class WorkspaceAppearanceConfigResolutionTests: XCTestCase {
         config.parse("scrollback-limit = 1GB")
         XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Unsupported suffix should leave scrollback limit unchanged")
     }
+
+    func testScrollbackLimitRejectsOverflowValue() {
+        var config = GhosttyConfig()
+        let defaultLimit = config.scrollbackLimit
+        config.parse("scrollback-limit = 9000000000G")
+        XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Overflow value should leave scrollback limit unchanged")
+    }
+
+    func testScrollbackLimitRejectsNegativeValue() {
+        var config = GhosttyConfig()
+        let defaultLimit = config.scrollbackLimit
+        config.parse("scrollback-limit = -1G")
+        XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Negative value should leave scrollback limit unchanged")
+    }
+
+    func testScrollbackLimitRejectsNearMaxOverflow() {
+        var config = GhosttyConfig()
+        let defaultLimit = config.scrollbackLimit
+        config.parse("scrollback-limit = 9223372036G")
+        XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Near-Int.max overflow should leave scrollback limit unchanged")
+    }
 }
 
 @MainActor
