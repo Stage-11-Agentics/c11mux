@@ -174,12 +174,13 @@ final class AIUsageAccountStore: ObservableObject {
             accounts = []
         }
 
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+
         let hasClaudeAccount = accounts.contains {
             $0.providerId == Providers.claude.id
         }
         if !hasClaudeAccount {
-            let claudeDir = URL(fileURLWithPath: NSHomeDirectory())
-                .appendingPathComponent(".claude/projects")
+            let claudeDir = homeDir.appendingPathComponent(".claude/projects")
             if FileManager.default.fileExists(atPath: claudeDir.path) {
                 let auto = AIUsageAccount(
                     providerId: Providers.claude.id,
@@ -192,7 +193,7 @@ final class AIUsageAccountStore: ObservableObject {
 
         let hasCodexAccount = accounts.contains { $0.providerId == Providers.codex.id }
         if !hasCodexAccount {
-            let codexDB = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".codex/state_5.sqlite")
+            let codexDB = homeDir.appendingPathComponent(".codex/state_5.sqlite")
             if FileManager.default.fileExists(atPath: codexDB.path) {
                 let auto = AIUsageAccount(id: UUID(), providerId: Providers.codex.id, displayName: "Codex")
                 accounts.append(auto)

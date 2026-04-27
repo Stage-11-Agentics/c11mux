@@ -65,7 +65,7 @@ enum ClaudeLocalUsageFetcher {
     }
 
     static func allEntries() async throws -> [Entry] {
-        let projectsDir = URL(fileURLWithPath: NSHomeDirectory())
+        let projectsDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/projects")
 
         guard FileManager.default.fileExists(atPath: projectsDir.path) else {

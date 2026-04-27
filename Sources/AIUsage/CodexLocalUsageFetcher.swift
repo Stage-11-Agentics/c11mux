@@ -81,7 +81,7 @@ enum CodexLocalUsageFetcher {
     }
 
     static func allEntries() throws -> [Entry] {
-        let dbPath = URL(fileURLWithPath: NSHomeDirectory())
+        let dbPath = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".codex/state_5.sqlite").path
 
         var db: OpaquePointer?
