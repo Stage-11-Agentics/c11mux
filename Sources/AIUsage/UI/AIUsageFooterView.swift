@@ -180,6 +180,35 @@ struct AIUsageFooterView: View {
                 .font(.system(size: 10, weight: .regular).monospacedDigit())
                 .foregroundColor(.secondary)
                 .frame(width: 32, alignment: .trailing)
+            if let resetText = AIUsageFooterView.resetCountdownText(window: window, isSession: isSession) {
+                Text(resetText)
+                    .font(.system(size: 9, weight: .regular))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .accessibilityLabel(String(
+                        localized: "aiusage.reset.accessibility",
+                        defaultValue: "Resets"
+                    ))
+            }
         }
+    }
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
+
+    static func resetCountdownText(window: AIUsageWindow, isSession: Bool, now: Date = Date()) -> String? {
+        let label = providerUsageResetLabel(window: window, isSession: isSession, now: now)
+        if case .resetsAt(let date) = label {
+            let format = String(
+                localized: "aiusage.reset.resetsIn",
+                defaultValue: "resets %@"
+            )
+            let relative = relativeFormatter.localizedString(for: date, relativeTo: now)
+            return String(format: format, locale: .current, relative)
+        }
+        return nil
     }
 }

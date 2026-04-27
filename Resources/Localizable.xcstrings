@@ -57244,6 +57244,28 @@
           }
         }
       }
+    },
+    "aiusage.reset.accessibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resets"
+          }
+        }
+      }
+    },
+    "aiusage.reset.resetsIn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "resets %@"
+          }
+        }
+      }
     }
   }
 }
