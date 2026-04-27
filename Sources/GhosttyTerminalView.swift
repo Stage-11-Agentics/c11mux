@@ -8544,7 +8544,16 @@ final class GhosttySurfaceScrollView: NSView {
         // Reserving extra overlay-scroller gutter here causes AppKit and libghostty to fight
         // over terminal columns during split churn. The width can flap by one scrollbar gutter,
         // which redraws the shell prompt multiple times on Cmd+D. Favor stable columns.
-        let width = max(0, scrollView.contentSize.width)
+        var width = max(0, scrollView.contentSize.width)
+        // When the system uses legacy (always-visible) scrollers, the vertical scrollbar
+        // takes up physical column space not reflected in contentSize because the scroll view
+        // was initialized with .overlay style. Subtract the scroller gutter only in that case
+        // to prevent text from extending under the scrollbar. Do NOT apply in .overlay mode —
+        // that is the prior deliberate decision that prevents the column-flap on split churn.
+        if scrollView.scrollerStyle == .legacy {
+            let gutterWidth = NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
+            width = max(0, width - gutterWidth)
+        }
         let height = surfaceView.frame.height
         guard width > 0, height > 0 else { return false }
         return surfaceView.pushTargetSurfaceSize(CGSize(width: width, height: height))

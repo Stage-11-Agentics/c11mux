@@ -68,3 +68,20 @@ final class GhosttyEnsureFocusWindowActivationTests: XCTestCase {
         )
     }
 }
+
+final class ScrollbarRightEdgeInsetTests: XCTestCase {
+    func testLegacyScrollerWidthIsNonZero() {
+        // The Pick 9 fix subtracts NSScroller.scrollerWidth(for:.regular, scrollerStyle:.legacy)
+        // from the surface width when the scroll view is in legacy mode. This test verifies
+        // that the AppKit API returns a positive value so the inset arithmetic makes sense.
+        let gutterWidth = NSScroller.scrollerWidth(for: .regular, scrollerStyle: .legacy)
+        XCTAssertGreaterThan(gutterWidth, 0, "Legacy scroller gutter width must be positive")
+    }
+
+    func testOverlayScrollerWidthIsZero() {
+        // The fix must NOT subtract anything in overlay mode (prior deliberate decision).
+        // Overlay scrollers have zero width (they float over content).
+        let overlayWidth = NSScroller.scrollerWidth(for: .regular, scrollerStyle: .overlay)
+        XCTAssertEqual(overlayWidth, 0, "Overlay scroller width must be zero — it floats over content")
+    }
+}
