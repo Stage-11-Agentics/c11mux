@@ -13252,6 +13252,17 @@ struct CMUXCLI {
         let workspaceArg = hookWsFlag ?? ProcessInfo.processInfo.environment["CMUX_WORKSPACE_ID"]
         let surfaceArg = optionValue(hookArgs, name: "--surface") ?? (hookWsFlag == nil ? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"] : nil)
         let rawInput = String(data: FileHandle.standardInput.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        // C11-24 diagnostic: when CMUX_HOOK_DEBUG_PATH is set, dump the
+        // raw stdin JSON to that path before parsing. Used to verify the
+        // exact shape of the SessionStart payload Claude Code emits when
+        // session_id capture appears to be silently dropping. Best-effort —
+        // any I/O error is swallowed so a misconfigured debug path can
+        // never break the hook itself.
+        if let debugPath = ProcessInfo.processInfo.environment["CMUX_HOOK_DEBUG_PATH"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !debugPath.isEmpty {
+            try? rawInput.write(toFile: debugPath, atomically: true, encoding: .utf8)
+        }
         let parsedInput = parseClaudeHookInput(rawInput: rawInput)
         let sessionStore = ClaudeHookSessionStore()
         telemetry.breadcrumb(
@@ -13476,6 +13487,30 @@ struct CMUXCLI {
                 _ = try? clearClaudeStatus(client: client, workspaceId: workspaceId)
                 _ = try? sendV1Command("clear_agent_pid claude_code --tab=\(workspaceId)", client: client)
                 _ = try? sendV1Command("clear_notifications --tab=\(workspaceId)", client: client)
+                // C11-24: clear `claude.session_id` from the surface metadata
+                // so a subsequent c11 restart doesn't auto-resume an
+                // already-ended session. `terminal_type` stays — it's a
+                // per-surface configuration ("this surface is a claude
+                // terminal"), not a per-session pointer.
+                let surfaceId = consumedSession.surfaceId
+                if !surfaceId.isEmpty {
+                    var params: [String: Any] = [
+                        "surface_id": surfaceId,
+                        "keys": [SurfaceMetadataKeyName.claudeSessionId],
+                        "source": "explicit"
+                    ]
+                    if !workspaceId.isEmpty {
+                        params["workspace_id"] = workspaceId
+                    }
+                    do {
+                        _ = try client.sendV2(method: "surface.clear_metadata", params: params)
+                        telemetry.breadcrumb("claude-hook.session-id.metadata-clear.ok")
+                    } catch let error as CLIError where isAdvisoryHookConnectivityError(error) {
+                        telemetry.breadcrumb("claude-hook.session-id.metadata-clear.skipped")
+                    } catch {
+                        telemetry.breadcrumb("claude-hook.session-id.metadata-clear.failed")
+                    }
+                }
             }
             print("OK")
 

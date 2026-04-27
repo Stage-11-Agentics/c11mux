@@ -324,6 +324,105 @@ extension Workspace {
         } else {
             scheduleFocusReconcile()
         }
+
+        // C11-24: schedule agent-resume for restored terminal surfaces that
+        // carry a captured session id. The dispatch is deferred so Ghostty
+        // PTYs + their shells have time to come up; `CMUX_DISABLE_AGENT_RESTART=1`
+        // suppresses the whole pass. Layout/metadata/status restore above
+        // is independent — failures here cannot break a normal restore.
+        scheduleAgentRestart(from: snapshot, registry: .phase1, oldToNewPanelIds: oldToNewPanelIds)
+    }
+
+    /// C11-24: collect resume commands for terminal panels that have a
+    /// captured `terminal_type` + `claude.session_id` in their snapshot
+    /// metadata, consulting the supplied registry. Reads directly from
+    /// the panel snapshot rather than the live `SurfaceMetadataStore`
+    /// because the store is rehydrated as part of the same restore pass
+    /// and may not have the values populated at the moment this is called.
+    /// Internal (not private) so unit tests can exercise it without going
+    /// through the full live workspace restore path.
+    func pendingRestartCommands(
+        from snapshot: SessionWorkspaceSnapshot,
+        registry: AgentRestartRegistry
+    ) -> [(panelId: UUID, command: String)] {
+        guard SessionPersistencePolicy.agentRestartOnRestoreEnabled else { return [] }
+        var result: [(panelId: UUID, command: String)] = []
+        for panelSnapshot in snapshot.panels {
+            guard panelSnapshot.type == .terminal else { continue }
+            let meta = Workspace.stringValues(from: panelSnapshot.metadata)
+            let terminalType = meta[SurfaceMetadataKeyName.terminalType]
+            let sessionId = meta[SurfaceMetadataKeyName.claudeSessionId]
+            guard let command = registry.resolveCommand(
+                terminalType: terminalType,
+                sessionId: sessionId,
+                metadata: meta
+            ) else { continue }
+            result.append((panelId: panelSnapshot.id, command: command))
+        }
+        return result
+    }
+
+    /// Flatten persisted metadata to `[String: String]`, keeping only
+    /// `.string(...)` entries. Mirrors the existing
+    /// `WorkspaceLayoutExecutor.stringMetadata` helper: the registry
+    /// contract is string-valued (`terminal_type`, `claude.session_id`)
+    /// and the metadata store rejects non-string writes for these
+    /// reserved keys at the boundary, so silently dropping any non-string
+    /// value here is consistent with the executor's restore path.
+    static func stringValues(from metadata: [String: PersistedJSONValue]?) -> [String: String] {
+        guard let metadata else { return [:] }
+        var out: [String: String] = [:]
+        for (key, value) in metadata {
+            if case .string(let s) = value {
+                out[key] = s
+            }
+        }
+        return out
+    }
+
+    /// Schedule deferred submission of synthesised resume commands for
+    /// terminal panels resolved via `pendingRestartCommands`. The dispatch
+    /// runs on the main actor after `SessionPersistencePolicy.agentRestartDelay`
+    /// so Ghostty surfaces have time to initialise.
+    ///
+    /// `Ghostty's text-input path (sendText → ghostty_surface_text) wraps
+    /// input in bracketed-paste markers (`ESC[200~…ESC[201~`). Bracketed
+    /// paste mode is intentionally designed so that embedded `\n`/`\r`
+    /// inside the paste do not auto-execute — zsh ZLE / bash readline
+    /// only execute when a *real* Return keypress arrives outside the
+    /// paste. So sending `<command>\n` (or `<command>\r`) as one paste
+    /// types the command but leaves it sitting at the prompt, which is
+    /// what the operator observed.
+    ///
+    /// The fix is to use `TextBoxSubmit.send(_:via:)` — the same helper
+    /// the inline TextBox uses — which types the trimmed text via the
+    /// paste path, then dispatches a real synthetic Return key event
+    /// (`ghostty_surface_key`) so the line discipline sees an Enter
+    /// outside the bracketed paste and executes.
+    ///
+    /// `oldToNewPanelIds` lets the routine remap snapshot panel ids to
+    /// the freshly minted ids when the stable-panel-id rollback flag is
+    /// set. Under default behaviour (`stablePanelIdsEnabled` true) the
+    /// map is an identity and the lookup is the snapshot id directly.
+    private func scheduleAgentRestart(
+        from snapshot: SessionWorkspaceSnapshot,
+        registry: AgentRestartRegistry,
+        oldToNewPanelIds: [UUID: UUID]
+    ) {
+        let commands = pendingRestartCommands(from: snapshot, registry: registry)
+        guard !commands.isEmpty else { return }
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + SessionPersistencePolicy.agentRestartDelay
+        ) { [weak self] in
+            guard let self else { return }
+            for (snapshotPanelId, command) in commands {
+                let livePanelId = oldToNewPanelIds[snapshotPanelId] ?? snapshotPanelId
+                guard let terminalPanel = self.panels[livePanelId] as? TerminalPanel else {
+                    continue
+                }
+                TextBoxSubmit.send(command, via: terminalPanel.surface)
+            }
+        }
     }
 
     private func sessionLayoutSnapshot(from node: ExternalTreeNode) -> SessionWorkspaceLayoutSnapshot {
