@@ -106,13 +106,14 @@ enum WorkspaceLayoutExecutor {
             if let hex = resolvedHex {
                 workspace.setCustomColor(hex)
             } else {
+                let localizedFormat = String(
+                    localized: "workspace.apply.unknownColorName",
+                    defaultValue: "Unknown color name or invalid hex: %@"
+                )
                 let failure = ApplyFailure(
                     code: "unknown_color_name",
                     step: "workspace.create",
-                    message: String(
-                        localized: "workspace.apply.unknownColorName",
-                        defaultValue: "Unknown color name or invalid hex: \(color)"
-                    )
+                    message: String(format: localizedFormat, color)
                 )
                 failures.append(failure)
                 warnings.append(failure.message)
