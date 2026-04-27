@@ -11086,7 +11086,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if hasEventChars,
            flags.contains(.command),
            !flags.contains(.control),
-           shouldRequireCharacterMatchForCommandShortcut(shortcutKey: shortcutKey) {
+           shortcutKey.count == 1,
+           let scalar = shortcutKey.unicodeScalars.first,
+           CharacterSet.letters.contains(scalar) {
             return false
         }
 
@@ -11103,27 +11105,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
 
         // Control-key combos can surface as ASCII control characters (e.g. Ctrl+H => backspace),
-        // so keep ANSI keyCode fallback for control-modified shortcuts. Also allow fallback for
-        // command punctuation shortcuts, since some non-US layouts report different characters
-        // for the same physical key even when menu-equivalent semantics should still apply.
+        // so keep ANSI keyCode fallback for control-modified shortcuts. For command shortcuts
+        // only fall back to ANSI keyCodes when neither AppKit nor the active layout produced a
+        // usable character: otherwise the physical-key match clobbers a working character match
+        // on layouts where punctuation is remapped (e.g. JIS Cmd+Shift+[ misrouting to ]).
+        //
+        // Tradeoff: ANSI fallback is now gated on both event-character and layout-character
+        // lookup failing. This fixes JIS Cmd+Shift+[ clobbering prevSurface (cmux#3061) but
+        // means Cmd+punct on layouts where AppKit returns a non-matching character (e.g.
+        // AZERTY Cmd+1 produces '&') will not fire the shortcut. Users on those layouts
+        // should rebind via the keyboard shortcut settings. Validate manually on US, JIS,
+        // AZERTY, and Dvorak before merge.
         let allowANSIKeyCodeFallback = flags.contains(.control)
             || (flags.contains(.command)
                 && !flags.contains(.control)
-                && (
-                    !shouldRequireCharacterMatchForCommandShortcut(shortcutKey: shortcutKey)
-                        || (!hasEventChars && (layoutCharacter?.isEmpty ?? true))
-                ))
+                && !hasEventChars
+                && (layoutCharacter?.isEmpty ?? true))
         if allowANSIKeyCodeFallback, let expectedKeyCode = keyCodeForShortcutKey(shortcutKey) {
             return event.keyCode == expectedKeyCode
         }
         return false
-    }
-
-    private func shouldRequireCharacterMatchForCommandShortcut(shortcutKey: String) -> Bool {
-        guard shortcutKey.count == 1, let scalar = shortcutKey.unicodeScalars.first else {
-            return false
-        }
-        return CharacterSet.letters.contains(scalar)
     }
 
     private func shortcutCharacterMatches(

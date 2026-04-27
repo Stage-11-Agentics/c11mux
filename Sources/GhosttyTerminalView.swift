@@ -97,11 +97,21 @@ private enum GhosttyPasteboardHelper {
                 .joined(separator: " ")
         }
 
-        if let value = pasteboard.string(forType: .string) {
+        // Prefer the explicit UTF-8 plain-text type when available. On modern
+        // macOS `.string` is aliased to `public.utf8-plain-text`, but legacy
+        // pasteboard producers (or apps writing both types) can leave a
+        // Latin-1/ASCII-truncated `.string` value alongside a clean UTF-8
+        // entry; reading UTF-8 first preserves bytes >= 0x80 (Hangul,
+        // Cyrillic, Qt-emitted non-ASCII). See cmux#3069 / #2756 / #2891.
+        //
+        // Skip an empty UTF-8 entry so a pathological producer that registers
+        // utf8PlainTextType with an empty value but populates `.string`
+        // doesn't cause us to return empty.
+        if let value = pasteboard.string(forType: utf8PlainTextType), !value.isEmpty {
             return value
         }
 
-        if let value = pasteboard.string(forType: utf8PlainTextType) {
+        if let value = pasteboard.string(forType: .string) {
             return value
         }
 
@@ -125,7 +135,7 @@ private enum GhosttyPasteboardHelper {
     static func hasString(for location: ghostty_clipboard_e) -> Bool {
         guard let pasteboard = pasteboard(for: location) else { return false }
         let types = pasteboard.types ?? []
-        if types.contains(.fileURL) || types.contains(.string) || types.contains(utf8PlainTextType)
+        if types.contains(.fileURL) || types.contains(utf8PlainTextType) || types.contains(.string)
             || types.contains(.html) || types.contains(.rtf) || types.contains(.rtfd) {
             return true
         }
@@ -4759,6 +4769,12 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
             // If we become first responder before the ghostty surface exists (e.g. during
             // split/tab creation while the surface is still being created), record the desired focus.
             desiredFocus = true
+            // Re-snapshot modifier state from the global accessor on focus gain
+            // so the next flagsChanged diff is against ground truth, not the
+            // stale snapshot from before focus loss. Closes a stuck-modifier
+            // window where Option held during focus transitions could
+            // misclassify the subsequent press/release.
+            lastModifierFlags = NSEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
             // During programmatic splits, SwiftUI reparents the old NSView which triggers
             // becomeFirstResponder. Suppress onFocus + ghostty_surface_set_focus to prevent
@@ -4828,6 +4844,12 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
         let result = super.resignFirstResponder()
         if result {
             desiredFocus = false
+            // Drop the modifier snapshot so we don't diff a future flagsChanged
+            // against stale state. While focus lives elsewhere, modifier
+            // transitions go to another responder; the next event we see should
+            // be treated as a fresh PRESS against an empty baseline (or the
+            // baseline re-established in becomeFirstResponder below).
+            lastModifierFlags = []
         }
         if result, let surface = surface {
             let now = CACurrentMediaTime()
@@ -4842,6 +4864,14 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
     private var keyTextAccumulator: [String]? = nil
     private var markedText = NSMutableAttributedString()
     private var lastPerformKeyEvent: TimeInterval?
+    // Snapshot of modifier flags from the most recent flagsChanged event so we
+    // can compute press/release deltas. AppKit fires flagsChanged on every
+    // modifier transition without telling us whether the bit was set or
+    // cleared; diffing against this snapshot is how we know which to send.
+    // OptionSet operations on NSEvent.ModifierFlags are allocation-free, so
+    // updating and diffing this snapshot stays cheap on the typing-latency
+    // hot path.
+    private var lastModifierFlags: NSEvent.ModifierFlags = []
     private struct SelectionSnapshot {
         let range: NSRange
         let string: String
@@ -5177,6 +5207,38 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
             if handled { return }
         }
 
+        // Fast path for Option+Delete (alt+backspace).
+        //
+        // AppKit's interpretKeyEvents would translate Option+Delete to a
+        // deleteWordBackward: action selector or to insertText with a
+        // pre-deleted string, both of which strip the alt prefix Ghostty
+        // needs to encode the backward-kill-word escape sequence
+        // (ESC DEL = \x1b\x7f) that lazygit, vim, fish, zsh, Claude Code,
+        // and Codex all expect for word-deletion in TUI input fields.
+        //
+        // Mirrors the Ctrl fast path above. See cmux#1153 (@sldx report,
+        // @judekim0507 diagnosis, @pandec PR #2246 root-cause).
+        if event.keyCode == 51, // kVK_ANSI_Delete (Backspace)
+           flags.contains(.option),
+           !flags.contains(.command),
+           !flags.contains(.control),
+           !hasMarkedText() {
+            ghostty_surface_set_focus(surface, true)
+            var keyEvent = ghostty_input_key_s()
+            keyEvent.action = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
+            keyEvent.keycode = UInt32(event.keyCode)
+            keyEvent.mods = modsFromEvent(event)
+            // consumed_mods intentionally NONE: Delete has no glyph form, so
+            // macos-option-as-alt doesn't apply. Copying this pattern to a
+            // glyph keycode would silently break option-as-alt; route those
+            // through ghostty_surface_key_translation_mods instead.
+            keyEvent.consumed_mods = GHOSTTY_MODS_NONE
+            keyEvent.composing = false
+            keyEvent.unshifted_codepoint = unshiftedCodepointFromEvent(event)
+            keyEvent.text = nil
+            if ghostty_surface_key(surface, keyEvent) { return }
+        }
+
         let action = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
 
         // Translate mods to respect Ghostty config (e.g., macos-option-as-alt)
@@ -5501,14 +5563,72 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
             return
         }
 
+        // AppKit's flagsChanged fires on every modifier transition without
+        // telling us whether the bit was set or cleared. Without a press/
+        // release distinction Ghostty's input state always thinks modifiers
+        // are held: that breaks alt+backspace word-delete in TUI apps after
+        // Option releases (cmux#1153) and breaks IME composition flows where
+        // Shift/Cmd are tapped during preedit (cmux#2949).
+        //
+        // Diff against the previous snapshot (allocation-free OptionSet
+        // operations) and emit the appropriate action. New bits = PRESS,
+        // cleared bits = RELEASE. When the aggregate diff is empty (e.g.
+        // holding left Option, then pressing and releasing right Option --
+        // the .option bit stays set both times), disambiguate via the
+        // side-specific NX device mask in the raw modifier flags. Mirrors
+        // Ghostty's upstream AppKit handler.
+        let newFlags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let oldFlags = lastModifierFlags
+        lastModifierFlags = newFlags
+
         var keyEvent = ghostty_input_key_s()
-        keyEvent.action = GHOSTTY_ACTION_PRESS
         keyEvent.keycode = UInt32(event.keyCode)
         keyEvent.mods = modsFromEvent(event)
         keyEvent.consumed_mods = GHOSTTY_MODS_NONE
         keyEvent.text = nil
         keyEvent.composing = false
+
+        if !newFlags.subtracting(oldFlags).isEmpty {
+            keyEvent.action = GHOSTTY_ACTION_PRESS
+        } else if !oldFlags.subtracting(newFlags).isEmpty {
+            keyEvent.action = GHOSTTY_ACTION_RELEASE
+        } else if let sideMask = Self.sideMaskForModifierKeyCode(event.keyCode) {
+            // Aggregate diff is empty but a known modifier keyCode fired:
+            // same-modifier opposite-side transition. The post-event raw
+            // modifierFlags carry the side-specific NX bit; use it to pick
+            // PRESS (this side now held) vs RELEASE (this side now cleared,
+            // other side still held).
+            let sideHeld = (event.modifierFlags.rawValue & sideMask) != 0
+            keyEvent.action = sideHeld ? GHOSTTY_ACTION_PRESS : GHOSTTY_ACTION_RELEASE
+        } else {
+            // No recognized modifier bit changed. Covers numericPad/function
+            // flags stripped by deviceIndependentFlagsMask and synthetic
+            // events from accessibility. Default to PRESS for backwards
+            // compatibility: these transitions are rare and Ghostty ignores
+            // unknown keycodes gracefully.
+            keyEvent.action = GHOSTTY_ACTION_PRESS
+        }
+
         _ = ghostty_surface_key(surface, keyEvent)
+    }
+
+    // Side-specific NX device mask for a left/right modifier keycode, or nil
+    // for non-modifier or single-side keys (e.g. caps lock, function). Used
+    // by flagsChanged to disambiguate same-modifier opposite-side transitions
+    // when the aggregate deviceIndependentFlagsMask diff is empty. Mirrors
+    // upstream Ghostty's AppKit handler in SurfaceView_AppKit.swift.
+    private static func sideMaskForModifierKeyCode(_ keyCode: UInt16) -> UInt? {
+        switch keyCode {
+        case 0x38: return UInt(NX_DEVICELSHIFTKEYMASK) // kVK_Shift
+        case 0x3C: return UInt(NX_DEVICERSHIFTKEYMASK) // kVK_RightShift
+        case 0x3B: return UInt(NX_DEVICELCTLKEYMASK)   // kVK_Control
+        case 0x3E: return UInt(NX_DEVICERCTLKEYMASK)   // kVK_RightControl
+        case 0x3A: return UInt(NX_DEVICELALTKEYMASK)   // kVK_Option
+        case 0x3D: return UInt(NX_DEVICERALTKEYMASK)   // kVK_RightOption
+        case 0x37: return UInt(NX_DEVICELCMDKEYMASK)   // kVK_Command
+        case 0x36: return UInt(NX_DEVICERCMDKEYMASK)   // kVK_RightCommand
+        default: return nil
+        }
     }
 
     private func modsFromEvent(_ event: NSEvent) -> ghostty_input_mods_e {
