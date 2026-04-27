@@ -53370,6 +53370,12 @@
             "state": "translated",
             "value": "セッションキー"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세션 키"
+          }
         }
       }
     },
@@ -53395,6 +53401,12 @@
           }
         },
         "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sk-ant-sid01-..."
+          }
+        },
+        "ko": {
           "stringUnit": {
             "state": "translated",
             "value": "sk-ant-sid01-..."
@@ -53428,6 +53440,12 @@
             "state": "translated",
             "value": "claude.ai の Cookie から取得"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claude.ai 쿠키에서 가져오기"
+          }
         }
       }
     },
@@ -53457,6 +53475,12 @@
             "state": "translated",
             "value": "組織ID"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "조직 ID"
+          }
         }
       }
     },
@@ -53482,6 +53506,12 @@
           }
         },
         "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UUID"
+          }
+        },
+        "ko": {
           "stringUnit": {
             "state": "translated",
             "value": "UUID"
@@ -53515,6 +53545,12 @@
             "state": "translated",
             "value": "claude.ai のネットワークリクエストから取得"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "claude.ai 네트워크 요청에서 가져오기"
+          }
         }
       }
     },
@@ -53543,6 +53579,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Claude.ai ステータス"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude.ai 상태"
           }
         }
       }
@@ -53573,6 +53615,12 @@
             "state": "translated",
             "value": "アクセストークン"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "액세스 토큰"
+          }
         }
       }
     },
@@ -53598,6 +53646,12 @@
           }
         },
         "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "eyJhbGciOi..."
+          }
+        },
+        "ko": {
           "stringUnit": {
             "state": "translated",
             "value": "eyJhbGciOi..."
@@ -53631,6 +53685,12 @@
             "state": "translated",
             "value": "実行: jq -r .tokens.access_token < ~/.codex/auth.json"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행: jq -r .tokens.access_token < ~/.codex/auth.json"
+          }
         }
       }
     },
@@ -53660,6 +53720,12 @@
             "state": "translated",
             "value": "アカウントID（任意）"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정 ID (선택 사항)"
+          }
         }
       }
     },
@@ -53685,6 +53751,12 @@
           }
         },
         "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "abcd-1234-..."
+          }
+        },
+        "ko": {
           "stringUnit": {
             "state": "translated",
             "value": "abcd-1234-..."
@@ -53718,6 +53790,12 @@
             "state": "translated",
             "value": "実行: jq -r .tokens.account_id < ~/.codex/auth.json（空欄の場合は未入力のまま）"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행: jq -r .tokens.account_id < ~/.codex/auth.json (비어 있으면 그대로 두세요)"
+          }
         }
       }
     },
@@ -53746,6 +53824,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codex ステータス"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex 상태"
           }
         }
       }
@@ -53776,6 +53860,12 @@
             "state": "translated",
             "value": "キーチェーンエラー(ステータス %lld)。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "키체인 오류 (상태 %lld)."
+          }
         }
       }
     },
@@ -53804,6 +53894,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "保存された認証情報を読み取れませんでした。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 자격 증명을 읽을 수 없습니다."
           }
         }
       }
@@ -53834,6 +53930,12 @@
             "state": "translated",
             "value": "認証情報が見つかりません。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자격 증명을 찾을 수 없습니다."
+          }
         }
       }
     },
@@ -53862,6 +53964,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "プロバイダを利用できません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용할 수 없는 제공자입니다."
           }
         }
       }
@@ -53892,6 +54000,12 @@
             "state": "translated",
             "value": "使用状況を取得できませんでした。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용량을 가져올 수 없습니다."
+          }
         }
       }
     },
@@ -53920,6 +54034,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "リクエストがタイムアウトしました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "요청 시간이 초과되었습니다."
           }
         }
       }
@@ -53950,6 +54070,12 @@
             "state": "translated",
             "value": "保存済みの認証情報を読み込めませんでした。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 자격 증명을 불러올 수 없습니다."
+          }
         }
       }
     },
@@ -53978,6 +54104,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "組織IDが無効です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "조직 ID가 올바르지 않습니다."
           }
         }
       }
@@ -54008,6 +54140,12 @@
             "state": "translated",
             "value": "セッションキーが無効です。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세션 키가 올바르지 않습니다."
+          }
         }
       }
     },
@@ -54036,6 +54174,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "サインインの有効期限が切れました（ステータス %lld）。セッションキーを再入力してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "로그인이 만료되었습니다 (상태 %lld). 세션 키를 다시 입력하세요."
           }
         }
       }
@@ -54066,6 +54210,12 @@
             "state": "translated",
             "value": "Claude がステータス %lld を返しました。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude가 상태 %lld을(를) 반환했습니다."
+          }
         }
       }
     },
@@ -54094,6 +54244,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Claude から予期しない応答が返されました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude에서 예기치 않은 응답이 왔습니다."
           }
         }
       }
@@ -54124,6 +54280,12 @@
             "state": "translated",
             "value": "Claude の使用状況データを読み取れませんでした。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude 사용량 데이터를 읽을 수 없습니다."
+          }
         }
       }
     },
@@ -54152,6 +54314,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Claude との通信中にネットワークエラーが発生しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude에 연결하는 중 네트워크 오류가 발생했습니다."
           }
         }
       }
@@ -54182,6 +54350,12 @@
             "state": "translated",
             "value": "アクセストークンが無効です。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "액세스 토큰이 올바르지 않습니다."
+          }
         }
       }
     },
@@ -54210,6 +54384,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "アカウントIDが無効です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정 ID가 올바르지 않습니다."
           }
         }
       }
@@ -54240,6 +54420,12 @@
             "state": "translated",
             "value": "サインインの有効期限が切れました（ステータス %lld）。アクセストークンを再入力してください。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "로그인이 만료되었습니다 (상태 %lld). 액세스 토큰을 다시 입력하세요."
+          }
         }
       }
     },
@@ -54268,6 +54454,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codex の使用状況エンドポイントが見つかりません。アカウントにアクセス権がない可能性があります。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex 사용량 엔드포인트를 찾을 수 없습니다. 계정에 액세스 권한이 없을 수 있습니다."
           }
         }
       }
@@ -54298,6 +54490,12 @@
             "state": "translated",
             "value": "Codex がステータス %lld を返しました。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex가 상태 %lld을(를) 반환했습니다."
+          }
         }
       }
     },
@@ -54326,6 +54524,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codex から予期しない応答が返されました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex에서 예기치 않은 응답이 왔습니다."
           }
         }
       }
@@ -54356,6 +54560,12 @@
             "state": "translated",
             "value": "Codex の使用状況データを読み取れませんでした。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex 사용량 데이터를 읽을 수 없습니다."
+          }
         }
       }
     },
@@ -54384,6 +54594,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codex との通信中にネットワークエラーが発生しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex에 연결하는 중 네트워크 오류가 발생했습니다."
           }
         }
       }
@@ -54414,6 +54630,12 @@
             "state": "translated",
             "value": "アカウントを追加"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정 추가"
+          }
         }
       }
     },
@@ -54442,6 +54664,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "アカウントを編集"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정 편집"
           }
         }
       }
@@ -54472,6 +54700,12 @@
             "state": "translated",
             "value": "名前"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이름"
+          }
         }
       }
     },
@@ -54500,6 +54734,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "キャンセル"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "취소"
           }
         }
       }
@@ -54530,6 +54770,12 @@
             "state": "translated",
             "value": "保存"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장"
+          }
         }
       }
     },
@@ -54558,6 +54804,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "ヘルプ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "도움말"
           }
         }
       }
@@ -54588,6 +54840,12 @@
             "state": "translated",
             "value": "AI使用状況のモニタリング"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI 사용량 모니터링"
+          }
         }
       }
     },
@@ -54616,6 +54874,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "使用状況バーの色"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용량 막대 색상"
           }
         }
       }
@@ -54646,6 +54910,12 @@
             "state": "translated",
             "value": "低"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "낮음"
+          }
         }
       }
     },
@@ -54674,6 +54944,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "中"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "중간"
           }
         }
       }
@@ -54704,6 +54980,12 @@
             "state": "translated",
             "value": "高"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "높음"
+          }
         }
       }
     },
@@ -54732,6 +55014,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "しきい値"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "임계값"
           }
         }
       }
@@ -54762,6 +55050,12 @@
             "state": "translated",
             "value": "低/中は %lld%% 未満、中/高は %lld%% 未満。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% 미만은 낮음/중간, %lld%% 미만은 중간/높음."
+          }
         }
       }
     },
@@ -54790,6 +55084,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "スムーズな補間"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "부드러운 보간"
           }
         }
       }
@@ -54820,6 +55120,12 @@
             "state": "translated",
             "value": "既定値に戻す"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "기본값으로 재설정"
+          }
         }
       }
     },
@@ -54848,6 +55154,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "アカウントを追加"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정 추가"
           }
         }
       }
@@ -54878,6 +55190,12 @@
             "state": "translated",
             "value": "AIアカウントを追加"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI 계정 추가"
+          }
         }
       }
     },
@@ -54906,6 +55224,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "編集"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "편집"
           }
         }
       }
@@ -54936,6 +55260,12 @@
             "state": "translated",
             "value": "削除"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "제거"
+          }
         }
       }
     },
@@ -54964,6 +55294,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "セッション %lld%% · 週 %lld%%"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세션 %lld%% · 주 %lld%%"
           }
         }
       }
@@ -54994,6 +55330,12 @@
             "state": "translated",
             "value": "不明なプロバイダ"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알 수 없는 제공자"
+          }
         }
       }
     },
@@ -55022,6 +55364,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "このプロバイダはこのビルドで利用できません。アカウントを削除すると、保存された認証情報を消去できます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 빌드에서는 사용할 수 없는 제공자입니다. 저장된 자격 증명을 지우려면 계정을 제거하세요."
           }
         }
       }
@@ -55052,6 +55400,12 @@
             "state": "translated",
             "value": "このアカウントを削除しますか?"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 계정을 제거하시겠습니까?"
+          }
         }
       }
     },
@@ -55080,6 +55434,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "削除"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "제거"
           }
         }
       }
@@ -55110,6 +55470,12 @@
             "state": "translated",
             "value": "保存された認証情報がキーチェーンから削除されます。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 자격 증명이 키체인에서 삭제됩니다."
+          }
         }
       }
     },
@@ -55138,6 +55504,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "キャンセル"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "취소"
           }
         }
       }
@@ -55168,6 +55540,12 @@
             "state": "translated",
             "value": "アカウントを削除できませんでした"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정을 제거할 수 없습니다"
+          }
         }
       }
     },
@@ -55196,6 +55574,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "OK"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "확인"
           }
         }
       }
@@ -55226,6 +55610,12 @@
             "state": "translated",
             "value": "アカウントは既に存在しません。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "계정이 더 이상 존재하지 않습니다."
+          }
         }
       }
     },
@@ -55254,6 +55644,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "保存された認証情報を読み取れませんでした。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 자격 증명을 읽을 수 없습니다."
           }
         }
       }
@@ -55284,6 +55680,12 @@
             "state": "translated",
             "value": "キーチェーンエラー。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "키체인 오류입니다."
+          }
         }
       }
     },
@@ -55312,6 +55714,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "不明なエラーが発生しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알 수 없는 오류가 발생했습니다."
           }
         }
       }
@@ -55342,6 +55750,12 @@
             "state": "translated",
             "value": "展開"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "펼치기"
+          }
         }
       }
     },
@@ -55370,6 +55784,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "折りたたむ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "접기"
           }
         }
       }
@@ -55400,6 +55820,12 @@
             "state": "translated",
             "value": "AI使用状況パネル"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI 사용량 패널"
+          }
         }
       }
     },
@@ -55428,6 +55854,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "セッション"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "세션"
           }
         }
       }
@@ -55458,6 +55890,12 @@
             "state": "translated",
             "value": "週"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "주"
+          }
         }
       }
     },
@@ -55486,6 +55924,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "ステータス"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상태"
           }
         }
       }
@@ -55516,6 +55960,12 @@
             "state": "translated",
             "value": "ステータスページを開く"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상태 페이지 열기"
+          }
         }
       }
     },
@@ -55544,6 +55994,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "ステータスを読み込み中..."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상태를 불러오는 중..."
           }
         }
       }
@@ -55574,6 +56030,12 @@
             "state": "translated",
             "value": "ステータスを読み込めませんでした。"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상태를 불러올 수 없습니다."
+          }
         }
       }
     },
@@ -55602,6 +56064,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "すべてのシステムが正常稼働中"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "모든 시스템 정상 작동"
           }
         }
       }
@@ -55632,6 +56100,12 @@
             "state": "translated",
             "value": "メンテナンス"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "점검 중"
+          }
         }
       }
     },
@@ -55660,6 +56134,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "軽微なインシデント"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "경미한 장애"
           }
         }
       }
@@ -55690,6 +56170,12 @@
             "state": "translated",
             "value": "重大なインシデント"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "주요 장애"
+          }
         }
       }
     },
@@ -55719,6 +56205,12 @@
             "state": "translated",
             "value": "致命的なインシデント"
           }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "심각한 장애"
+          }
         }
       }
     },
@@ -55747,6 +56239,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "今すぐ更新"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "지금 새로 고침"
           }
         }
       }
