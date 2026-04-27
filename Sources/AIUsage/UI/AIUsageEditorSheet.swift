@@ -1,5 +1,17 @@
 import SwiftUI
 
+struct AIUsageEditorRequest: Identifiable {
+    let id: String
+    let provider: AIUsageProvider
+    let account: AIUsageAccount?
+
+    init(provider: AIUsageProvider, account: AIUsageAccount?) {
+        self.id = provider.id + "|" + (account?.id.uuidString ?? "new")
+        self.provider = provider
+        self.account = account
+    }
+}
+
 struct AIUsageEditorSheet: View {
     let provider: AIUsageProvider
     let editingAccount: AIUsageAccount?

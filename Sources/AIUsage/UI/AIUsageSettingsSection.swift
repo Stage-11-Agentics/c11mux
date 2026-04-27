@@ -5,8 +5,7 @@ struct AIUsageSettingsSection: View {
     @ObservedObject var poller: AIUsagePoller
     @ObservedObject var colorSettings: AIUsageColorSettings
 
-    @Binding var editorAccount: AIUsageAccount?
-    @Binding var editorProvider: AIUsageProvider?
+    @Binding var editorRequest: AIUsageEditorRequest?
     @Binding var accountToRemove: AIUsageAccount?
     @Binding var showRemoveConfirmation: Bool
 
@@ -86,8 +85,9 @@ struct AIUsageSettingsSection: View {
         ) {
             HStack(spacing: 6) {
                 Button(String(localized: "aiusage.edit.button", defaultValue: "Edit")) {
-                    editorAccount = account
-                    editorProvider = provider
+                    if let provider {
+                        editorRequest = AIUsageEditorRequest(provider: provider, account: account)
+                    }
                 }
                 Button(String(localized: "aiusage.remove.button", defaultValue: "Remove"),
                        role: .destructive) {
@@ -111,8 +111,7 @@ struct AIUsageSettingsSection: View {
                 Menu {
                     ForEach(providers, id: \.id) { provider in
                         Button(provider.displayName) {
-                            editorAccount = nil
-                            editorProvider = provider
+                            editorRequest = AIUsageEditorRequest(provider: provider, account: nil)
                         }
                     }
                 } label: {
@@ -123,8 +122,7 @@ struct AIUsageSettingsSection: View {
                 }
             } else if let only = providers.first {
                 Button {
-                    editorAccount = nil
-                    editorProvider = only
+                    editorRequest = AIUsageEditorRequest(provider: only, account: nil)
                 } label: {
                     Label(
                         String(localized: "aiusage.add.button", defaultValue: "Add account"),

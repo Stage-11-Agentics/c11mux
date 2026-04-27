@@ -7,6 +7,7 @@ struct AIUsageFooterView: View {
 
     @State private var presentedProviderId: String?
     @State private var collapsed: [String: Bool] = [:]
+    @State private var editorRequest: AIUsageEditorRequest?
 
     var body: some View {
         let sections = providerSections
@@ -22,6 +23,13 @@ struct AIUsageFooterView: View {
                 localized: "aiusage.footer.accessibility",
                 defaultValue: "AI usage panel"
             ))
+            .sheet(item: $editorRequest) { request in
+                AIUsageEditorSheet(
+                    provider: request.provider,
+                    editingAccount: request.account,
+                    onClose: { editorRequest = nil }
+                )
+            }
         }
     }
 
@@ -104,8 +112,12 @@ struct AIUsageFooterView: View {
                                 }
                             }
                         ),
-                        onAdd: {},
-                        onEdit: { _ in }
+                        onAdd: {
+                            editorRequest = AIUsageEditorRequest(provider: section.provider, account: nil)
+                        },
+                        onEdit: { account in
+                            editorRequest = AIUsageEditorRequest(provider: section.provider, account: account)
+                        }
                     )
                 }
             }

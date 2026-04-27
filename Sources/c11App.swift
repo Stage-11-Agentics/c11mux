@@ -4430,8 +4430,7 @@ struct SettingsView: View {
     @StateObject private var aiUsageStore = AIUsageAccountStore.shared
     @StateObject private var aiUsagePoller = AIUsagePoller.shared
     @StateObject private var aiUsageColorSettings = AIUsageColorSettings.shared
-    @State private var aiUsageEditorAccount: AIUsageAccount?
-    @State private var aiUsageEditorProvider: AIUsageProvider?
+    @State private var aiUsageEditorRequest: AIUsageEditorRequest?
     @State private var aiUsageAccountToRemove: AIUsageAccount?
     @State private var showAIUsageRemoveConfirmation = false
     @State private var aiUsageRemoveError: String?
@@ -4971,11 +4970,11 @@ struct SettingsView: View {
         } message: {
             Text(notificationCustomSoundErrorAlertMessage)
         }
-        .sheet(item: $aiUsageEditorProvider, onDismiss: { aiUsageEditorAccount = nil }) { provider in
+        .sheet(item: $aiUsageEditorRequest) { request in
             AIUsageEditorSheet(
-                provider: provider,
-                editingAccount: aiUsageEditorAccount,
-                onClose: { aiUsageEditorProvider = nil }
+                provider: request.provider,
+                editingAccount: request.account,
+                onClose: { aiUsageEditorRequest = nil }
             )
         }
         .confirmationDialog(
@@ -6052,8 +6051,7 @@ struct SettingsView: View {
             store: aiUsageStore,
             poller: aiUsagePoller,
             colorSettings: aiUsageColorSettings,
-            editorAccount: $aiUsageEditorAccount,
-            editorProvider: $aiUsageEditorProvider,
+            editorRequest: $aiUsageEditorRequest,
             accountToRemove: $aiUsageAccountToRemove,
             showRemoveConfirmation: $showAIUsageRemoveConfirmation
         )

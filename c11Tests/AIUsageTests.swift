@@ -1,4 +1,6 @@
 import XCTest
+import Security
+import SwiftUI
 @testable import c11
 
 private func uniqueKeychainService() -> String {
