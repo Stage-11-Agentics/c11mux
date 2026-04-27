@@ -255,7 +255,7 @@ struct GhosttyConfig {
                 case "working-directory":
                     workingDirectory = value
                 case "scrollback-limit":
-                    if let limit = Int(value) {
+                    if let limit = parseByteCount(value) {
                         scrollbackLimit = limit
                     }
                 case "background":
@@ -317,6 +317,19 @@ struct GhosttyConfig {
                 }
             }
         }
+    }
+
+    // Parses a byte-count value with optional K/M/G suffix (case-insensitive).
+    // "100K" -> 102400, "512M" -> 536870912, "1G" -> 1073741824, "10000" -> 10000.
+    private func parseByteCount(_ s: String) -> Int? {
+        let upper = s.uppercased()
+        let multipliers: [(String, Int)] = [("G", 1_073_741_824), ("M", 1_048_576), ("K", 1_024)]
+        for (suffix, mult) in multipliers {
+            if upper.hasSuffix(suffix), let n = Int(upper.dropLast()) {
+                return n * mult
+            }
+        }
+        return Int(s)
     }
 
     mutating func loadTheme(_ name: String) {

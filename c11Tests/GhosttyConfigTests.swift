@@ -693,6 +693,43 @@ final class WorkspaceAppearanceConfigResolutionTests: XCTestCase {
 
         XCTAssertEqual(resolved.backgroundColor.hexString(), "#272822")
     }
+
+    func testScrollbackLimitParsesGigabyteSuffix() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 1G")
+        XCTAssertEqual(config.scrollbackLimit, 1_073_741_824)
+    }
+
+    func testScrollbackLimitParsesMegabyteSuffix() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 512M")
+        XCTAssertEqual(config.scrollbackLimit, 536_870_912)
+    }
+
+    func testScrollbackLimitParsesKilobyteSuffix() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 100K")
+        XCTAssertEqual(config.scrollbackLimit, 102_400)
+    }
+
+    func testScrollbackLimitParsesPlainInteger() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 10000")
+        XCTAssertEqual(config.scrollbackLimit, 10_000)
+    }
+
+    func testScrollbackLimitParsesLowercaseSuffix() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 1g")
+        XCTAssertEqual(config.scrollbackLimit, 1_073_741_824)
+    }
+
+    func testScrollbackLimitIgnoresInvalidValue() {
+        var config = GhosttyConfig()
+        let defaultLimit = config.scrollbackLimit
+        config.parse("scrollback-limit = 1GB")
+        XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Unsupported suffix should leave scrollback limit unchanged")
+    }
 }
 
 @MainActor
