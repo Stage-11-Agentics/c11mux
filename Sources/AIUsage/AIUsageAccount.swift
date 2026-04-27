@@ -41,10 +41,12 @@ struct AIUsageSecret: Codable, Sendable, CustomStringConvertible,
     }
 }
 
-enum AIUsageStoreError: Error, LocalizedError {
+enum AIUsageStoreError: Error, LocalizedError, C11AppOwnedError {
     case keychain(OSStatus)
     case decoding
     case notFound
+
+    var isAppOwned: Bool { true }
 
     var errorDescription: String? {
         switch self {

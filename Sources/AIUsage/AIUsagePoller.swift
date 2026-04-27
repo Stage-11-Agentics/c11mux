@@ -3,7 +3,9 @@ import Combine
 import Foundation
 import os.log
 
-struct AIUsageFetchTimeoutError: Error, LocalizedError {
+struct AIUsageFetchTimeoutError: Error, LocalizedError, C11AppOwnedError {
+    var isAppOwned: Bool { true }
+
     var errorDescription: String? {
         String(
             localized: "aiusage.error.timeout",
@@ -258,7 +260,7 @@ final class AIUsagePoller: ObservableObject {
             return AIUsageFetchTimeoutError().errorDescription ?? genericFetchFailureString()
         }
         if let local = error as? LocalizedError,
-           let isAppOwned = (error as? AIUsageAppOwnedError)?.isAppOwned,
+           let isAppOwned = (error as? C11AppOwnedError)?.isAppOwned,
            isAppOwned,
            let description = local.errorDescription {
             return description
@@ -272,13 +274,4 @@ final class AIUsagePoller: ObservableObject {
             defaultValue: "Could not fetch usage."
         )
     }
-}
-
-/// Marker protocol used by `AIUsagePoller` to decide whether an error's
-/// `errorDescription` is safe to surface to the UI. Concrete provider
-/// fetcher errors (added in commits 4 and 5) conform to this so their
-/// localized strings come through; other errors fall back to the generic
-/// catalog string so raw OS wording never leaks.
-protocol AIUsageAppOwnedError {
-    var isAppOwned: Bool { get }
 }

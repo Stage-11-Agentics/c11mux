@@ -1,6 +1,6 @@
 import Foundation
 
-enum ClaudeAIUsageFetchError: Error, LocalizedError, AIUsageAppOwnedError {
+enum ClaudeAIUsageFetchError: Error, LocalizedError, C11AppOwnedError {
     case invalidOrgId
     case invalidSessionKey
     case httpAuth(Int)

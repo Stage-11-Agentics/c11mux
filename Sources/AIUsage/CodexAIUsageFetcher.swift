@@ -1,6 +1,6 @@
 import Foundation
 
-enum CodexAIUsageFetchError: Error, LocalizedError, AIUsageAppOwnedError {
+enum CodexAIUsageFetchError: Error, LocalizedError, C11AppOwnedError {
     case invalidAccessToken
     case invalidAccountId
     case httpAuth(Int)
