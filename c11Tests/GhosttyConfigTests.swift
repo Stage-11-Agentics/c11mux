@@ -693,6 +693,143 @@ final class WorkspaceAppearanceConfigResolutionTests: XCTestCase {
 
         XCTAssertEqual(resolved.backgroundColor.hexString(), "#272822")
     }
+
+    func testCacheInvalidationAllowsCrossSchemeTransitionAfterAppearanceChange() {
+        // Reproduces the scenario fixed by Pick 5: a light config is cached, then the
+        // system switches to dark. Without cache invalidation on appearance change the
+        // stale light config would be returned for the dark scheme request.
+        GhosttyConfig.invalidateLoadCache()
+        defer { GhosttyConfig.invalidateLoadCache() }
+
+        var callCount = 0
+        let loadFromDisk: (GhosttyConfig.ColorSchemePreference) -> GhosttyConfig = { scheme in
+            callCount += 1
+            var config = GhosttyConfig()
+            config.fontFamily = scheme == .light ? "light-scheme" : "dark-scheme"
+            return config
+        }
+
+        let light = GhosttyConfig.load(preferredColorScheme: .light, loadFromDisk: loadFromDisk)
+        XCTAssertEqual(light.fontFamily, "light-scheme")
+
+        // Simulate the appearance change observer calling invalidateLoadCache()
+        GhosttyConfig.invalidateLoadCache()
+
+        let dark = GhosttyConfig.load(preferredColorScheme: .dark, loadFromDisk: loadFromDisk)
+        XCTAssertEqual(dark.fontFamily, "dark-scheme", "After cache invalidation dark-scheme config must be freshly loaded")
+        XCTAssertEqual(callCount, 2, "Both schemes must trigger a fresh disk load after invalidation")
+    }
+
+    func testWhiteBackgroundWithNearWhiteForegroundIsRemappedToDarkForeground() {
+        // Reproduces the white-on-white regression (#2708): a light theme sets a
+        // white background, but the foreground fell back to the near-white Monokai
+        // default. applyContrastFallbackIfNeeded() corrects this by substituting
+        // a safe dark foreground whenever both bg and fg are light-colored.
+        var config = GhosttyConfig()
+        config.backgroundColor = NSColor(hex: "#FFFFFF")!  // pure white background
+        config.foregroundColor = NSColor(hex: "#FDFFF1")!  // near-white Monokai default
+        config.applyContrastFallbackIfNeeded()
+        XCTAssertFalse(
+            config.foregroundColor.isLightColor,
+            "Foreground must not be near-white when background is also near-white"
+        )
+    }
+
+    func testDarkForegroundOnDarkBackgroundIsNotRemapped() {
+        // Dark themes must not be affected by the contrast-check guard.
+        var config = GhosttyConfig()
+        config.backgroundColor = NSColor(hex: "#272822")!  // Monokai dark background
+        config.foregroundColor = NSColor(hex: "#FDFFF1")!  // near-white Monokai foreground
+        config.applyContrastFallbackIfNeeded()
+        XCTAssertTrue(
+            config.foregroundColor.isLightColor,
+            "Near-white foreground on dark background must be preserved unchanged"
+        )
+    }
+
+    func testLightForegroundOnDarkBackgroundIsNotRemapped() {
+        var config = GhosttyConfig()
+        config.backgroundColor = NSColor(hex: "#000000")!  // black background
+        config.foregroundColor = NSColor(hex: "#FFFFFF")!  // white foreground (high contrast)
+        config.applyContrastFallbackIfNeeded()
+        XCTAssertTrue(
+            config.foregroundColor.isLightColor,
+            "White foreground on black background is correct contrast and must not be remapped"
+        )
+    }
+
+    func testPaletteOverrideStoredByIndex() {
+        var config = GhosttyConfig()
+        let customColor = NSColor(hex: "#FF0000")!
+        config.palette[0] = customColor
+        XCTAssertNotNil(config.palette[0])
+        XCTAssertNil(config.palette[1], "Unset palette entries must remain nil")
+    }
+
+    func testScrollbackLimitParsesGigabyteSuffix() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 1G")
+        XCTAssertEqual(config.scrollbackLimit, 1_073_741_824)
+    }
+
+    func testScrollbackLimitParsesMegabyteSuffix() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 512M")
+        XCTAssertEqual(config.scrollbackLimit, 536_870_912)
+    }
+
+    func testScrollbackLimitParsesKilobyteSuffix() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 100K")
+        XCTAssertEqual(config.scrollbackLimit, 102_400)
+    }
+
+    func testScrollbackLimitParsesPlainInteger() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 10000")
+        XCTAssertEqual(config.scrollbackLimit, 10_000)
+    }
+
+    func testScrollbackLimitParsesLowercaseSuffix() {
+        var config = GhosttyConfig()
+        config.parse("scrollback-limit = 1g")
+        XCTAssertEqual(config.scrollbackLimit, 1_073_741_824)
+    }
+
+    func testScrollbackLimitIgnoresInvalidValue() {
+        var config = GhosttyConfig()
+        let defaultLimit = config.scrollbackLimit
+        config.parse("scrollback-limit = 1GB")
+        XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Unsupported suffix should leave scrollback limit unchanged")
+    }
+
+    func testScrollbackLimitRejectsOverflowValue() {
+        var config = GhosttyConfig()
+        let defaultLimit = config.scrollbackLimit
+        config.parse("scrollback-limit = 9000000000G")
+        XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Overflow value should leave scrollback limit unchanged")
+    }
+
+    func testScrollbackLimitRejectsNegativeValue() {
+        var config = GhosttyConfig()
+        let defaultLimit = config.scrollbackLimit
+        config.parse("scrollback-limit = -1G")
+        XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Negative value should leave scrollback limit unchanged")
+    }
+
+    func testScrollbackLimitRejectsPlainNegative() {
+        var config = GhosttyConfig()
+        let defaultLimit = config.scrollbackLimit
+        config.parse("scrollback-limit = -1")
+        XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Plain negative value should leave scrollback limit unchanged")
+    }
+
+    func testScrollbackLimitRejectsNearMaxOverflow() {
+        var config = GhosttyConfig()
+        let defaultLimit = config.scrollbackLimit
+        config.parse("scrollback-limit = 9223372036G")
+        XCTAssertEqual(config.scrollbackLimit, defaultLimit, "Near-Int.max overflow should leave scrollback limit unchanged")
+    }
 }
 
 @MainActor

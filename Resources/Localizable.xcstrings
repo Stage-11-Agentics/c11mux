@@ -51934,6 +51934,53 @@
         }
       }
     },
+    "workspace.apply.unknownColorName": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown color name or invalid hex: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不明な色名または無効な16進値: %@"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Невідома назва кольору або недійсний шістнадцятковий код: %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "알 수 없는 색상 이름 또는 잘못된 16진수: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知颜色名称或无效十六进制值：%@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知色彩名稱或無效十六進位值：%@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Неизвестное название цвета или недопустимый шестнадцатеричный код: %@"
+          }
+        }
+      }
+    },
     "workspace.blueprint.picker.noBlueprints": {
       "extractionState": "manual",
       "localizations": {

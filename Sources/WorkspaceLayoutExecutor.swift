@@ -102,7 +102,22 @@ enum WorkspaceLayoutExecutor {
             workspace.setCustomTitle(title)
         }
         if let color = plan.workspace.customColor {
-            workspace.setCustomColor(color)
+            let resolvedHex = Self.resolveColorToHex(color)
+            if let hex = resolvedHex {
+                workspace.setCustomColor(hex)
+            } else {
+                let localizedFormat = String(
+                    localized: "workspace.apply.unknownColorName",
+                    defaultValue: "Unknown color name or invalid hex: %@"
+                )
+                let failure = ApplyFailure(
+                    code: "unknown_color_name",
+                    step: "workspace.create",
+                    message: String(format: localizedFormat, color)
+                )
+                failures.append(failure)
+                warnings.append(failure.message)
+            }
         }
         timings.append(StepTiming(step: "workspace.create", durationMs: createClock.elapsedMs))
 
@@ -384,6 +399,25 @@ enum WorkspaceLayoutExecutor {
             result.warnings.insert(note, at: 0)
         }
         return result
+    }
+
+    // MARK: - Color resolution
+
+    /// Resolves a color string (hex or named palette entry) to a normalized hex.
+    /// Returns nil if the string is neither a valid 6-digit hex nor a known palette name.
+    nonisolated static func resolveColorToHex(
+        _ value: String,
+        defaults: UserDefaults = .standard
+    ) -> String? {
+        if let hex = WorkspaceTabColorSettings.normalizedHex(value) {
+            return hex
+        }
+        let lower = value.lowercased()
+        let palette = WorkspaceTabColorSettings.defaultPaletteWithOverrides(defaults: defaults)
+        if let entry = palette.first(where: { $0.name.lowercased() == lower }) {
+            return entry.hex
+        }
+        return nil
     }
 
     // MARK: - Plan validation

@@ -704,3 +704,40 @@ final class WorkspaceLayoutExecutorAcceptanceTests: XCTestCase {
         }
     }
 }
+
+final class WorkspaceColorResolutionTests: XCTestCase {
+    func testResolveColorToHexAcceptsValidHex() {
+        XCTAssertEqual(
+            WorkspaceLayoutExecutor.resolveColorToHex("#1565C0"),
+            "#1565C0"
+        )
+    }
+
+    func testResolveColorToHexNormalizesHexCase() {
+        XCTAssertEqual(
+            WorkspaceLayoutExecutor.resolveColorToHex("1565c0"),
+            "#1565C0"
+        )
+    }
+
+    func testResolveColorToHexResolvesNamedColor() {
+        // "Red" is in the default palette as #C0392B
+        let result = WorkspaceLayoutExecutor.resolveColorToHex("Red")
+        XCTAssertNotNil(result, "Named palette color 'Red' must resolve to a hex")
+        XCTAssertEqual(result, "#C0392B")
+    }
+
+    func testResolveColorToHexResolvesNamedColorCaseInsensitive() {
+        let lower = WorkspaceLayoutExecutor.resolveColorToHex("red")
+        let upper = WorkspaceLayoutExecutor.resolveColorToHex("RED")
+        XCTAssertNotNil(lower)
+        XCTAssertEqual(lower, upper)
+    }
+
+    func testResolveColorToHexReturnsNilForUnknownName() {
+        XCTAssertNil(
+            WorkspaceLayoutExecutor.resolveColorToHex("NotAColorName"),
+            "Unknown color name must return nil"
+        )
+    }
+}
