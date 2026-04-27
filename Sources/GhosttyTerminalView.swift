@@ -5563,7 +5563,11 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
         //
         // Diff against the previous snapshot (stack value, allocation-free
         // since NSEvent.ModifierFlags is OptionSet) and emit the appropriate
-        // action. New bits = PRESS, cleared bits = RELEASE.
+        // action. New bits = PRESS, cleared bits = RELEASE. When the
+        // aggregate diff is empty (e.g. holding left Option, then pressing
+        // and releasing right Option -- the .option bit stays set both
+        // times), disambiguate via the side-specific NX device mask in the
+        // raw modifier flags. Mirrors Ghostty's upstream AppKit handler.
         let newFlags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let oldFlags = lastModifierFlags
         lastModifierFlags = newFlags
@@ -5579,14 +5583,42 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
             keyEvent.action = GHOSTTY_ACTION_PRESS
         } else if !oldFlags.subtracting(newFlags).isEmpty {
             keyEvent.action = GHOSTTY_ACTION_RELEASE
+        } else if let sideMask = Self.sideMaskForModifierKeyCode(event.keyCode) {
+            // Aggregate diff is empty but a known modifier keyCode fired:
+            // same-modifier opposite-side transition. The post-event raw
+            // modifierFlags carry the side-specific NX bit; use it to pick
+            // PRESS (this side now held) vs RELEASE (this side now cleared,
+            // other side still held).
+            let sideHeld = (event.modifierFlags.rawValue & sideMask) != 0
+            keyEvent.action = sideHeld ? GHOSTTY_ACTION_PRESS : GHOSTTY_ACTION_RELEASE
         } else {
-            // No bit changed (e.g. caps lock toggle on a layout where the
-            // diff cancels out). Default to PRESS for backwards compat with
-            // anything that relied on the previous unconditional behavior.
+            // No deviceIndependent bit toggled and the event's keyCode isn't
+            // a recognized modifier. Reachable for mask-stripped bits (e.g.
+            // numericPad, function) and synthetic events. Preserve the prior
+            // unconditional PRESS for backwards compat.
             keyEvent.action = GHOSTTY_ACTION_PRESS
         }
 
         _ = ghostty_surface_key(surface, keyEvent)
+    }
+
+    // Side-specific NX device mask for a left/right modifier keycode, or nil
+    // for non-modifier or single-side keys (e.g. caps lock, function). Used
+    // by flagsChanged to disambiguate same-modifier opposite-side transitions
+    // when the aggregate deviceIndependentFlagsMask diff is empty. Mirrors
+    // upstream Ghostty's AppKit handler in SurfaceView_AppKit.swift.
+    private static func sideMaskForModifierKeyCode(_ keyCode: UInt16) -> UInt? {
+        switch keyCode {
+        case 0x38: return UInt(NX_DEVICELSHIFTKEYMASK) // kVK_Shift
+        case 0x3C: return UInt(NX_DEVICERSHIFTKEYMASK) // kVK_RightShift
+        case 0x3B: return UInt(NX_DEVICELCTLKEYMASK)   // kVK_Control
+        case 0x3E: return UInt(NX_DEVICERCTLKEYMASK)   // kVK_RightControl
+        case 0x3A: return UInt(NX_DEVICELALTKEYMASK)   // kVK_Option
+        case 0x3D: return UInt(NX_DEVICERALTKEYMASK)   // kVK_RightOption
+        case 0x37: return UInt(NX_DEVICELCMDKEYMASK)   // kVK_Command
+        case 0x36: return UInt(NX_DEVICERCMDKEYMASK)   // kVK_RightCommand
+        default: return nil
+        }
     }
 
     private func modsFromEvent(_ event: NSEvent) -> ghostty_input_mods_e {
