@@ -45,8 +45,8 @@ enum CodexLocalUsageFetcher {
 
         let sessionTokens = sessionEntries.reduce(0) { $0 + $1.tokensUsed }
         let weekTokens = weekEntries.reduce(0) { $0 + $1.tokensUsed }
-        let sessionCost = sessionEntries.reduce(0.0) { $0 + cost(for: $1) }
-        let weekCost = weekEntries.reduce(0.0) { $0 + cost(for: $1) }
+        // tokens_used counts cumulative context size per request, not net billed tokens,
+        // so derived cost figures are unreliable. Show token counts only.
 
         let limit = account.sessionTokenLimit
         let utilization: Int
@@ -68,14 +68,14 @@ enum CodexLocalUsageFetcher {
             resetsAt: resetsAt,
             windowSeconds: sessionWindowSeconds,
             tokensUsed: sessionTokens,
-            costUSD: sessionCost
+            costUSD: 0
         )
         let weekWindow = AIUsageWindow(
             utilization: 0,
             resetsAt: nil,
             windowSeconds: weekWindowSeconds,
             tokensUsed: weekTokens,
-            costUSD: weekCost
+            costUSD: 0
         )
         return AIUsageWindows(session: sessionWindow, week: weekWindow)
     }
@@ -113,20 +113,4 @@ enum CodexLocalUsageFetcher {
         return entries
     }
 
-    static func cost(for entry: Entry) -> Double {
-        let model = entry.model.lowercased()
-        let ratePerMillion: Double
-        if model.hasPrefix("gpt-5.5") || model.hasPrefix("gpt-5") {
-            ratePerMillion = 7.0
-        } else if model.hasPrefix("gpt-4o") {
-            ratePerMillion = 5.0
-        } else if model.hasPrefix("gpt-4-turbo") {
-            ratePerMillion = 20.0
-        } else if model.hasPrefix("gpt-4") {
-            ratePerMillion = 30.0
-        } else {
-            ratePerMillion = 5.0
-        }
-        return Double(entry.tokensUsed) * ratePerMillion / 1_000_000.0
-    }
 }

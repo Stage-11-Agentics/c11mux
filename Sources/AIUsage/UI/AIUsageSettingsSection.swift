@@ -9,6 +9,8 @@ struct AIUsageSettingsSection: View {
     @Binding var accountToRemove: AIUsageAccount?
     @Binding var showRemoveConfirmation: Bool
 
+    @AppStorage("c11.aiusage.visible") private var isVisible: Bool = true
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(title: String(
@@ -17,6 +19,16 @@ struct AIUsageSettingsSection: View {
             ))
 
             SettingsCard {
+                SettingsCardRow(
+                    String(
+                        localized: "aiusage.settings.showInSidebar",
+                        defaultValue: "Show in sidebar"
+                    )
+                ) {
+                    Toggle("", isOn: $isVisible)
+                        .labelsHidden()
+                }
+                SettingsCardDivider()
                 ForEach(store.accounts.filter { provider(for: $0) != nil }) { account in
                     accountRow(account)
                     SettingsCardDivider()

@@ -5,38 +5,64 @@ struct AIUsageFooterView: View {
     @ObservedObject private var poller = AIUsagePoller.shared
     @ObservedObject private var colorSettings = AIUsageColorSettings.shared
 
+    @AppStorage("c11.aiusage.visible") private var isVisible: Bool = true
+
     @State private var presentedProviderId: String?
     @State private var editorRequest: AIUsageEditorRequest?
 
     var body: some View {
         let sections = providerSections
-        if sections.isEmpty {
-            EmptyView()
-        } else {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(sections, id: \.provider.id) { section in
-                    AIUsageFooterProviderSection(
-                        provider: section.provider,
-                        accounts: section.accounts,
-                        store: store,
-                        poller: poller,
-                        colorSettings: colorSettings,
-                        presentedProviderId: $presentedProviderId,
-                        editorRequest: $editorRequest
-                    )
+        Group {
+            if isVisible && !sections.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Spacer()
+                        Button {
+                            isVisible = false
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(
+                            localized: "aiusage.footer.dismiss",
+                            defaultValue: "Dismiss AI usage panel"
+                        ))
+                    }
+                    .padding(.bottom, 4)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(sections, id: \.provider.id) { section in
+                            AIUsageFooterProviderSection(
+                                provider: section.provider,
+                                accounts: section.accounts,
+                                store: store,
+                                poller: poller,
+                                colorSettings: colorSettings,
+                                presentedProviderId: $presentedProviderId,
+                                editorRequest: $editorRequest
+                            )
+                        }
+                    }
                 }
-            }
-            .accessibilityLabel(String(
-                localized: "aiusage.footer.accessibility",
-                defaultValue: "AI usage panel"
-            ))
-            .sheet(item: $editorRequest) { request in
-                AIUsageEditorSheet(
-                    provider: request.provider,
-                    editingAccount: request.account,
-                    onClose: { editorRequest = nil }
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(Color.secondary.opacity(0.25), lineWidth: 1)
                 )
+                .accessibilityLabel(String(
+                    localized: "aiusage.footer.accessibility",
+                    defaultValue: "AI usage panel"
+                ))
             }
+        }
+        .sheet(item: $editorRequest) { request in
+            AIUsageEditorSheet(
+                provider: request.provider,
+                editingAccount: request.account,
+                onClose: { editorRequest = nil }
+            )
         }
     }
 
@@ -70,6 +96,10 @@ struct AIUsageFooterView: View {
 
             if window.utilization == 0 && window.costUSD > 0 {
                 Text(String(format: "$%.2f", window.costUSD))
+                    .font(.system(size: 10, weight: .regular).monospacedDigit())
+                    .foregroundColor(.secondary)
+            } else if window.utilization == 0 && window.tokensUsed > 0 {
+                Text(formattedTokens(window.tokensUsed))
                     .font(.system(size: 10, weight: .regular).monospacedDigit())
                     .foregroundColor(.secondary)
             } else {
@@ -108,6 +138,15 @@ struct AIUsageFooterView: View {
                     ))
             }
         }
+    }
+
+    private static func formattedTokens(_ count: Int) -> String {
+        if count >= 1_000_000 {
+            return String(format: "%.1fM tok", Double(count) / 1_000_000)
+        } else if count >= 1_000 {
+            return String(format: "%.0fk tok", Double(count) / 1_000)
+        }
+        return "\(count) tok"
     }
 
     private static let relativeFormatter: RelativeDateTimeFormatter = {

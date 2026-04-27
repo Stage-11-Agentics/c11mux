@@ -72,13 +72,21 @@ enum ClaudeLocalUsageFetcher {
             return []
         }
 
+        // Only read files touched within the longest window we care about (7 days).
+        // ~/.claude/projects may have thousands of JSONL files; pre-filtering by
+        // modification date avoids opening stale ones.
+        let weekCutoff = Date().addingTimeInterval(-weekWindowSeconds)
+
         var jsonlFiles: [URL] = []
         if let enumerator = FileManager.default.enumerator(
             at: projectsDir,
-            includingPropertiesForKeys: [.isRegularFileKey],
+            includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
             options: [.skipsHiddenFiles]
         ) {
             for case let url as URL in enumerator where url.pathExtension == "jsonl" {
+                let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey])
+                guard values?.isRegularFile == true else { continue }
+                guard let modDate = values?.contentModificationDate, modDate >= weekCutoff else { continue }
                 jsonlFiles.append(url)
             }
         }
