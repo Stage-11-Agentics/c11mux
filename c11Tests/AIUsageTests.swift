@@ -370,11 +370,28 @@ final class AIUsageColorSettingsTests: XCTestCase {
     @MainActor
     func testColorForPercentBoundsAreClamped() {
         let settings = AIUsageColorSettings(userDefaults: defaults)
-        // Just exercising the path; actual sRGB equality is fragile across platforms.
-        _ = settings.color(for: -50)
-        _ = settings.color(for: 0)
-        _ = settings.color(for: 100)
-        _ = settings.color(for: 1000)
+        settings.interpolate = false
+        // Below 0 must clamp to the same color as 0.
+        XCTAssertEqual(
+            settings.color(for: -50).rgbComponents.red,
+            settings.color(for: 0).rgbComponents.red,
+            accuracy: 0.001,
+            "negative percent must clamp to the 0% bucket"
+        )
+        // Above 100 must clamp to the same color as 100.
+        XCTAssertEqual(
+            settings.color(for: 1000).rgbComponents.red,
+            settings.color(for: 100).rgbComponents.red,
+            accuracy: 0.001,
+            "very large percent must clamp to the 100% bucket"
+        )
+        // 0 sits in the low bucket; 100 sits in the high bucket: the two are not equal.
+        let zero = settings.color(for: 0).rgbComponents
+        let hundred = settings.color(for: 100).rgbComponents
+        let same = abs(zero.red - hundred.red) < 0.001
+            && abs(zero.green - hundred.green) < 0.001
+            && abs(zero.blue - hundred.blue) < 0.001
+        XCTAssertFalse(same, "0% and 100% must not produce the same color")
     }
 
     @MainActor
@@ -443,6 +460,7 @@ final class AIUsagePollerLifecycleTests: XCTestCase {
             userDefaults: defaults,
             indexKey: "c11.aiusage.poller.\(UUID().uuidString)"
         )
+        let firstTickFired = expectation(description: "first start fires one tick")
         var ticks = 0
         let poller = AIUsagePoller(
             store: store,
@@ -450,12 +468,18 @@ final class AIUsagePollerLifecycleTests: XCTestCase {
             providerByIdResolver: { _ in nil },
             tickInterval: 60,
             visibilityProvider: { true },
-            tickBody: { _ in ticks += 1 }
+            tickBody: { _ in
+                ticks += 1
+                if ticks == 1 { firstTickFired.fulfill() }
+            }
         )
         poller.start()
-        let first = ticks
+        await fulfillment(of: [firstTickFired], timeout: 1.0)
+        let baseline = ticks
         poller.start()
-        XCTAssertEqual(ticks, first, "second start must not enqueue extra ticks")
+        // Allow any spurious second tick a chance to schedule onto the runloop.
+        await Task.yield()
+        XCTAssertEqual(ticks, baseline, "second start must not enqueue extra ticks")
         poller.stop()
     }
 
@@ -482,6 +506,7 @@ final class AIUsagePollerLifecycleTests: XCTestCase {
             userDefaults: defaults,
             indexKey: "c11.aiusage.poller.\(UUID().uuidString)"
         )
+        let firstTickFired = expectation(description: "start-time forced tick")
         var ticks = 0
         let poller = AIUsagePoller(
             store: store,
@@ -489,15 +514,18 @@ final class AIUsagePollerLifecycleTests: XCTestCase {
             providerByIdResolver: { _ in nil },
             tickInterval: 60,
             visibilityProvider: { true },
-            tickBody: { _ in ticks += 1 }
+            tickBody: { _ in
+                ticks += 1
+                if ticks == 1 { firstTickFired.fulfill() }
+            }
         )
         poller.start()
-        // Allow the start-time forced tick to complete.
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        await fulfillment(of: [firstTickFired], timeout: 1.0)
         poller.stop()
         let baseline = ticks
         poller.refreshNow()
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        // Yield to let any erroneous tick schedule before we assert.
+        await Task.yield()
         XCTAssertEqual(ticks, baseline, "refreshNow after stop must be inert")
     }
 }

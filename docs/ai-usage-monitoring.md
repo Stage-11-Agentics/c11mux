@@ -33,7 +33,9 @@ existing one, refresh now, or open the upstream status page.
 - The fetchers log only error domain/code, never URL or header values.
 - See `docs/privacy-endpoints.md` for the full list of outbound hosts.
 
-## Add a Claude account
+## Claude
+
+### Add a Claude account
 
 1. Open `https://claude.ai` in a browser and sign in.
 2. Open DevTools, go to the **Application** panel, and grab the
@@ -50,7 +52,9 @@ existing one, refresh now, or open the upstream status page.
 If you see "Sign-in expired (status 401)", repeat step 2 to get a
 fresh session key.
 
-## Add a Codex account
+## Codex
+
+### Add a Codex account
 
 1. Run `codex login` once so `~/.codex/auth.json` exists.
 2. Get the access token:

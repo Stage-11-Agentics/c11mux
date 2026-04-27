@@ -96,7 +96,7 @@ struct AIUsagePopover: View {
             }
 
             Button {
-                AIUsagePoller.shared.refreshNow()
+                poller.refreshNow()
             } label: {
                 Label(String(localized: "aiusage.refreshNow",
                              defaultValue: "Refresh now"),

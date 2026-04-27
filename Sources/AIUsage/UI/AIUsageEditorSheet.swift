@@ -115,7 +115,7 @@ struct AIUsageEditorSheet: View {
             return false
         }
         for field in provider.credentialFields {
-            let value = values[field.id] ?? ""
+            let value = (values[field.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if field.isSecret && value.isEmpty { return false }
             if let validate = field.validate, !validate(value) {
                 if field.isSecret || !value.isEmpty {

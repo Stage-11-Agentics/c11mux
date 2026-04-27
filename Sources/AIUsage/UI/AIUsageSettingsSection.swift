@@ -17,7 +17,7 @@ struct AIUsageSettingsSection: View {
             ))
 
             SettingsCard {
-                ForEach(store.accounts) { account in
+                ForEach(store.accounts.filter { provider(for: $0) != nil }) { account in
                     accountRow(account)
                     SettingsCardDivider()
                 }

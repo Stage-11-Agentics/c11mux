@@ -6,7 +6,6 @@ struct AIUsageFooterView: View {
     @ObservedObject private var colorSettings = AIUsageColorSettings.shared
 
     @State private var presentedProviderId: String?
-    @State private var collapsed: [String: Bool] = [:]
     @State private var editorRequest: AIUsageEditorRequest?
 
     var body: some View {
@@ -16,7 +15,15 @@ struct AIUsageFooterView: View {
         } else {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(sections, id: \.provider.id) { section in
-                    providerSection(section)
+                    AIUsageFooterProviderSection(
+                        provider: section.provider,
+                        accounts: section.accounts,
+                        store: store,
+                        poller: poller,
+                        colorSettings: colorSettings,
+                        presentedProviderId: $presentedProviderId,
+                        editorRequest: $editorRequest
+                    )
                 }
             }
             .accessibilityLabel(String(
@@ -33,7 +40,7 @@ struct AIUsageFooterView: View {
         }
     }
 
-    private struct Section {
+    fileprivate struct Section {
         let provider: AIUsageProvider
         let accounts: [AIUsageAccount]
     }
@@ -51,115 +58,10 @@ struct AIUsageFooterView: View {
         }
     }
 
-    @ViewBuilder
-    private func providerSection(_ section: Section) -> some View {
-        let collapsedKey = "c11.aiusage.collapsed.\(section.provider.id)"
-        let isCollapsed = collapsed[section.provider.id]
-            ?? UserDefaults.standard.bool(forKey: collapsedKey)
-
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline) {
-                Button {
-                    let next = !(isCollapsed)
-                    collapsed[section.provider.id] = next
-                    UserDefaults.standard.set(next, forKey: collapsedKey)
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
-                        Text(section.provider.displayName)
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(isCollapsed
-                                    ? String(localized: "aiusage.header.expand",
-                                             defaultValue: "Expand")
-                                    : String(localized: "aiusage.header.collapse",
-                                             defaultValue: "Collapse"))
-
-                Spacer()
-
-                Button {
-                    presentedProviderId = section.provider.id
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .popover(
-                    isPresented: Binding(
-                        get: { presentedProviderId == section.provider.id },
-                        set: { open in
-                            if !open && presentedProviderId == section.provider.id {
-                                presentedProviderId = nil
-                            }
-                        }
-                    ),
-                    arrowEdge: .top
-                ) {
-                    AIUsagePopover(
-                        provider: section.provider,
-                        store: store,
-                        poller: poller,
-                        isPresented: Binding(
-                            get: { presentedProviderId == section.provider.id },
-                            set: { open in
-                                if !open && presentedProviderId == section.provider.id {
-                                    presentedProviderId = nil
-                                }
-                            }
-                        ),
-                        onAdd: {
-                            editorRequest = AIUsageEditorRequest(provider: section.provider, account: nil)
-                        },
-                        onEdit: { account in
-                            editorRequest = AIUsageEditorRequest(provider: section.provider, account: account)
-                        }
-                    )
-                }
-            }
-
-            if !isCollapsed {
-                ForEach(section.accounts) { account in
-                    accountRow(account)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func accountRow(_ account: AIUsageAccount) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(account.displayName)
-                .font(.system(size: 11, weight: .medium))
-                .lineLimit(1)
-                .foregroundColor(.primary)
-
-            if let message = poller.fetchErrors[account.id] {
-                Text(message)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-                    .lineLimit(2)
-            } else if let snapshot = poller.snapshots[account.id] {
-                bar(label: String(localized: "aiusage.window.session", defaultValue: "Session"),
-                    window: snapshot.session,
-                    isSession: true)
-                bar(label: String(localized: "aiusage.window.week", defaultValue: "Week"),
-                    window: snapshot.week,
-                    isSession: false)
-            } else if poller.isRefreshing {
-                Text(String(localized: "aiusage.status.loading", defaultValue: "Loading status..."))
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.vertical, 2)
-    }
-
-    private func bar(label: String, window: AIUsageWindow, isSession: Bool) -> some View {
+    static func bar(label: String,
+                    window: AIUsageWindow,
+                    isSession: Bool,
+                    colorSettings: AIUsageColorSettings) -> some View {
         HStack(spacing: 6) {
             Text(label)
                 .font(.system(size: 10, weight: .medium))
@@ -210,5 +112,144 @@ struct AIUsageFooterView: View {
             return String(format: format, locale: .current, relative)
         }
         return nil
+    }
+}
+
+private struct AIUsageFooterProviderSection: View {
+    let provider: AIUsageProvider
+    let accounts: [AIUsageAccount]
+    @ObservedObject var store: AIUsageAccountStore
+    @ObservedObject var poller: AIUsagePoller
+    @ObservedObject var colorSettings: AIUsageColorSettings
+    @Binding var presentedProviderId: String?
+    @Binding var editorRequest: AIUsageEditorRequest?
+
+    @AppStorage private var isCollapsed: Bool
+
+    init(provider: AIUsageProvider,
+         accounts: [AIUsageAccount],
+         store: AIUsageAccountStore,
+         poller: AIUsagePoller,
+         colorSettings: AIUsageColorSettings,
+         presentedProviderId: Binding<String?>,
+         editorRequest: Binding<AIUsageEditorRequest?>) {
+        self.provider = provider
+        self.accounts = accounts
+        self.store = store
+        self.poller = poller
+        self.colorSettings = colorSettings
+        self._presentedProviderId = presentedProviderId
+        self._editorRequest = editorRequest
+        self._isCollapsed = AppStorage(
+            wrappedValue: false,
+            "c11.aiusage.collapsed.\(provider.id)"
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline) {
+                Button {
+                    isCollapsed.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text(provider.displayName)
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isCollapsed
+                                    ? String(localized: "aiusage.header.expand",
+                                             defaultValue: "Expand")
+                                    : String(localized: "aiusage.header.collapse",
+                                             defaultValue: "Collapse"))
+
+                Spacer()
+
+                Button {
+                    presentedProviderId = provider.id
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .popover(
+                    isPresented: Binding(
+                        get: { presentedProviderId == provider.id },
+                        set: { open in
+                            if !open && presentedProviderId == provider.id {
+                                presentedProviderId = nil
+                            }
+                        }
+                    ),
+                    arrowEdge: .top
+                ) {
+                    AIUsagePopover(
+                        provider: provider,
+                        store: store,
+                        poller: poller,
+                        isPresented: Binding(
+                            get: { presentedProviderId == provider.id },
+                            set: { open in
+                                if !open && presentedProviderId == provider.id {
+                                    presentedProviderId = nil
+                                }
+                            }
+                        ),
+                        onAdd: {
+                            editorRequest = AIUsageEditorRequest(provider: provider, account: nil)
+                        },
+                        onEdit: { account in
+                            editorRequest = AIUsageEditorRequest(provider: provider, account: account)
+                        }
+                    )
+                }
+            }
+
+            if !isCollapsed {
+                ForEach(accounts) { account in
+                    accountRow(account)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func accountRow(_ account: AIUsageAccount) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(account.displayName)
+                .font(.system(size: 11, weight: .medium))
+                .lineLimit(1)
+                .foregroundColor(.primary)
+
+            if let message = poller.fetchErrors[account.id] {
+                Text(message)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            } else if let snapshot = poller.snapshots[account.id] {
+                AIUsageFooterView.bar(
+                    label: String(localized: "aiusage.window.session", defaultValue: "Session"),
+                    window: snapshot.session,
+                    isSession: true,
+                    colorSettings: colorSettings
+                )
+                AIUsageFooterView.bar(
+                    label: String(localized: "aiusage.window.week", defaultValue: "Week"),
+                    window: snapshot.week,
+                    isSession: false,
+                    colorSettings: colorSettings
+                )
+            } else if poller.isRefreshing {
+                Text(String(localized: "aiusage.status.loading", defaultValue: "Loading status..."))
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 2)
     }
 }
