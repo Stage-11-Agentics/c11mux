@@ -44,13 +44,17 @@ final class AIUsageAccountStore: ObservableObject {
     }
 
     func add(providerId: String, displayName: String, secret: AIUsageSecret) async throws {
+        let provider = AIUsageRegistry.provider(id: providerId)
         let service = keychainServiceResolver(providerId)
         let account = AIUsageAccount(
             providerId: providerId,
             displayName: displayName,
-            keychainService: service
+            keychainService: provider?.credentialFields.isEmpty == true ? nil : service
         )
-        try await AIUsageKeychain.save(secret: secret, for: account.id, service: service)
+
+        if provider?.credentialFields.isEmpty != true {
+            try await AIUsageKeychain.save(secret: secret, for: account.id, service: service)
+        }
 
         var next = accounts
         next.append(account)
@@ -58,9 +62,23 @@ final class AIUsageAccountStore: ObservableObject {
             try persist(next)
             accounts = next
         } catch {
-            try? await AIUsageKeychain.delete(for: account.id, service: service)
+            if provider?.credentialFields.isEmpty != true {
+                try? await AIUsageKeychain.delete(for: account.id, service: service)
+            }
             throw error
         }
+    }
+
+    func addLocalAccount(providerId: String, displayName: String, sessionTokenLimit: Int) throws {
+        let account = AIUsageAccount(
+            providerId: providerId,
+            displayName: displayName,
+            sessionTokenLimit: sessionTokenLimit
+        )
+        var next = accounts
+        next.append(account)
+        try persist(next)
+        accounts = next
     }
 
     func update(id: UUID, displayName: String, secret: AIUsageSecret) async throws {
@@ -68,6 +86,16 @@ final class AIUsageAccountStore: ObservableObject {
             throw AIUsageStoreError.notFound
         }
         let existing = accounts[index]
+        let provider = AIUsageRegistry.provider(id: existing.providerId)
+
+        if provider?.credentialFields.isEmpty == true {
+            var next = accounts
+            next[index].displayName = displayName
+            try persist(next)
+            accounts = next
+            return
+        }
+
         let service = existing.keychainService ?? keychainServiceResolver(existing.providerId)
 
         let previousSecret: AIUsageSecret?
@@ -95,14 +123,28 @@ final class AIUsageAccountStore: ObservableObject {
         }
     }
 
+    func updateLocalAccount(id: UUID, displayName: String, sessionTokenLimit: Int) throws {
+        guard let index = accounts.firstIndex(where: { $0.id == id }) else {
+            throw AIUsageStoreError.notFound
+        }
+        var next = accounts
+        next[index].displayName = displayName
+        next[index].sessionTokenLimit = sessionTokenLimit
+        try persist(next)
+        accounts = next
+    }
+
     func remove(id: UUID) async throws {
         guard let index = accounts.firstIndex(where: { $0.id == id }) else {
             throw AIUsageStoreError.notFound
         }
         let existing = accounts[index]
-        let service = existing.keychainService ?? keychainServiceResolver(existing.providerId)
+        let provider = AIUsageRegistry.provider(id: existing.providerId)
 
-        try await AIUsageKeychain.delete(for: id, service: service)
+        if provider?.credentialFields.isEmpty != true {
+            let service = existing.keychainService ?? keychainServiceResolver(existing.providerId)
+            try await AIUsageKeychain.delete(for: id, service: service)
+        }
 
         var next = accounts
         next.remove(at: index)
@@ -119,17 +161,33 @@ final class AIUsageAccountStore: ObservableObject {
     }
 
     private func load() {
-        guard let data = userDefaults.data(forKey: indexKey) else {
+        if let data = userDefaults.data(forKey: indexKey) {
+            do {
+                accounts = try JSONDecoder().decode([AIUsageAccount].self, from: data)
+            } catch {
+                os_log(.error, log: Self.log,
+                       "aiusage: failed to decode account index, %{public}@",
+                       String(describing: error))
+                accounts = []
+            }
+        } else {
             accounts = []
-            return
         }
-        do {
-            accounts = try JSONDecoder().decode([AIUsageAccount].self, from: data)
-        } catch {
-            os_log(.error, log: Self.log,
-                   "aiusage: failed to decode account index, %{public}@",
-                   String(describing: error))
-            accounts = []
+
+        let hasClaudeAccount = accounts.contains {
+            $0.providerId == Providers.claude.id
+        }
+        if !hasClaudeAccount {
+            let claudeDir = URL(fileURLWithPath: NSHomeDirectory())
+                .appendingPathComponent(".claude/projects")
+            if FileManager.default.fileExists(atPath: claudeDir.path) {
+                let auto = AIUsageAccount(
+                    providerId: Providers.claude.id,
+                    displayName: "Claude Code"
+                )
+                accounts.append(auto)
+                try? persist(accounts)
+            }
         }
     }
 
@@ -142,6 +200,8 @@ final class AIUsageAccountStore: ObservableObject {
         let snapshot = accounts
         var removeIds: Set<UUID> = []
         for account in snapshot {
+            let provider = AIUsageRegistry.provider(id: account.providerId)
+            if provider?.credentialFields.isEmpty == true { continue }
             let service = account.keychainService ?? keychainServiceResolver(account.providerId)
             let status = await AIUsageKeychain.probePresenceAsync(for: account.id, service: service)
             if status == errSecItemNotFound {

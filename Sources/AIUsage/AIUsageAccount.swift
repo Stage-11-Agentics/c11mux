@@ -5,15 +5,18 @@ struct AIUsageAccount: Identifiable, Equatable, Codable {
     let providerId: String
     var displayName: String
     var keychainService: String?
+    var sessionTokenLimit: Int = 0
 
     init(id: UUID = UUID(),
          providerId: String,
          displayName: String,
-         keychainService: String? = nil) {
+         keychainService: String? = nil,
+         sessionTokenLimit: Int = 0) {
         self.id = id
         self.providerId = providerId
         self.displayName = displayName
         self.keychainService = keychainService
+        self.sessionTokenLimit = sessionTokenLimit
     }
 }
 

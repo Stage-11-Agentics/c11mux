@@ -4,6 +4,8 @@ struct AIUsageWindow: Sendable, Equatable {
     let utilization: Int
     let resetsAt: Date?
     let windowSeconds: TimeInterval
+    var tokensUsed: Int = 0
+    var costUSD: Double = 0.0
 }
 
 struct AIUsageWindows: Sendable, Equatable {
@@ -59,6 +61,6 @@ struct AIUsageProvider: Identifiable, Sendable {
     let statusPageURL: URL?
     let statusSectionTitle: String
     let helpDocURL: URL?
-    let fetchUsage: @Sendable (AIUsageSecret) async throws -> AIUsageWindows
+    let fetchUsage: @Sendable (AIUsageAccount, AIUsageSecret) async throws -> AIUsageWindows
     let fetchStatus: (@Sendable () async throws -> [AIUsageIncident])?
 }

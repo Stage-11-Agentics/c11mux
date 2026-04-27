@@ -1,5 +1,40 @@
 import Foundation
 
+enum ClaudeAIValidators {
+    static func isValidOrgId(_ orgId: String) -> Bool {
+        guard !orgId.isEmpty else { return false }
+        if orgId.contains("..") { return false }
+        for scalar in orgId.unicodeScalars {
+            if scalar.value < 0x21 { return false }
+            switch scalar {
+            case "/", ":", "?", "#", "%", " ":
+                return false
+            default:
+                continue
+            }
+        }
+        return true
+    }
+
+    static func isValidSessionKey(_ sessionKey: String) -> Bool {
+        guard !sessionKey.isEmpty else { return false }
+        for scalar in sessionKey.unicodeScalars {
+            if scalar.value < 0x21 || scalar.value == 0x7F { return false }
+            if scalar == ";" || scalar == "," { return false }
+        }
+        return true
+    }
+
+    static func strippedSessionKey(_ sessionKey: String) -> String {
+        var value = sessionKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefix = "sessionKey="
+        while value.hasPrefix(prefix) {
+            value = String(value.dropFirst(prefix.count))
+        }
+        return value
+    }
+}
+
 enum ClaudeAIUsageFetchError: Error, LocalizedError, C11AppOwnedError {
     case invalidOrgId
     case invalidSessionKey

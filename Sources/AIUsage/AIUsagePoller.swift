@@ -183,15 +183,19 @@ final class AIUsagePoller: ObservableObject {
                 continue
             }
             let secret: AIUsageSecret
-            do {
-                secret = try await store.secret(for: account.id)
-            } catch {
-                newErrors[account.id] = localizedFetchErrorMessage(error)
-                continue
+            if provider.credentialFields.isEmpty {
+                secret = AIUsageSecret(fields: [:])
+            } else {
+                do {
+                    secret = try await store.secret(for: account.id)
+                } catch {
+                    newErrors[account.id] = localizedFetchErrorMessage(error)
+                    continue
+                }
             }
             do {
                 let windows = try await runWithTimeout(perFetchTimeout) {
-                    try await provider.fetchUsage(secret)
+                    try await provider.fetchUsage(account, secret)
                 }
                 if generation != taskGeneration { return }
                 newSnapshots[account.id] = AIUsageSnapshot(
