@@ -5712,8 +5712,14 @@ class TerminalController {
                 result = .err(code: "not_found", message: "Workspace not found", data: nil)
                 return
             }
-            self.v2MaybeFocusWindow(for: tabManager)
-            self.v2MaybeSelectWorkspace(tabManager, workspace: ws)
+            // Caller may pass focus: false to opt out of focus (--no-focus in CLI).
+            // When the param is absent, default focus-allowed since surface.create is a focusIntent method.
+            let callerWantsFocus = self.v2Bool(params, "focus") ?? true
+            let focus = self.v2FocusAllowed(requested: callerWantsFocus)
+            if focus {
+                self.v2MaybeFocusWindow(for: tabManager)
+                self.v2MaybeSelectWorkspace(tabManager, workspace: ws)
+            }
 
             let paneUUID = self.v2UUID(params, "pane_id")
             let paneId: PaneID? = {
@@ -5731,11 +5737,11 @@ class TerminalController {
             let newPanelId: UUID?
             switch panelType {
             case .browser:
-                newPanelId = ws.newBrowserSurface(inPane: paneId, url: url, focus: self.v2FocusAllowed())?.id
+                newPanelId = ws.newBrowserSurface(inPane: paneId, url: url, focus: focus)?.id
             case .markdown:
-                newPanelId = ws.newMarkdownSurface(inPane: paneId, filePath: resolvedMarkdownPath!, focus: self.v2FocusAllowed())?.id
+                newPanelId = ws.newMarkdownSurface(inPane: paneId, filePath: resolvedMarkdownPath!, focus: focus)?.id
             case .terminal:
-                newPanelId = ws.newTerminalSurface(inPane: paneId, focus: self.v2FocusAllowed())?.id
+                newPanelId = ws.newTerminalSurface(inPane: paneId, focus: focus)?.id
             }
 
             guard let newPanelId else {

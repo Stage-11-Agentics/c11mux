@@ -2048,6 +2048,7 @@ struct CMUXCLI {
             let paneRaw = optionValue(commandArgs, name: "--pane")
             let url = optionValue(commandArgs, name: "--url")
             let file = optionValue(commandArgs, name: "--file")
+            let noFocus = commandArgs.contains("--no-focus")
             var params: [String: Any] = [:]
             let wsId = try normalizeWorkspaceHandle(workspaceArg, client: client)
             if let wsId { params["workspace_id"] = wsId }
@@ -2056,6 +2057,7 @@ struct CMUXCLI {
             if let type { params["type"] = type }
             if let url { params["url"] = url }
             if let file { params["file"] = file }
+            if noFocus { params["focus"] = false }
             let payload = try client.sendV2(method: "surface.create", params: params)
             printV2Payload(payload, jsonOutput: jsonOutput, idFormat: idFormat, fallbackText: v2OKSummary(payload, idFormat: idFormat, kinds: ["surface", "pane", "workspace"]))
 
@@ -7806,11 +7808,13 @@ struct CMUXCLI {
               --workspace <id|ref>                Target workspace (default: $CMUX_WORKSPACE_ID)
               --url <url>                         URL for browser surfaces
               --file <path>                       File path for markdown surfaces
+              --no-focus                          Create surface without stealing focus
 
             Example:
               c11 new-surface
               c11 new-surface --type browser --pane pane:1 --url https://example.com
               c11 new-surface --type markdown --file ~/docs/notes.md
+              c11 new-surface --no-focus
             """
         case "close-surface":
             return """
