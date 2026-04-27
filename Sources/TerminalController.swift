@@ -3745,13 +3745,34 @@ class TerminalController {
         guard let newId else {
             return .err(code: "internal_error", message: "Failed to create workspace", data: nil)
         }
-        let windowId = v2ResolveWindowId(tabManager: tabManager)
-        return .ok([
-            "window_id": v2OrNull(windowId?.uuidString),
-            "window_ref": v2Ref(kind: .window, uuid: windowId),
-            "workspace_id": newId.uuidString,
-            "workspace_ref": v2Ref(kind: .workspace, uuid: newId)
-        ])
+
+        // If no layout param, return immediately (existing behavior unchanged).
+        guard let layoutDict = params["layout"] as? [String: Any], !layoutDict.isEmpty else {
+            let windowId = v2ResolveWindowId(tabManager: tabManager)
+            return .ok([
+                "window_id": v2OrNull(windowId?.uuidString),
+                "window_ref": v2Ref(kind: .window, uuid: windowId),
+                "workspace_id": newId.uuidString,
+                "workspace_ref": v2Ref(kind: .workspace, uuid: newId)
+            ])
+        }
+
+        // Attempt layout application. Inject the new workspace ID so v2WorkspaceApply
+        // targets the freshly created workspace.
+        var layoutParams = layoutDict
+        layoutParams["workspace_id"] = newId.uuidString
+        let layoutResult = v2WorkspaceApply(params: layoutParams)
+
+        if case .err = layoutResult {
+            // Rollback: close the workspace to prevent orphan state.
+            v2MainSync {
+                if let ws = tabManager.tabs.first(where: { $0.id == newId }) {
+                    tabManager.closeWorkspace(ws)
+                }
+            }
+            return layoutResult
+        }
+        return layoutResult
     }
     private func v2WorkspaceSelect(params: [String: Any]) -> V2CallResult {
         guard let tabManager = v2ResolveTabManager(params: params) else {

@@ -1921,14 +1921,19 @@ struct CMUXCLI {
 
         case "new-workspace":
             let (commandOpt, rem0) = parseOption(commandArgs, name: "--command")
-            let (cwdOpt, remaining) = parseOption(rem0, name: "--cwd")
+            let (cwdOpt, rem1) = parseOption(rem0, name: "--cwd")
+            let (layoutOpt, remaining) = parseOption(rem1, name: "--layout")
             if let unknown = remaining.first(where: { $0.hasPrefix("--") }) {
-                throw CLIError(message: "new-workspace: unknown flag '\(unknown)'. Known flags: --command <text>, --cwd <path>")
+                throw CLIError(message: "new-workspace: unknown flag '\(unknown)'. Known flags: --command <text>, --cwd <path>, --layout <path|name>")
             }
             var params: [String: Any] = [:]
             if let cwdOpt {
                 let resolved = resolvePath(cwdOpt)
                 params["cwd"] = resolved
+            }
+            if let layoutRef = layoutOpt {
+                // Resolve blueprint path or name -> {plan: ...} dict for workspace.create layout param.
+                params["layout"] = try resolveBlueprintPlan(layoutRef, client: client)
             }
             let response = try client.sendV2(method: "workspace.create", params: params)
             let wsId = (response["workspace_ref"] as? String) ?? (response["workspace_id"] as? String) ?? ""
@@ -2975,6 +2980,31 @@ struct CMUXCLI {
             throw CLIError(message: "workspace new: '\(resolved)' is not a valid blueprint file (missing 'plan' key)")
         }
         return plan
+    }
+
+    /// Resolve a blueprint reference (file path or name) to a layout dict
+    /// `{plan: ...}` suitable for `workspace.create`'s `layout` param.
+    private func resolveBlueprintPlan(_ ref: String, client: SocketClient) throws -> [String: Any] {
+        let pathToTry = resolvePath(ref)
+        if FileManager.default.fileExists(atPath: pathToTry),
+           let data = FileManager.default.contents(atPath: pathToTry),
+           let file = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let plan = file["plan"] {
+            return ["plan": plan]
+        }
+        // Not a direct path — search by name in the blueprint store.
+        let cwd = FileManager.default.currentDirectoryPath
+        let payload = try client.sendV2(method: "workspace.list_blueprints", params: ["cwd": cwd])
+        let blueprints = payload["blueprints"] as? [[String: Any]] ?? []
+        let trimmed = ref.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let match = blueprints.first(where: { ($0["name"] as? String) == trimmed }),
+              let url = match["url"] as? String,
+              let data = FileManager.default.contents(atPath: resolvePath(url)),
+              let file = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let plan = file["plan"] else {
+            throw CLIError(message: "new-workspace: blueprint '\(ref)' not found (tried as path and name)")
+        }
+        return ["plan": plan]
     }
 
     /// `c11 workspace export-blueprint --name <name> [--workspace <ref>]
