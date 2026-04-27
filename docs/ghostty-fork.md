@@ -1,12 +1,15 @@
-# Ghostty Fork Changes (manaflow-ai/ghostty)
+# Ghostty Fork Changes
 
 This repo uses a fork of Ghostty for local patches that aren't upstream yet.
 When we change the fork, update this document and the parent submodule SHA.
 
+The submodule now points to `Stage-11-Agentics/ghostty` (previously `manaflow-ai/ghostty`).
+The Stage-11-Agentics fork was created from `manaflow-ai/ghostty` main as of 2026-04-26.
+
 ## Fork update checklist
 
 1) Make changes in `ghostty/`.
-2) Commit and push to `manaflow-ai/ghostty`.
+2) Commit and push to `Stage-11-Agentics/ghostty`.
 3) Update this file with the new change summary + conflict notes.
 4) In the parent repo: `git add ghostty` and commit the submodule SHA.
 
@@ -102,6 +105,19 @@ The fork branch HEAD is now the section 6 zsh redraw follow-up commit.
 
 The fork branch HEAD is now the section 7 cmux theme picker helper commit.
 
+### 8) PageList SIGSEGV race fix (Stage-11-Agentics fork)
+
+- Commit: `f217fb0e6` (fix: snapshot page row count in SlidingWindow.Meta to prevent cross-thread SIGSEGV)
+- Files:
+  - `src/terminal/search/sliding_window.zig`
+- Summary:
+  - Snapshots the page row count in `SlidingWindow.Meta.rows` during `append()`, which is called
+    under the terminal lock.
+  - Prevents a cross-thread SIGSEGV that occurred when `resizeCols` freed page nodes concurrently
+    with the search thread's `next()` call reading a now-freed page row count.
+  - The `Meta` struct carries a `rows` field that freezes the count at the time the page is
+    appended; `next()` reads `meta.rows` instead of the live page.
+
 ## Upstreamed fork changes
 
 ### cursor-click-to-move respects OSC 133 click-to-move
@@ -129,5 +145,11 @@ These files change frequently upstream; be careful when rebasing the fork:
   - cmux now relies on the upstream picker UI plus local env-driven hooks for live preview and restore.
     If upstream reorganizes the preview loop or key handling, re-check the cmux mode path and keep the
     stock Ghostty behavior unchanged when the cmux env vars are absent.
+
+- `src/terminal/search/sliding_window.zig`
+  - The `Meta` struct has a `rows: usize` field added by the PageList SIGSEGV fix (section 8).
+    Any upstream change to `SlidingWindow` or `SlidingWindow.Meta` must preserve this field.
+    The field is populated in `append()` under the terminal lock; do not move the assignment outside
+    that lock boundary.
 
 If you resolve a conflict, update this doc with what changed.
