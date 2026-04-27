@@ -244,7 +244,10 @@
 				D7203BF0A1B2C3D4E5F60719 /* MailboxULID.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7103BF1A1B2C3D4E5F60718 /* MailboxULID.swift */; };
 				D7206BF0A1B2C3D4E5F60719 /* MailboxEnvelope.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7106BF1A1B2C3D4E5F60718 /* MailboxEnvelope.swift */; };
 				D7113BF0A1B2C3D4E5F60718 /* MailboxDispatcherGCTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7113BF1A1B2C3D4E5F60718 /* MailboxDispatcherGCTests.swift */; };
-		/* End PBXBuildFile section */
+				C1100B1B7530E1FEBB72074C /* AIUsageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1100A1B7530E1FEBB72074C /* AIUsageProvider.swift */; };
+		C1100BB22F2C7143F56AAF88 /* AIUsageAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1100AB22F2C7143F56AAF88 /* AIUsageAccount.swift */; };
+		C1100BDBE3520D6CFB59CFB6 /* AIUsageRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1100ADBE3520D6CFB59CFB6 /* AIUsageRegistry.swift */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		A5001020 /* Embed Frameworks */ = {
@@ -530,6 +533,9 @@
 			D7111BF1A1B2C3D4E5F60718 /* StdinMailboxHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mailbox/StdinMailboxHandler.swift; sourceTree = "<group>"; };
 			D7112BF1A1B2C3D4E5F60718 /* StdinHandlerFormattingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StdinHandlerFormattingTests.swift; sourceTree = "<group>"; };
 			D7113BF1A1B2C3D4E5F60718 /* MailboxDispatcherGCTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MailboxDispatcherGCTests.swift; sourceTree = "<group>"; };
+		C1100A1B7530E1FEBB72074C /* AIUsageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIUsage/AIUsageProvider.swift; sourceTree = "<group>"; };
+		C1100AB22F2C7143F56AAF88 /* AIUsageAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIUsage/AIUsageAccount.swift; sourceTree = "<group>"; };
+		C1100ADBE3520D6CFB59CFB6 /* AIUsageRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIUsage/AIUsageRegistry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -646,7 +652,10 @@
 			A5001041 /* Sources */ = {
 				isa = PBXGroup;
 				children = (
-					A5001011 /* c11App.swift */,
+					
+				
+				
+				C1100ADBE3520D6CFB59CFB6 /* AIUsageRegistry.swift */,C1100AB22F2C7143F56AAF88 /* AIUsageAccount.swift */,C1100A1B7530E1FEBB72074C /* AIUsageProvider.swift */,A5001011 /* c11App.swift */,
 					A5001012 /* ContentView.swift */,
 					9AD52285508B1D6A9875E7B3 /* SidebarSelectionState.swift */,
 					B9000017A1B2C3D4E5F60719 /* WindowDragHandleView.swift */,
@@ -1046,7 +1055,10 @@
 				isa = PBXSourcesBuildPhase;
 				buildActionMask = 2147483647;
 				files = (
-					A5001001 /* c11App.swift in Sources */,
+					
+				
+				
+				C1100BDBE3520D6CFB59CFB6 /* AIUsageRegistry.swift in Sources */,C1100BB22F2C7143F56AAF88 /* AIUsageAccount.swift in Sources */,C1100B1B7530E1FEBB72074C /* AIUsageProvider.swift in Sources */,A5001001 /* c11App.swift in Sources */,
 					A5001002 /* ContentView.swift in Sources */,
 					E62155868BB29FEB5DAAAF25 /* SidebarSelectionState.swift in Sources */,
 					B9000018A1B2C3D4E5F60719 /* WindowDragHandleView.swift in Sources */,
