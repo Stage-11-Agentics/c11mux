@@ -62,21 +62,13 @@ of the cost-only view. Leave blank to always show cost.
 
 ## Codex
 
-### Add a Codex account
+Codex usage is read automatically from the Codex CLI's local database
+(`~/.codex/state_5.sqlite`). No setup required — add a Codex account
+in Settings → AI Usage Monitoring → Add Codex Account if the sidebar
+entry doesn't appear automatically.
 
-1. Run `codex login` once so `~/.codex/auth.json` exists.
-2. Get the access token:
-   ```
-   jq -r .tokens.access_token < ~/.codex/auth.json
-   ```
-   It is a 3-segment JWT starting with `eyJ`.
-3. Get the optional account id:
-   ```
-   jq -r .tokens.account_id < ~/.codex/auth.json
-   ```
-   If the value is `null` or empty, leave the field blank.
-4. In c11, Settings → Agents & Automation → AI Usage Monitoring → Add
-   → Codex. Paste the values and save.
+When a session token limit is set, the sidebar shows a utilization bar.
+Without a limit, c11 displays session and week costs in dollars instead.
 
 ## Multiple accounts per provider
 
