@@ -142,9 +142,21 @@ cmux_set_agent_bin="$(cd "$(dirname "$0")" && pwd)/cmux"
 # - PreToolUse: clears "Needs input" when Claude resumes after permission grant (async to avoid latency)
 HOOKS_JSON='{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"c11 claude-hook session-start","timeout":10}]}],"Stop":[{"matcher":"","hooks":[{"type":"command","command":"c11 claude-hook stop","timeout":10}]}],"SessionEnd":[{"matcher":"","hooks":[{"type":"command","command":"c11 claude-hook session-end","timeout":1}]}],"Notification":[{"matcher":"","hooks":[{"type":"command","command":"c11 claude-hook notification","timeout":10}]}],"UserPromptSubmit":[{"matcher":"","hooks":[{"type":"command","command":"c11 claude-hook prompt-submit","timeout":10}]}],"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"c11 claude-hook pre-tool-use","timeout":5,"async":true}]}]}}'
 
+# Claude Code 2.1.119 silently drops hooks loaded from inline
+# `--settings <json>` but honours them when loaded from
+# `--settings <path>`. Write to a per-PID tempfile and pass the path.
+# The file is overwritten on every wrapper run and leaks until /tmp
+# is reaped on reboot — acceptable for a small JSON blob with no
+# secrets. Confirmed in 2.1.119 (no working SessionStart hook with
+# inline JSON; identical JSON via file path fires correctly). If a
+# future claude version restores inline-JSON support, this rail can
+# be deleted without behavioural change.
+HOOKS_FILE="${TMPDIR:-/tmp}/c11-claude-hooks-$$.json"
+printf '%s' "$HOOKS_JSON" > "$HOOKS_FILE"
+
 if [[ "$SKIP_SESSION_ID" == true ]]; then
-    exec "$REAL_CLAUDE" --settings "$HOOKS_JSON" "$@"
+    exec "$REAL_CLAUDE" --settings "$HOOKS_FILE" "$@"
 else
     SESSION_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
-    exec "$REAL_CLAUDE" --session-id "$SESSION_ID" --settings "$HOOKS_JSON" "$@"
+    exec "$REAL_CLAUDE" --session-id "$SESSION_ID" --settings "$HOOKS_FILE" "$@"
 fi
