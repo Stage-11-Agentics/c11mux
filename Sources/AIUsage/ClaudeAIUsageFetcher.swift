@@ -134,6 +134,7 @@ enum ClaudeAIUsageFetcher {
     }
 
     private static func parseUtilization(_ raw: Any?) throws -> Int {
+        if raw == nil || raw is NSNull { throw ClaudeAIUsageFetchError.decoding }
         if raw is Bool { throw ClaudeAIUsageFetchError.decoding }
         if let int = raw as? Int {
             return clamp(int)

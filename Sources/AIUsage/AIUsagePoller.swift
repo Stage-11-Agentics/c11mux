@@ -256,12 +256,6 @@ final class AIUsagePoller: ObservableObject {
     }
 
     private func localizedFetchErrorMessage(_ error: Error) -> String {
-        if let storeError = error as? AIUsageStoreError {
-            return storeError.errorDescription ?? genericFetchFailureString()
-        }
-        if error is AIUsageFetchTimeoutError {
-            return AIUsageFetchTimeoutError().errorDescription ?? genericFetchFailureString()
-        }
         if let local = error as? LocalizedError,
            let isAppOwned = (error as? C11AppOwnedError)?.isAppOwned,
            isAppOwned,
