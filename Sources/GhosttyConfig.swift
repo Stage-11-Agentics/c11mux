@@ -306,6 +306,7 @@ struct GhosttyConfig {
                     if paletteParts.count == 2,
                        let index = Int(paletteParts[0]),
                        let color = NSColor(hex: String(paletteParts[1])) {
+                        guard index >= 0, index <= 15 else { break }
                         palette[index] = color
                     }
                 case "unfocused-split-opacity":
