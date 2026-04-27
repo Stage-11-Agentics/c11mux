@@ -35,7 +35,7 @@ explicit `CodingKeys` or custom encode/decode are defined (see LayoutTreeSpec).
 ```
 
 All fields optional. `customColor` accepts a hex string (`#RRGGBB`) or a named palette color
-(e.g., `"Red"`, `"Ocean Blue"`). Unknown names return an `ApplyFailure` with code
+(e.g., `"Red"`, `"Blue"`). Unknown names return an `ApplyFailure` with code
 `unknown_color_name` without aborting the plan. `metadata` values must be strings.
 
 ## LayoutTreeSpec
