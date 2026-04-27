@@ -13252,6 +13252,17 @@ struct CMUXCLI {
         let workspaceArg = hookWsFlag ?? ProcessInfo.processInfo.environment["CMUX_WORKSPACE_ID"]
         let surfaceArg = optionValue(hookArgs, name: "--surface") ?? (hookWsFlag == nil ? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"] : nil)
         let rawInput = String(data: FileHandle.standardInput.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        // C11-24 diagnostic: when CMUX_HOOK_DEBUG_PATH is set, dump the
+        // raw stdin JSON to that path before parsing. Used to verify the
+        // exact shape of the SessionStart payload Claude Code emits when
+        // session_id capture appears to be silently dropping. Best-effort —
+        // any I/O error is swallowed so a misconfigured debug path can
+        // never break the hook itself.
+        if let debugPath = ProcessInfo.processInfo.environment["CMUX_HOOK_DEBUG_PATH"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !debugPath.isEmpty {
+            try? rawInput.write(toFile: debugPath, atomically: true, encoding: .utf8)
+        }
         let parsedInput = parseClaudeHookInput(rawInput: rawInput)
         let sessionStore = ClaudeHookSessionStore()
         telemetry.breadcrumb(
