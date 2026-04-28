@@ -8262,6 +8262,9 @@ class TerminalController {
     }
 
     private func v2ConversationClaim(params: [String: Any]) -> V2CallResult {
+        if ConversationStorePolicy.isDisabled {
+            return .ok(["disabled": true, "kill_switch": "CMUX_DISABLE_CONVERSATION_STORE"])
+        }
         guard let kind = v2String(params, "kind"), !kind.isEmpty else {
             return .err(code: "invalid_kind", message: "kind required", data: nil)
         }
@@ -8299,6 +8302,9 @@ class TerminalController {
     }
 
     private func v2ConversationPush(params: [String: Any]) -> V2CallResult {
+        if ConversationStorePolicy.isDisabled {
+            return .ok(["disabled": true, "kill_switch": "CMUX_DISABLE_CONVERSATION_STORE"])
+        }
         guard let kind = v2String(params, "kind"), !kind.isEmpty else {
             return .err(code: "invalid_kind", message: "kind required", data: nil)
         }

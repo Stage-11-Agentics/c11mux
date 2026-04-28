@@ -331,11 +331,61 @@ extension Workspace {
         // `CMUX_DISABLE_AGENT_RESTART=1` suppresses the whole pass. Layout/
         // metadata/status restore above is independent — failures here
         // cannot break a normal restore.
-        scheduleAgentRestart(
-            from: snapshot,
-            registry: ConversationStrategyRegistry.v1,
-            oldToNewPanelIds: oldToNewPanelIds
-        )
+        //
+        // Kill switch (`CMUX_DISABLE_CONVERSATION_STORE=1`): fall back to
+        // the legacy AgentRestartRegistry path so a regression in the
+        // store doesn't lose resume capability. Removed in 0.46.0 / v1.1
+        // alongside the legacy claude.session_id metadata bridge.
+        if ConversationStorePolicy.isDisabled {
+            scheduleAgentRestartLegacy(
+                from: snapshot,
+                registry: .phase1,
+                oldToNewPanelIds: oldToNewPanelIds
+            )
+        } else {
+            scheduleAgentRestart(
+                from: snapshot,
+                registry: ConversationStrategyRegistry.v1,
+                oldToNewPanelIds: oldToNewPanelIds
+            )
+        }
+    }
+
+    /// Legacy fallback path used only when CMUX_DISABLE_CONVERSATION_STORE=1.
+    /// Reads the legacy `claude.session_id` reserved metadata directly from
+    /// the panel snapshot via AgentRestartRegistry. Removed in 0.46.0/v1.1.
+    private func scheduleAgentRestartLegacy(
+        from snapshot: SessionWorkspaceSnapshot,
+        registry: AgentRestartRegistry,
+        oldToNewPanelIds: [UUID: UUID]
+    ) {
+        guard SessionPersistencePolicy.agentRestartOnRestoreEnabled else { return }
+        var commands: [(panelId: UUID, command: String)] = []
+        for panelSnapshot in snapshot.panels {
+            guard panelSnapshot.type == .terminal else { continue }
+            let meta = Workspace.stringValues(from: panelSnapshot.metadata)
+            let terminalType = meta[SurfaceMetadataKeyName.terminalType]
+            let sessionId = meta[SurfaceMetadataKeyName.claudeSessionId]
+            guard let command = registry.resolveCommand(
+                terminalType: terminalType,
+                sessionId: sessionId,
+                metadata: meta
+            ) else { continue }
+            commands.append((panelId: panelSnapshot.id, command: command))
+        }
+        guard !commands.isEmpty else { return }
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + SessionPersistencePolicy.agentRestartDelay
+        ) { [weak self] in
+            guard let self else { return }
+            for (snapshotPanelId, command) in commands {
+                let livePanelId = oldToNewPanelIds[snapshotPanelId] ?? snapshotPanelId
+                guard let terminalPanel = self.panels[livePanelId] as? TerminalPanel else {
+                    continue
+                }
+                TextBoxSubmit.send(command, via: terminalPanel.surface)
+            }
+        }
     }
 
     /// C11-24: collect ResumeActions for terminal panels by consulting the

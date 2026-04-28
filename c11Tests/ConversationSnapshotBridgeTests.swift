@@ -182,4 +182,27 @@ final class ConversationSnapshotBridgeTests: XCTestCase {
         XCTAssertTrue(ConversationStorePolicy.isDisabled)
         unsetenv("CMUX_DISABLE_CONVERSATION_STORE")
     }
+
+    @MainActor
+    func testKillSwitchFallsBackToLegacyRegistryAtRestoreTime() {
+        // When CMUX_DISABLE_CONVERSATION_STORE=1, the new
+        // pendingRestartPlans path no-ops (the snapshot wouldn't have
+        // been seeded into ConversationStore anyway). A snapshot with
+        // legacy claude.session_id reserved metadata should still
+        // produce a resume command via the legacy
+        // AgentRestartRegistry fallback path.
+        //
+        // We can't invoke the private scheduleAgentRestartLegacy directly,
+        // but the legacy registry's command resolution is the same logic
+        // wrapped inside it. Asserting via the registry validates the
+        // fallback's load-bearing semantics.
+        let registry = AgentRestartRegistry.phase1
+        let cmd = registry.resolveCommand(
+            terminalType: "claude-code",
+            sessionId: claudeSessionId,
+            metadata: [:]
+        )
+        XCTAssertNotNil(cmd)
+        XCTAssertTrue(cmd?.contains("claude --dangerously-skip-permissions --resume") ?? false)
+    }
 }
