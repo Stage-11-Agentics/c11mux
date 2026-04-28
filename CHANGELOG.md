@@ -4,6 +4,16 @@ All notable changes to c11 (and, before the fork, cmux) are documented here.
 
 Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the 0.38.0 section for the rename.
 
+## [0.44.1] - 2026-04-28
+
+### Fixed
+
+- **"What's new" link after auto-update now points at the c11 release page.** When you accepted an update and relaunched, the release-notes link in the Sparkle dialog opened the upstream cmux release page on GitHub instead of the c11 fork. The semver path in `UpdateViewModel.ReleaseNotes` was hand-rolling a URL against `manaflow-ai/cmux`. Same sweep removed an "Upstream" button from the About panel, fixed the About panel "GitHub" and commit links (which pointed at a `c11mux` repo that doesn't exist), corrected the `c11 daemon-status` advisory `gh release download` text, and replaced the splash banner's upstream URL with the c11 repo. Sparkle install itself was always correct, so the only user-visible symptom was the misrouted release-notes link.
+
+### Built and shipped by
+
+Stage 11 Agentics. Operator:agent, fused.
+
 ## [0.44.0] - 2026-04-27
 
 ### Added

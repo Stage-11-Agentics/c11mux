@@ -5586,13 +5586,13 @@ struct CMUXCLI {
         let downloadURL = entry?.downloadURL ?? "unknown"
         let checksumsAssetName = manifest?.checksumsAssetName ?? "unknown"
         let checksumsURL = manifest?.checksumsURL ?? "unknown"
-        let downloadCommand = "gh release download \(releaseTag) --repo manaflow-ai/cmux --pattern \(assetName)"
-        let downloadChecksumsCommand = "gh release download \(releaseTag) --repo manaflow-ai/cmux --pattern \(checksumsAssetName)"
+        let downloadCommand = "gh release download \(releaseTag) --repo Stage-11-Agentics/c11 --pattern \(assetName)"
+        let downloadChecksumsCommand = "gh release download \(releaseTag) --repo Stage-11-Agentics/c11 --pattern \(checksumsAssetName)"
         let checksumVerifyCommand = "shasum -a 256 -c \(checksumsAssetName) --ignore-missing"
         let signerWorkflow = releaseTag == "nightly"
-            ? "manaflow-ai/cmux/.github/workflows/nightly.yml"
-            : "manaflow-ai/cmux/.github/workflows/release.yml"
-        let verifyCommand = "gh attestation verify ./\(assetName) --repo manaflow-ai/cmux --signer-workflow \(signerWorkflow)"
+            ? "Stage-11-Agentics/c11/.github/workflows/nightly.yml"
+            : "Stage-11-Agentics/c11/.github/workflows/release.yml"
+        let verifyCommand = "gh attestation verify ./\(assetName) --repo Stage-11-Agentics/c11 --signer-workflow \(signerWorkflow)"
 
         let payload: [String: Any] = [
             "app_version": remoteDaemonVersionString(from: info),
@@ -14025,7 +14025,7 @@ struct CMUXCLI {
         print()
         print("  \(bold)Stage 11\(reset)\(subdued)            https://stage11.ai\(reset)")
         print("  \(bold)The Spike\(reset)\(subdued)           https://stage11.ai/spike\(reset)")
-        print("  \(bold)Upstream\(reset)\(subdued)            https://github.com/manaflow-ai/cmux (cmux — the project we forked)\(reset)")
+        print("  \(bold)Repo\(reset)\(subdued)                https://github.com/Stage-11-Agentics/c11\(reset)")
         print()
         print("  \(subdued)Run \(reset)\(bold)c11 --help\(reset)\(subdued) for all commands.\(reset)")
         print("  \(subdued)Run \(reset)\(bold)c11 shortcuts\(reset)\(subdued) to edit shortcuts.\(reset)")
