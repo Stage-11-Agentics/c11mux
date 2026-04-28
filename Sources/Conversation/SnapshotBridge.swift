@@ -20,7 +20,7 @@ import Foundation
 ///
 /// **Deprecation:** removed in 0.46.0 / v1.1, whichever ships later. See
 /// the TODO marker in `seedFromSnapshot(_:)`.
-public enum WorkspaceSnapshotConversationBridge {
+enum WorkspaceSnapshotConversationBridge {
 
     /// Seed `ConversationStore.shared` from a workspace snapshot. Walks
     /// every panel; honors the new field first; falls back to the legacy
@@ -29,7 +29,7 @@ public enum WorkspaceSnapshotConversationBridge {
     /// Calls into the actor synchronously via a 1 s bounded semaphore.
     /// Called from the main-actor restore path (TabManager →
     /// AppDelegate); the wait is acceptable on this rare seam.
-    public static func seedFromSnapshot(_ snapshot: AppSessionSnapshot) {
+    static func seedFromSnapshot(_ snapshot: AppSessionSnapshot) {
         var liftedCount = 0
         var nativeCount = 0
         var seedMap: [String: SurfaceConversations] = [:]
@@ -73,7 +73,7 @@ public enum WorkspaceSnapshotConversationBridge {
 
     /// Synchronous helper for tests. Returns the synthesized ref iff the
     /// legacy metadata key is present + valid.
-    public static func liftLegacyClaudeSessionId(
+    static func liftLegacyClaudeSessionId(
         _ panel: SessionPanelSnapshot
     ) -> ConversationRef? {
         guard let metadata = panel.metadata else { return nil }
