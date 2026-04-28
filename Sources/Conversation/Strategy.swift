@@ -4,19 +4,19 @@ import Foundation
 /// Wrapper-claim values, hook pushes, and scraper signals are all surfaced
 /// here so strategies stay deterministic given collected signals — they do
 /// not perform I/O directly.
-public struct ConversationStrategyInputs: Sendable {
-    public let surfaceId: String
-    public let cwd: String?
-    public let lastActivityTimestamp: Date?
+struct ConversationStrategyInputs: Sendable {
+    let surfaceId: String
+    let cwd: String?
+    let lastActivityTimestamp: Date?
     /// The most recent wrapper-claim ref the store has seen for this
     /// surface (placeholder), if any.
-    public let wrapperClaim: ConversationRef?
+    let wrapperClaim: ConversationRef?
     /// The most recent push (hook or manual) the store has seen, if any.
-    public let push: ConversationRef?
+    let push: ConversationRef?
     /// Bounded scraper signals, sorted newest-first by mtime.
-    public let scrapeCandidates: [ScrapeCandidate]
+    let scrapeCandidates: [ScrapeCandidate]
 
-    public init(
+    init(
         surfaceId: String,
         cwd: String? = nil,
         lastActivityTimestamp: Date? = nil,
@@ -36,14 +36,14 @@ public struct ConversationStrategyInputs: Sendable {
 /// Bounded metadata produced by per-kind scrapers. Filename + mtime + size
 /// only — never transcript content (privacy contract; see the architecture
 /// doc §"Privacy contract for scrape").
-public struct ScrapeCandidate: Sendable, Equatable {
-    public let id: String
-    public let filePath: String
-    public let mtime: Date
-    public let size: Int64
-    public let cwd: String?
+struct ScrapeCandidate: Sendable, Equatable {
+    let id: String
+    let filePath: String
+    let mtime: Date
+    let size: Int64
+    let cwd: String?
 
-    public init(id: String, filePath: String, mtime: Date, size: Int64, cwd: String? = nil) {
+    init(id: String, filePath: String, mtime: Date, size: Int64, cwd: String? = nil) {
         self.id = id
         self.filePath = filePath
         self.mtime = mtime
@@ -60,7 +60,7 @@ public struct ScrapeCandidate: Sendable, Equatable {
 /// Strategies must document their id grammar and apply explicit
 /// shell-quoting before interpolation in any `typeCommand` text. See each
 /// concrete strategy for the per-kind grammar.
-public protocol ConversationStrategy: Sendable {
+protocol ConversationStrategy: Sendable {
     /// Stable kind identifier. Matches `ConversationRef.kind`. Examples:
     /// `"claude-code"`, `"codex"`, `"opencode"`, `"kimi"`. Flat strings;
     /// namespacing deferred per S5.
@@ -87,7 +87,7 @@ public protocol ConversationStrategy: Sendable {
     func isValidId(_ id: String) -> Bool
 }
 
-public extension ConversationStrategy {
+extension ConversationStrategy {
     /// Default: trim whitespace and reject empty. Strategies override for
     /// stricter grammars (e.g. UUID v4 for Claude/Codex).
     func isValidId(_ id: String) -> Bool {
@@ -104,7 +104,7 @@ public extension ConversationStrategy {
 /// interpolation, which means the id is already a safe set of characters.
 /// This helper exists as a defence-in-depth seam: any future change that
 /// forgets the grammar check still cannot inject shell metacharacters.
-public func conversationShellQuote(_ value: String) -> String {
+func conversationShellQuote(_ value: String) -> String {
     let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
     return "'\(escaped)'"
 }

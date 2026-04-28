@@ -12,11 +12,11 @@ import Foundation
 ///
 /// Concurrency: the store is a Swift `actor`. All sync socket handlers
 /// reach it via `Task { await … }` adapters (see CLI/c11.swift).
-public actor ConversationStore {
+actor ConversationStore {
     /// Per-surface mapping. v1 uses one active ref + empty history.
     private var bySurface: [String: SurfaceConversations] = [:]
 
-    public init() {}
+    init() {}
 
     /// Process-wide singleton. Held outside `Workspace` because:
     /// - the CLI dispatcher resolves surface IDs across all workspaces,
@@ -24,7 +24,7 @@ public actor ConversationStore {
     ///   specific workspace,
     /// - per-workspace partitioning would require duplicate seed/snapshot
     ///   code paths for no isolation benefit (surface IDs are app-unique).
-    public static let shared = ConversationStore()
+    static let shared = ConversationStore()
 }
 
 /// Architecture-level kill switch (`CMUX_DISABLE_CONVERSATION_STORE=1`).
@@ -35,9 +35,9 @@ public actor ConversationStore {
 ///
 /// **Removed in 0.46.0 / v1.1** alongside the legacy metadata bridge.
 /// Tracked TODO marker.
-public enum ConversationStorePolicy {
+enum ConversationStorePolicy {
     /// True iff the env var is set to a truthy value.
-    public static var isDisabled: Bool {
+    static var isDisabled: Bool {
         guard let raw = ProcessInfo.processInfo.environment["CMUX_DISABLE_CONVERSATION_STORE"] else {
             return false
         }
@@ -51,15 +51,15 @@ public enum ConversationStorePolicy {
 extension ConversationStore {
     // MARK: - Read
 
-    public func conversations(for surfaceId: String) -> SurfaceConversations {
+    func conversations(for surfaceId: String) -> SurfaceConversations {
         bySurface[surfaceId] ?? .empty
     }
 
-    public func active(for surfaceId: String) -> ConversationRef? {
+    func active(for surfaceId: String) -> ConversationRef? {
         bySurface[surfaceId]?.active
     }
 
-    public func snapshot() -> [String: SurfaceConversations] {
+    func snapshot() -> [String: SurfaceConversations] {
         bySurface
     }
 
@@ -67,7 +67,7 @@ extension ConversationStore {
 
     /// Replace the entire store contents in one shot. Called once on
     /// snapshot restore to seed from `SessionPanelSnapshot.surfaceConversations`.
-    public func seed(from records: [String: SurfaceConversations]) {
+    func seed(from records: [String: SurfaceConversations]) {
         bySurface = records
     }
 
@@ -77,7 +77,7 @@ extension ConversationStore {
     /// ref is older AND of equal-or-lower provenance. Hooks and scrapes
     /// always win regardless of timestamp.
     @discardableResult
-    public func claim(
+    func claim(
         surfaceId: String,
         kind: String,
         cwd: String?,
@@ -119,7 +119,7 @@ extension ConversationStore {
     /// strictly newer push or scrape. State defaults to `.alive`; callers
     /// pass `.tombstoned` or other states explicitly when warranted.
     @discardableResult
-    public func push(
+    func push(
         surfaceId: String,
         kind: String,
         id: String,
@@ -146,7 +146,7 @@ extension ConversationStore {
 
     /// Apply a scrape result. Same reconciliation rule as `push`.
     @discardableResult
-    public func recordScrape(
+    func recordScrape(
         surfaceId: String,
         ref: ConversationRef
     ) -> ConversationRef {
@@ -156,7 +156,7 @@ extension ConversationStore {
     /// Mark the surface's active ref as tombstoned. Operator-initiated
     /// (`c11 conversation tombstone`) or strategy-confirmed (Claude with
     /// hook history + missing session file).
-    public func tombstone(
+    func tombstone(
         surfaceId: String,
         reason: String?,
         at: Date = Date()
@@ -172,7 +172,7 @@ extension ConversationStore {
     /// Bulk-suspend all alive refs. Called from `applicationWillTerminate`
     /// before the snapshot is written so resume on next launch is gated
     /// on `state = .suspended`.
-    public func suspendAllAlive(at: Date = Date()) {
+    func suspendAllAlive(at: Date = Date()) {
         for (key, var snap) in bySurface {
             if var active = snap.active, active.state == .alive {
                 active.state = .suspended
@@ -185,7 +185,7 @@ extension ConversationStore {
 
     /// Bulk-transition all active refs to `.unknown`. Called on crash
     /// recovery before the forced pull-scrape pass classifies them.
-    public func markAllUnknown(at: Date = Date(), reason: String = "crash recovery (dirty sentinel)") {
+    func markAllUnknown(at: Date = Date(), reason: String = "crash recovery (dirty sentinel)") {
         for (key, var snap) in bySurface {
             if var active = snap.active {
                 active.state = .unknown
@@ -199,7 +199,7 @@ extension ConversationStore {
 
     /// Wipe a surface's conversations. Operator escape hatch
     /// (`c11 conversation clear`).
-    public func clear(surfaceId: String) {
+    func clear(surfaceId: String) {
         bySurface.removeValue(forKey: surfaceId)
     }
 
@@ -247,7 +247,7 @@ extension ConversationStore {
     /// Synchronous reconciliation predicate. Reused by the actor's
     /// `shouldReplace` and exposed for state-machine unit tests so
     /// neither side has to construct an actor or duplicate the rule.
-    public static func _testShouldReplace(
+    static func _testShouldReplace(
         existing: ConversationRef,
         candidate: ConversationRef
     ) -> Bool {

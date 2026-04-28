@@ -15,12 +15,12 @@ import Foundation
 /// disambiguate via `c11 conversation clear --surface <id>`.
 ///
 /// Id grammar: UUID v4 (codex session filenames are `<uuid>.jsonl`).
-public struct CodexStrategy: ConversationStrategy {
-    public let kind: String = "codex"
+struct CodexStrategy: ConversationStrategy {
+    let kind: String = "codex"
 
-    public init() {}
+    init() {}
 
-    public func capture(inputs: ConversationStrategyInputs) -> ConversationRef? {
+    func capture(inputs: ConversationStrategyInputs) -> ConversationRef? {
         // Filter the candidates by what we know about the surface.
         let activityFloor = inputs.lastActivityTimestamp
         let claimTime = inputs.wrapperClaim?.capturedAt
@@ -71,7 +71,7 @@ public struct CodexStrategy: ConversationStrategy {
         )
     }
 
-    public func resume(ref: ConversationRef) -> ResumeAction {
+    func resume(ref: ConversationRef) -> ResumeAction {
         guard !ref.placeholder else {
             return .skip(reason: "placeholder; no codex session resolved yet")
         }
@@ -92,7 +92,7 @@ public struct CodexStrategy: ConversationStrategy {
         return .typeCommand(text: text, submitWithReturn: true)
     }
 
-    public func isValidId(_ id: String) -> Bool {
+    func isValidId(_ id: String) -> Bool {
         isValidConversationUUID(id)
     }
 }

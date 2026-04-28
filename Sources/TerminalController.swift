@@ -3311,7 +3311,7 @@ class TerminalController {
         ])
     }
 
-    private enum V2CallResult {
+    private enum V2CallResult: Error {
         case ok(Any)
         case err(code: String, message: String, data: Any?)
     }

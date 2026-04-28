@@ -4,19 +4,19 @@ import Foundation
 /// session storage; if a real id ever appears (via wrapper-claim with a
 /// non-placeholder id, or a future scraper) the strategy launches the
 /// process — but resume defaults to `.skip` for placeholders.
-public struct OpencodeStrategy: ConversationStrategy {
-    public let kind: String = "opencode"
+struct OpencodeStrategy: ConversationStrategy {
+    let kind: String = "opencode"
 
-    public init() {}
+    init() {}
 
-    public func capture(inputs: ConversationStrategyInputs) -> ConversationRef? {
+    func capture(inputs: ConversationStrategyInputs) -> ConversationRef? {
         if let push = inputs.push, !push.placeholder {
             return push
         }
         return inputs.wrapperClaim
     }
 
-    public func resume(ref: ConversationRef) -> ResumeAction {
+    func resume(ref: ConversationRef) -> ResumeAction {
         if ref.placeholder {
             return .skip(reason: "fresh-launch-only")
         }

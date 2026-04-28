@@ -10,12 +10,12 @@ import Foundation
 /// the existing `claudeSessionIdUUIDPattern` so the legacy
 /// `claude.session_id` reserved-key validator and the new strategy share
 /// one grammar.
-public struct ClaudeCodeStrategy: ConversationStrategy {
-    public let kind: String = "claude-code"
+struct ClaudeCodeStrategy: ConversationStrategy {
+    let kind: String = "claude-code"
 
-    public init() {}
+    init() {}
 
-    public func capture(inputs: ConversationStrategyInputs) -> ConversationRef? {
+    func capture(inputs: ConversationStrategyInputs) -> ConversationRef? {
         // Push-primary: hook value wins on the live path.
         if let push = inputs.push, !push.placeholder {
             return push
@@ -43,7 +43,7 @@ public struct ClaudeCodeStrategy: ConversationStrategy {
         return nil
     }
 
-    public func resume(ref: ConversationRef) -> ResumeAction {
+    func resume(ref: ConversationRef) -> ResumeAction {
         guard !ref.placeholder else {
             return .skip(reason: "placeholder; no real session id captured yet")
         }
@@ -58,7 +58,7 @@ public struct ClaudeCodeStrategy: ConversationStrategy {
         return .typeCommand(text: text, submitWithReturn: true)
     }
 
-    public func isValidId(_ id: String) -> Bool {
+    func isValidId(_ id: String) -> Bool {
         isValidConversationUUID(id)
     }
 }

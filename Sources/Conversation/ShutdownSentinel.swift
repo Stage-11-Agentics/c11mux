@@ -17,8 +17,8 @@ import Foundation
 /// Bundle-scoping prevents debug/release/concurrent c11 instances from
 /// cross-contaminating each other's crash markers (debug builds use a
 /// distinct bundle id).
-public enum ShutdownSentinel {
-    public enum PriorShutdown: Equatable {
+enum ShutdownSentinel {
+    enum PriorShutdown: Equatable {
         case clean(at: Date)
         case dirty(launchedAt: Date?)
         case missing
@@ -26,7 +26,7 @@ public enum ShutdownSentinel {
 
     /// Default sentinel directory: `~/.c11/runtime/`. Created on first
     /// write; missing dir on recovery read = treat as crash.
-    public static func defaultDirectory() -> URL? {
+    static func defaultDirectory() -> URL? {
         guard let home = FileManager.default
             .homeDirectoryForCurrentUser as URL? else {
             return nil
@@ -37,7 +37,7 @@ public enum ShutdownSentinel {
     }
 
     /// Resolve the dirty sentinel URL for a given bundle id.
-    public static func dirtyURL(
+    static func dirtyURL(
         bundleId: String,
         directory: URL? = nil
     ) -> URL? {
@@ -47,7 +47,7 @@ public enum ShutdownSentinel {
     }
 
     /// Resolve the clean sentinel URL for a given bundle id.
-    public static func cleanURL(
+    static func cleanURL(
         bundleId: String,
         directory: URL? = nil
     ) -> URL? {
@@ -59,7 +59,7 @@ public enum ShutdownSentinel {
     /// Inspect prior-shutdown state without mutating it. Caller is
     /// responsible for using the result before overwriting at this
     /// launch.
-    public static func readPriorShutdown(
+    static func readPriorShutdown(
         bundleId: String,
         directory: URL? = nil,
         fileManager: FileManager = .default
@@ -85,7 +85,7 @@ public enum ShutdownSentinel {
     /// boolean indicates success) — sentinel writes must NEVER block
     /// launch.
     @discardableResult
-    public static func writeDirty(
+    static func writeDirty(
         bundleId: String,
         at: Date = Date(),
         directory: URL? = nil,
@@ -117,7 +117,7 @@ public enum ShutdownSentinel {
     /// must complete before this is reached or the false-clean window
     /// the original design suffered from reappears.
     @discardableResult
-    public static func promoteToClean(
+    static func promoteToClean(
         bundleId: String,
         at: Date = Date(),
         directory: URL? = nil,

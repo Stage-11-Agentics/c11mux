@@ -18,11 +18,11 @@ import Foundation
 ///
 /// Persisted in workspace snapshots as part of `SessionPanelSnapshot`
 /// (added in step 8).
-public final class SurfaceActivityTracker: @unchecked Sendable {
-    public static let shared = SurfaceActivityTracker()
+final class SurfaceActivityTracker: @unchecked Sendable {
+    static let shared = SurfaceActivityTracker()
 
     /// Debounce window. Two updates within this interval coalesce.
-    public static let debounceInterval: TimeInterval = 0.250
+    static let debounceInterval: TimeInterval = 0.250
 
     private let queue = DispatchQueue(
         label: "com.stage11.c11.surface-activity",
@@ -36,11 +36,11 @@ public final class SurfaceActivityTracker: @unchecked Sendable {
     /// the timestamp tracks the leading edge of a burst, not the trailing.
     private var nextAllowed: [String: Date] = [:]
 
-    public init() {}
+    init() {}
 
     /// Public entry point: record activity for `surfaceId`. Returns
     /// immediately; the actual store update happens off-thread.
-    public func recordActivity(surfaceId: String, at: Date = Date()) {
+    func recordActivity(surfaceId: String, at: Date = Date()) {
         let normalised = surfaceId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalised.isEmpty else { return }
         queue.async { [weak self] in
@@ -57,7 +57,7 @@ public final class SurfaceActivityTracker: @unchecked Sendable {
 
     /// Synchronous read. Suitable for the snapshot-capture path and the
     /// strategy-input bundle; returns the last recorded timestamp or nil.
-    public func lastActivity(for surfaceId: String) -> Date? {
+    func lastActivity(for surfaceId: String) -> Date? {
         let normalised = surfaceId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalised.isEmpty else { return nil }
         return queue.sync {
@@ -67,7 +67,7 @@ public final class SurfaceActivityTracker: @unchecked Sendable {
 
     /// Bulk seed from a snapshot at restore time. Replaces the current
     /// contents.
-    public func seed(from records: [String: Date]) {
+    func seed(from records: [String: Date]) {
         queue.sync {
             self.lastActivity = records
             // Reset debounce floor — a restore is its own "new window."
@@ -76,14 +76,14 @@ public final class SurfaceActivityTracker: @unchecked Sendable {
     }
 
     /// Bulk read for snapshot capture. Returns a copy of the live map.
-    public func snapshot() -> [String: Date] {
+    func snapshot() -> [String: Date] {
         queue.sync {
             return self.lastActivity
         }
     }
 
     /// Clear a single surface (used by `c11 conversation clear`).
-    public func clear(surfaceId: String) {
+    func clear(surfaceId: String) {
         let normalised = surfaceId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalised.isEmpty else { return }
         queue.sync {
@@ -93,7 +93,7 @@ public final class SurfaceActivityTracker: @unchecked Sendable {
     }
 
     /// Reset everything. Test-support; not used in the production path.
-    public func resetAll() {
+    func resetAll() {
         queue.sync {
             self.lastActivity.removeAll()
             self.nextAllowed.removeAll()

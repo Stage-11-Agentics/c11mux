@@ -3,7 +3,7 @@ import Foundation
 /// Source that captured a `ConversationRef`. Used both for diagnostic
 /// provenance and for the reconciliation-rule tiebreaker
 /// (`hook > scrape > manual > wrapperClaim`).
-public enum CaptureSource: String, Codable, Sendable {
+enum CaptureSource: String, Codable, Sendable {
     case hook
     case scrape
     case wrapperClaim
@@ -25,7 +25,7 @@ public enum CaptureSource: String, Codable, Sendable {
 /// - `unsupported`: ref kind not registered in this binary's strategy
 ///   registry. Retain (don't tombstone) so a future c11 release with the
 ///   strategy can promote it.
-public enum ConversationState: String, Codable, Sendable {
+enum ConversationState: String, Codable, Sendable {
     case alive
     case suspended
     case tombstoned
@@ -47,18 +47,18 @@ public enum ConversationState: String, Codable, Sendable {
 ///
 /// `diagnosticReason` is populated on every update so operators can answer
 /// "why did this pane resume that session?" without instrumentation.
-public struct ConversationRef: Codable, Sendable, Equatable {
-    public var kind: String
-    public var id: String
-    public var placeholder: Bool
-    public var cwd: String?
-    public var capturedAt: Date
-    public var capturedVia: CaptureSource
-    public var state: ConversationState
-    public var diagnosticReason: String?
-    public var payload: [String: PersistedJSONValue]?
+struct ConversationRef: Codable, Sendable, Equatable {
+    var kind: String
+    var id: String
+    var placeholder: Bool
+    var cwd: String?
+    var capturedAt: Date
+    var capturedVia: CaptureSource
+    var state: ConversationState
+    var diagnosticReason: String?
+    var payload: [String: PersistedJSONValue]?
 
-    public init(
+    init(
         kind: String,
         id: String,
         placeholder: Bool = false,
@@ -84,16 +84,16 @@ public struct ConversationRef: Codable, Sendable, Equatable {
 /// Surface ↔ Conversation mapping persisted on each `SessionPanelSnapshot`.
 /// v1 only ever populates `active`; `history` is written explicitly as an
 /// empty array (not omitted) so JSON output is stable across v1/v2.
-public struct SurfaceConversations: Codable, Sendable, Equatable {
-    public var active: ConversationRef?
-    public var history: [ConversationRef]
+struct SurfaceConversations: Codable, Sendable, Equatable {
+    var active: ConversationRef?
+    var history: [ConversationRef]
 
-    public init(active: ConversationRef? = nil, history: [ConversationRef] = []) {
+    init(active: ConversationRef? = nil, history: [ConversationRef] = []) {
         self.active = active
         self.history = history
     }
 
-    public static let empty = SurfaceConversations(active: nil, history: [])
+    static let empty = SurfaceConversations(active: nil, history: [])
 }
 
 extension CaptureSource {

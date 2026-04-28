@@ -15,16 +15,16 @@ import Foundation
 ///   we walk one level into directories whose name encodes the cwd. The
 ///   exact path layout is verified at the integration-test boundary,
 ///   not pinned in code.
-public struct ClaudeCodeScraper: Sendable {
-    public let kind: String = "claude-code"
-    public static let defaultMaxCandidates: Int = 16
+struct ClaudeCodeScraper: Sendable {
+    let kind: String = "claude-code"
+    static let defaultMaxCandidates: Int = 16
 
     /// Filesystem dependency. Tests pass a mock that produces fixture
     /// session-storage layouts without touching the real `~/.claude/`.
-    public let filesystem: ConversationFilesystem
-    public let maxCandidates: Int
+    let filesystem: ConversationFilesystem
+    let maxCandidates: Int
 
-    public init(
+    init(
         filesystem: ConversationFilesystem = DefaultConversationFilesystem(),
         maxCandidates: Int = ClaudeCodeScraper.defaultMaxCandidates
     ) {
@@ -33,7 +33,7 @@ public struct ClaudeCodeScraper: Sendable {
     }
 
     /// Resolve `~/.claude/sessions/`. Returns nil if HOME isn't set.
-    public func sessionsRoot() -> URL? {
+    func sessionsRoot() -> URL? {
         guard let home = filesystem.homeDirectory else { return nil }
         return home
             .appendingPathComponent(".claude", isDirectory: true)
@@ -42,7 +42,7 @@ public struct ClaudeCodeScraper: Sendable {
 
     /// Top-N candidates by mtime. Empty list when the directory doesn't
     /// exist (Claude Code never ran on this machine).
-    public func candidates(cwd: String? = nil) -> [ScrapeCandidate] {
+    func candidates(cwd: String? = nil) -> [ScrapeCandidate] {
         guard let root = sessionsRoot() else { return [] }
         let entries = filesystem.listDirectoryByMtime(root, max: maxCandidates)
         return entries.compactMap { entry in
@@ -65,14 +65,14 @@ public struct ClaudeCodeScraper: Sendable {
 ///
 /// Codex filenames are `<uuid>.jsonl`; the scraper recovers the session id
 /// from the filename without parsing content.
-public struct CodexScraper: Sendable {
-    public let kind: String = "codex"
-    public static let defaultMaxCandidates: Int = 16
+struct CodexScraper: Sendable {
+    let kind: String = "codex"
+    static let defaultMaxCandidates: Int = 16
 
-    public let filesystem: ConversationFilesystem
-    public let maxCandidates: Int
+    let filesystem: ConversationFilesystem
+    let maxCandidates: Int
 
-    public init(
+    init(
         filesystem: ConversationFilesystem = DefaultConversationFilesystem(),
         maxCandidates: Int = CodexScraper.defaultMaxCandidates
     ) {
@@ -80,7 +80,7 @@ public struct CodexScraper: Sendable {
         self.maxCandidates = maxCandidates
     }
 
-    public func sessionsRoot() -> URL? {
+    func sessionsRoot() -> URL? {
         guard let home = filesystem.homeDirectory else { return nil }
         return home
             .appendingPathComponent(".codex", isDirectory: true)
@@ -90,7 +90,7 @@ public struct CodexScraper: Sendable {
     /// Codex stores sessions in subdirectories by year/month/day; walk
     /// one level deeper than Claude. The filesystem contract handles
     /// recursion via `listSessionsRecursivelyByMtime`.
-    public func candidates(cwd: String? = nil) -> [ScrapeCandidate] {
+    func candidates(cwd: String? = nil) -> [ScrapeCandidate] {
         guard let root = sessionsRoot() else { return [] }
         let entries = filesystem.listSessionsRecursivelyByMtime(
             root,
@@ -113,7 +113,7 @@ public struct CodexScraper: Sendable {
 
 /// Filesystem dependency injected into scrapers so tests stub directory
 /// listing without touching the real `~/.claude/` or `~/.codex/`.
-public protocol ConversationFilesystem: Sendable {
+protocol ConversationFilesystem: Sendable {
     var homeDirectory: URL? { get }
 
     /// List entries in `directory`, sorted newest-first by mtime, capped
@@ -134,13 +134,13 @@ public protocol ConversationFilesystem: Sendable {
     ) -> [ConversationFilesystemEntry]
 }
 
-public struct ConversationFilesystemEntry: Sendable, Equatable {
-    public let url: URL
-    public let fileName: String
-    public let mtime: Date
-    public let size: Int64
+struct ConversationFilesystemEntry: Sendable, Equatable {
+    let url: URL
+    let fileName: String
+    let mtime: Date
+    let size: Int64
 
-    public init(url: URL, fileName: String, mtime: Date, size: Int64) {
+    init(url: URL, fileName: String, mtime: Date, size: Int64) {
         self.url = url
         self.fileName = fileName
         self.mtime = mtime
@@ -150,14 +150,14 @@ public struct ConversationFilesystemEntry: Sendable, Equatable {
 
 /// Production filesystem implementation. Bounded — never reads file
 /// contents; uses `attributesOfItem` for stat data.
-public struct DefaultConversationFilesystem: ConversationFilesystem {
-    public init() {}
+struct DefaultConversationFilesystem: ConversationFilesystem {
+    init() {}
 
-    public var homeDirectory: URL? {
+    var homeDirectory: URL? {
         FileManager.default.homeDirectoryForCurrentUser
     }
 
-    public func listDirectoryByMtime(
+    func listDirectoryByMtime(
         _ directory: URL,
         max: Int
     ) -> [ConversationFilesystemEntry] {
@@ -185,7 +185,7 @@ public struct DefaultConversationFilesystem: ConversationFilesystem {
         return Array(entries.prefix(max))
     }
 
-    public func listSessionsRecursivelyByMtime(
+    func listSessionsRecursivelyByMtime(
         _ root: URL,
         extensionFilter: String,
         max: Int

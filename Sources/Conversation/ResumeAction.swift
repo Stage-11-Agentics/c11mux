@@ -8,7 +8,7 @@ import Foundation
 /// shell-quoting/escaping before interpolation. If the id fails validation
 /// or the ref is still a placeholder, the strategy MUST return
 /// `.skip(reason:)` rather than synthesizing a command.
-public enum ResumeAction: Sendable, Equatable {
+enum ResumeAction: Sendable, Equatable {
     /// Type `text` into the surface. If `submitWithReturn` is true, dispatch
     /// a real synthetic Return key event after the paste so line discipline
     /// executes the line outside bracketed-paste mode.
