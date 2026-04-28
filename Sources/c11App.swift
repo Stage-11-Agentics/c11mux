@@ -3066,8 +3066,7 @@ private final class SidebarDebugWindowController: NSWindowController, NSWindowDe
 private struct AboutPanelView: View {
     @Environment(\.openURL) private var openURL
 
-    private let upstreamURL = URL(string: "https://github.com/manaflow-ai/cmux")
-    private let forkURL = URL(string: "https://github.com/Stage-11-Agentics/c11mux")
+    private let forkURL = URL(string: "https://github.com/Stage-11-Agentics/c11")
     private let docsURL = URL(string: "https://github.com/Stage-11-Agentics/c11")
 
     private var version: String? { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String }
@@ -3118,7 +3117,7 @@ private struct AboutPanelView: View {
                     }
                     let commitText = commit ?? "—"
                     let commitURL = commit.flatMap { hash in
-                        URL(string: "https://github.com/Stage-11-Agentics/c11mux/commit/\(hash)")
+                        URL(string: "https://github.com/Stage-11-Agentics/c11/commit/\(hash)")
                     }
                     AboutPropertyRow(label: String(localized: "about.commit", defaultValue: "Commit"), text: commitText, url: commitURL)
                 }
@@ -3132,11 +3131,6 @@ private struct AboutPanelView: View {
                     }
                     if let url = forkURL {
                         Button(String(localized: "about.github", defaultValue: "GitHub")) {
-                            openURL(url)
-                        }
-                    }
-                    if let url = upstreamURL {
-                        Button(String(localized: "about.upstream", defaultValue: "Upstream")) {
                             openURL(url)
                         }
                     }
