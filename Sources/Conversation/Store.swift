@@ -185,7 +185,7 @@ extension ConversationStore {
 
     /// Bulk-transition all active refs to `.unknown`. Called on crash
     /// recovery before the forced pull-scrape pass classifies them.
-    public func markAllUnknown(at: Date = Date(), reason: String = "crash recovery") {
+    public func markAllUnknown(at: Date = Date(), reason: String = "crash recovery (dirty sentinel)") {
         for (key, var snap) in bySurface {
             if var active = snap.active {
                 active.state = .unknown

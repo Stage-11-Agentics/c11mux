@@ -2977,7 +2977,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         if case .dirty = priorShutdownAtLaunch, !ConversationStorePolicy.isDisabled {
             let sema = DispatchSemaphore(value: 0)
             Task {
-                await ConversationStore.shared.markAllUnknown(reason: "crash recovery (dirty sentinel)")
+                await ConversationStore.shared.markAllUnknown()
                 sema.signal()
             }
             // Bounded; the actor never blocks on I/O. Matches the
