@@ -32,39 +32,42 @@ public enum WorkspaceSnapshotConversationBridge {
     public static func seedFromSnapshot(_ snapshot: AppSessionSnapshot) {
         var liftedCount = 0
         var nativeCount = 0
-        let sema = DispatchSemaphore(value: 0)
-        Task {
-            for window in snapshot.windows {
-                for ws in window.tabManager.workspaces {
-                    for panel in ws.panels {
-                        guard panel.type == .terminal else { continue }
-                        let surfaceId = panel.id.uuidString
-                        if let conv = panel.surfaceConversations,
-                           let active = conv.active {
-                            await ConversationStore.shared.recordScrape(
-                                surfaceId: surfaceId, ref: active
-                            )
-                            nativeCount += 1
-                            continue
-                        }
-                        // TODO(0.46.0 / v1.1): remove this legacy bridge
-                        // once snapshots from 0.43.0/0.44.0-pre have aged
-                        // out. Tracked alongside the
-                        // CMUX_DISABLE_CONVERSATION_STORE kill switch.
-                        if let lifted = liftLegacyClaudeSessionId(panel) {
-                            await ConversationStore.shared.recordScrape(
-                                surfaceId: surfaceId, ref: lifted
-                            )
-                            liftedCount += 1
-                        }
+        var seedMap: [String: SurfaceConversations] = [:]
+        for window in snapshot.windows {
+            for ws in window.tabManager.workspaces {
+                for panel in ws.panels {
+                    guard panel.type == .terminal else { continue }
+                    let surfaceId = panel.id.uuidString
+                    if let conv = panel.surfaceConversations, conv.active != nil {
+                        seedMap[surfaceId] = conv
+                        nativeCount += 1
+                        continue
+                    }
+                    // TODO(0.46.0 / v1.1): remove this legacy bridge
+                    // once snapshots from 0.43.0/0.44.0-pre have aged
+                    // out. Tracked alongside the
+                    // CMUX_DISABLE_CONVERSATION_STORE kill switch.
+                    if let lifted = liftLegacyClaudeSessionId(panel) {
+                        seedMap[surfaceId] = SurfaceConversations(active: lifted, history: [])
+                        liftedCount += 1
                     }
                 }
             }
+        }
+        guard !seedMap.isEmpty else {
+            #if DEBUG
+            print("conversation.bridge.seed entries=0 native=0 lifted=0")
+            #endif
+            return
+        }
+        let sema = DispatchSemaphore(value: 0)
+        Task { [seedMap] in
+            await ConversationStore.shared.seed(from: seedMap)
             sema.signal()
         }
         _ = sema.wait(timeout: .now() + 1.0)
         #if DEBUG
-        print("conversation.bridge.seed native=\(nativeCount) lifted=\(liftedCount)")
+        print("conversation.bridge.seed entries=\(seedMap.count) native=\(nativeCount) lifted=\(liftedCount)")
         #endif
     }
 
