@@ -32,7 +32,7 @@ we are managing terminal based coding agents with the same primitives that we us
 
 **c11 enables spatial orientation in the information space.** a macOS-native terminal command center: terminals, browsers, and markdown surfaces composed into one window. every surface addressable. every handle scriptable. workspaces switch in a keystroke. custom collections of surfaces, each holding its own layout and context exactly as it was left.
 
-by making the assemblage spatial and addressable, c11 allows the brain to track larger scopes of project. richer assemblages of terminals. and, since the modern coding agent lives natively in a terminal, richer configurations of agents too. the coordination load drops. what used to live in the operator's head can live in the room instead.
+by making the assemblage spatial and addressable, c11 allows the brain to track larger project scopes. richer assemblages of terminals. and, since the modern coding agent lives natively in a terminal, richer configurations of agents too. the coordination load drops. what used to live in the operator's head can live in the room instead.
 
 ### for agents.
 
@@ -76,7 +76,7 @@ agents don't just run inside c11. they reshape your spatial interface as they wo
 
 the operator isn't managing a layout. the agents aren't waiting for instructions. both are first-class. both carve out the space they need and announce themselves. c11 is unopinionated about which side originates which move: splits, resizes, spawns, metadata writes are peers.
 
-### example prompts to spark the light.
+### example prompts to Spark the Light.
 
 > open Claude Code in our frontend repo on the top-left. on the top-right, another Claude Code in the client repo. bottom-right, the embedded browser pointed at the running client. bottom-left, a terminal streaming stats from the backend.
 
@@ -90,7 +90,7 @@ very useful to reorient the user as their coding agent of choice gives them a si
 
 one pane holds the conversation. the fleet grows around it, one sub-agent per issue, each announcing its role to the sidebar.
 
-Of course, this is just the beginning.
+of course, this is just the beginning.
 
 <p align="center">
   <img src="./docs/assets/markdown-surface.png" alt="a c11 workspace with a terminal, a markdown preview surface, and another terminal side by side" />
