@@ -2339,6 +2339,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching(_ notification: Notification) {
         mirrorC11CmuxEnv()
 
+        // C11-24: write the dirty shutdown sentinel as early as possible
+        // and inspect the prior-shutdown state. The write must precede
+        // any potential crash path. Bundle-scoped so debug, release, and
+        // concurrent c11 instances don't cross-contaminate.
+        // Best-effort — sentinel writes never block launch.
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.stage11.c11"
+        let priorShutdown = ShutdownSentinel.readPriorShutdown(bundleId: bundleId)
+        switch priorShutdown {
+        case .clean(let at):
+            dlog("shutdown.sentinel prior=clean at=\(at.timeIntervalSince1970)")
+        case .dirty(let at):
+            dlog("shutdown.sentinel prior=dirty launchedAt=\(at.map { String($0.timeIntervalSince1970) } ?? "nil") — crash recovery")
+            // Conversation store: walk all known refs to .unknown so the
+            // forthcoming pull-scrape pass reclassifies them. Bulk
+            // operation — no I/O on the actor itself, pure state hop.
+            Task { await ConversationStore.shared.markAllUnknown(reason: "crash recovery (dirty sentinel)") }
+        case .missing:
+            dlog("shutdown.sentinel prior=missing — first launch or sentinel unwritable")
+        }
+        ShutdownSentinel.writeDirty(bundleId: bundleId)
+
         // Migrate preferences from legacy upstream cmux bundle IDs before anything
         // else touches UserDefaults. One-time, idempotent, guarded by a flag key.
         migrateLegacyPreferencesIfNeeded()
@@ -2770,7 +2791,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationWillTerminate(_ notification: Notification) {
         isTerminatingApp = true
-        _ = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
+        // C11-24: suspendAllAlive transitions every alive ConversationRef
+        // to .suspended so resume on next launch is gated. Synchronous
+        // bridge into the actor (bounded — store has no I/O).
+        let suspendDone = DispatchSemaphore(value: 0)
+        Task {
+            await ConversationStore.shared.suspendAllAlive()
+            suspendDone.signal()
+        }
+        _ = suspendDone.wait(timeout: .now() + 1.0)
+
+        // saveSessionSnapshot writes the snapshot synchronously. Promote
+        // dirty → clean ONLY after both the suspend pass AND the
+        // snapshot succeed, eliminating the false-clean window of the
+        // original at-start-of-shutdown design.
+        let snapshotOK = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
+        if snapshotOK {
+            let bundleId = Bundle.main.bundleIdentifier ?? "com.stage11.c11"
+            ShutdownSentinel.promoteToClean(bundleId: bundleId)
+        }
+
         stopSessionAutosaveTimer()
         TerminalController.shared.stop()
         VSCodeServeWebController.shared.stop()
