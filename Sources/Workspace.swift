@@ -332,10 +332,15 @@ extension Workspace {
         // metadata/status restore above is independent — failures here
         // cannot break a normal restore.
         //
-        // Kill switch (`CMUX_DISABLE_CONVERSATION_STORE=1`): fall back to
-        // the legacy AgentRestartRegistry path so a regression in the
-        // store doesn't lose resume capability. Removed in 0.46.0 / v1.1
-        // alongside the legacy claude.session_id metadata bridge.
+        // Kill switch (`CMUX_DISABLE_CONVERSATION_STORE=1`): falls back to
+        // the legacy AgentRestartRegistry path for snapshots already
+        // containing `claude.session_id` reserved metadata (i.e., 0.43.0
+        // / 0.44.0-pre captures). New 0.44.0+ sessions captured under
+        // the kill switch do NOT capture (claude-hook session-start no
+        // longer writes that key), so they will not resume on restart.
+        // The kill switch is a one-release safety net for already-captured
+        // state, not a full rollback. Removed in 0.46.0 / v1.1 alongside
+        // the legacy claude.session_id metadata bridge.
         if ConversationStorePolicy.isDisabled {
             scheduleAgentRestartLegacy(
                 from: snapshot,
