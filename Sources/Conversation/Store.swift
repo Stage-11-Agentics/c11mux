@@ -232,33 +232,26 @@ extension ConversationStore {
     /// timestamps, source priority (`hook > scrape > manual > wrapperClaim`)
     /// breaks the tie. Wrapper-claim is conservative: never displaces a
     /// non-wrapperClaim source regardless of timestamp.
+    ///
+    /// C11-24 review (M2): single source of truth. The actor calls
+    /// through to the nonisolated static so the rule cannot drift between
+    /// the production path and the test predicate.
     private static let closeTimeWindow: TimeInterval = 0.5
 
     func shouldReplace(existing: ConversationRef, candidate: ConversationRef) -> Bool {
-        // Wrapper-claim never replaces non-wrapperClaim sources.
-        if candidate.capturedVia == .wrapperClaim, existing.capturedVia != .wrapperClaim {
-            return false
-        }
-        let dt = candidate.capturedAt.timeIntervalSince(existing.capturedAt)
-        if dt > Self.closeTimeWindow {
-            return true
-        }
-        if dt < -Self.closeTimeWindow {
-            return false
-        }
-        // Within the close-time window: source priority wins.
-        return candidate.capturedVia.priority > existing.capturedVia.priority
+        return Self._testShouldReplace(existing: existing, candidate: candidate)
     }
 }
 
 extension ConversationStore {
-    /// Test-only synchronous reconciliation predicate. Same logic as
-    /// `shouldReplace(existing:candidate:)` but exposed as a static so
-    /// state-machine unit tests don't have to construct an actor.
+    /// Synchronous reconciliation predicate. Reused by the actor's
+    /// `shouldReplace` and exposed for state-machine unit tests so
+    /// neither side has to construct an actor or duplicate the rule.
     public static func _testShouldReplace(
         existing: ConversationRef,
         candidate: ConversationRef
     ) -> Bool {
+        // Wrapper-claim never replaces non-wrapperClaim sources.
         if candidate.capturedVia == .wrapperClaim, existing.capturedVia != .wrapperClaim {
             return false
         }
@@ -269,6 +262,7 @@ extension ConversationStore {
         if dt < -closeTimeWindow {
             return false
         }
+        // Within the close-time window: source priority wins.
         return candidate.capturedVia.priority > existing.capturedVia.priority
     }
 }

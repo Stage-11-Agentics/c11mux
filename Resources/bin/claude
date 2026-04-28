@@ -61,10 +61,13 @@ cmux_socket_available() {
     local socket="${CMUX_SOCKET_PATH:-}"
     [[ -n "$socket" && -S "$socket" ]] || return 1
 
+    # C11-24 review (M4): prefer modern `c11`, fall back to legacy
+    # `cmux` when missing. Matches Resources/bin/codex.
     local self_dir cmux_bin
     self_dir="$(cd "$(dirname "$0")" && pwd)"
-    cmux_bin="$self_dir/cmux"
-    [[ -x "$cmux_bin" ]] || cmux_bin="$(command -v cmux || true)"
+    cmux_bin="$self_dir/c11"
+    [[ -x "$cmux_bin" ]] || cmux_bin="$self_dir/cmux"
+    [[ -x "$cmux_bin" ]] || cmux_bin="$(command -v c11 || command -v cmux || true)"
     [[ -n "$cmux_bin" ]] || return 1
 
     # Keep stale/hung socket checks bounded so claude startup does not block
@@ -138,8 +141,14 @@ cmux_set_agent_bg() {
         >/dev/null 2>&1) &
     disown 2>/dev/null || true
 }
-cmux_set_agent_bin="$(cd "$(dirname "$0")" && pwd)/cmux"
-[[ -x "$cmux_set_agent_bin" ]] || cmux_set_agent_bin="$(command -v cmux || true)"
+# C11-24 review (M4): resolve the modern `c11` binary first, fall
+# back to legacy `cmux` only when missing. Matches the resolution
+# pattern used by Resources/bin/codex; the prior code path preferred
+# `cmux` in the bundle, which broke `c11 conversation claim` if the
+# local cmux→c11 symlink wasn't in place.
+cmux_set_agent_bin="$(cd "$(dirname "$0")" && pwd)/c11"
+[[ -x "$cmux_set_agent_bin" ]] || cmux_set_agent_bin="$(cd "$(dirname "$0")" && pwd)/cmux"
+[[ -x "$cmux_set_agent_bin" ]] || cmux_set_agent_bin="$(command -v c11 || command -v cmux || true)"
 [[ -n "$cmux_set_agent_bin" ]] && cmux_set_agent_bg "$cmux_set_agent_bin"
 
 # C11-24: wrapper-claim a placeholder ConversationRef so c11's conversation

@@ -8509,7 +8509,13 @@ class TerminalController {
                 ])
             }
         }
-        return .ok(["conversations": entries])
+        // C11-24 review (M3): expose kill-switch state so operators
+        // diagnosing "why isn't my session resuming?" can confirm
+        // whether the store path is even active.
+        return .ok([
+            "conversations": entries,
+            "is_disabled": ConversationStorePolicy.isDisabled
+        ])
     }
 
     private func v2ConversationGet(params: [String: Any]) -> V2CallResult {

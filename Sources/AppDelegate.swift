@@ -2368,6 +2368,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         ShutdownSentinel.writeDirty(bundleId: bundleId)
 
+        // C11-24 review (M3): kill-switch breadcrumb. The store
+        // short-circuits four code paths silently when CMUX_DISABLE_-
+        // CONVERSATION_STORE=1 is set; without a startup signal,
+        // operators on the legacy fallback path don't notice until
+        // something visibly regresses. Emit once at launch and surface
+        // via `c11 conversation list --json` for diagnostics.
+        if ConversationStorePolicy.isDisabled {
+            dlog("conversation.kill_switch.engaged env=CMUX_DISABLE_CONVERSATION_STORE — falling back to AgentRestartRegistry")
+        }
+
         // Migrate preferences from legacy upstream cmux bundle IDs before anything
         // else touches UserDefaults. One-time, idempotent, guarded by a flag key.
         migrateLegacyPreferencesIfNeeded()
@@ -2793,7 +2803,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         isTerminatingApp = true
-        _ = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
+        // C11-24 review (M1): the snapshot write happens in
+        // applicationWillTerminate AFTER suspendAllAlive runs, so the
+        // persisted refs carry .suspended state. The original
+        // double-write here wrote .alive first, then .suspended after
+        // suspend. If the OS killed the process between the two writes
+        // (forced logout, low memory, sleep-killed) the on-disk
+        // snapshot ended up with .alive refs and promoteToClean never
+        // ran, so next launch hit the dirty path and markAllUnknown
+        // turned what should have been .suspended into .unknown.
+        // Single load-bearing snapshot in applicationWillTerminate.
         return .terminateNow
     }
 
