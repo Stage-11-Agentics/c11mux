@@ -10725,7 +10725,16 @@ struct CMUXCLI {
             "id": id,
             "source": source
         ]
-        if let state = optionValue(subArgs, name: "--state") { params["state"] = state }
+        if let state = optionValue(subArgs, name: "--state") {
+            // C11-24 review (I2): mirror the server-side strict validation
+            // so typos fail at the CLI boundary instead of round-tripping
+            // to the socket only to come back with `invalid_state`.
+            let allowed: Set<String> = ["alive", "suspended", "ended", "tombstoned", "unknown", "unsupported"]
+            guard allowed.contains(state.lowercased()) else {
+                throw CLIError(message: "--state must be one of: \(allowed.sorted().joined(separator: ", "))")
+            }
+            params["state"] = state.lowercased()
+        }
         if let cwd = optionValue(subArgs, name: "--cwd") { params["cwd"] = cwd }
         if let reason = optionValue(subArgs, name: "--reason") { params["diagnostic_reason"] = reason }
         if let payloadObj = try readConversationPayload(subArgs) {

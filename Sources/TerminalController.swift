@@ -8237,6 +8237,23 @@ class TerminalController {
         return .success(surfaceId)
     }
 
+    /// 64 KiB cap on the serialised payload accepted by v2 conversation
+    /// push. Matches the metadata path. Defends the snapshot file against
+    /// oversized hook input.
+    private static let conversationPayloadMaxBytes: Int = 64 * 1024
+
+    /// Bool detection for payload coercion. Swift `Bool` bridges to
+    /// `NSNumber` on Apple platforms, so a naive `as? NSNumber` cast
+    /// succeeds for booleans and silently coerces them to `.number(1.0)`.
+    /// Use `CFBooleanGetTypeID` to disambiguate.
+    private func conversationBoolValue(_ v: Any) -> Bool? {
+        let cf = v as CFTypeRef
+        if CFGetTypeID(cf) == CFBooleanGetTypeID() {
+            return (v as? Bool)
+        }
+        return nil
+    }
+
     /// Synchronous bridge into the `ConversationStore` actor. Each call
     /// hops onto a Task and waits via a semaphore so the v2 dispatch
     /// thread (off-main) gets a result before returning. The store is
@@ -8331,25 +8348,63 @@ class TerminalController {
         }
         let cwd = v2String(params, "cwd")
         let reason = v2String(params, "diagnostic_reason")
-        let stateRaw = v2String(params, "state") ?? "alive"
+        let stateRaw = (v2String(params, "state") ?? "alive").lowercased()
+        // C11-24 review (I2): strict validation. Silent fallthrough to
+        // .alive swallowed typos ("susended" → .alive) and corrupted the
+        // state machine.
         let state: ConversationState
-        switch stateRaw.lowercased() {
+        switch stateRaw {
         case "ended": state = .unknown // SessionEnd → unknown; next-launch scrape reclassifies
         case "alive": state = .alive
         case "suspended": state = .suspended
         case "tombstoned": state = .tombstoned
         case "unknown": state = .unknown
         case "unsupported": state = .unsupported
-        default: state = .alive
+        default:
+            return .err(code: "invalid_state",
+                        message: "state must be one of alive, suspended, ended, tombstoned, unknown, unsupported",
+                        data: ["state": stateRaw])
         }
-        let payload = (params["payload"] as? [String: Any]).map { dict -> [String: PersistedJSONValue] in
+        // C11-24 review (I1): payload coercion + size cap.
+        // - Bool bridges to NSNumber on Apple platforms; the previous
+        //   ordering (NSNumber before Bool) silently coerced
+        //   `{"is_async": true}` to `.number(1.0)`. Check Bool first via
+        //   CFBoolean type id.
+        // - The else-branch is now an explicit reject so nested
+        //   objects/arrays/null don't disappear.
+        // - Cap the total serialised payload at 64 KiB to match the
+        //   metadata path; oversized hook input shouldn't be allowed to
+        //   land in the snapshot.
+        let payload: [String: PersistedJSONValue]?
+        if let dict = params["payload"] as? [String: Any] {
             var out: [String: PersistedJSONValue] = [:]
+            out.reserveCapacity(dict.count)
             for (k, v) in dict {
-                if let s = v as? String { out[k] = .string(s) }
-                else if let n = v as? NSNumber { out[k] = .number(n.doubleValue) }
-                else if let b = v as? Bool { out[k] = .bool(b) }
+                if let b = conversationBoolValue(v) {
+                    out[k] = .bool(b)
+                } else if let s = v as? String {
+                    out[k] = .string(s)
+                } else if let n = v as? NSNumber {
+                    out[k] = .number(n.doubleValue)
+                } else {
+                    return .err(code: "invalid_payload",
+                                message: "payload values must be string, number, or bool",
+                                data: ["key": k])
+                }
             }
-            return out
+            if let data = try? JSONSerialization.data(withJSONObject: dict),
+               data.count > Self.conversationPayloadMaxBytes {
+                return .err(code: "payload_too_large",
+                            message: "payload exceeds 64 KiB cap",
+                            data: ["bytes": data.count])
+            }
+            payload = out
+        } else if params["payload"] != nil {
+            return .err(code: "invalid_payload",
+                        message: "payload must be an object",
+                        data: nil)
+        } else {
+            payload = nil
         }
 
         let ref = conversationStoreSync { store in
@@ -8378,17 +8433,56 @@ class TerminalController {
     }
 
     private func v2ConversationTombstone(params: [String: Any]) -> V2CallResult {
+        // C11-24 review (B4): the CLI requires --kind and --id and the
+        // operator typically targets a specific stale ref. Tombstoning
+        // the active ref unconditionally is a footgun: typing
+        // `c11 conversation tombstone --kind codex --id <old>` from a
+        // surface whose active ref is now a different conversation used
+        // to wipe the current one. Validate kind+id against the active
+        // ref before mutating.
+        guard let kind = v2String(params, "kind"), !kind.isEmpty else {
+            return .err(code: "invalid_kind", message: "kind required", data: nil)
+        }
+        guard let id = v2String(params, "id"), !id.isEmpty else {
+            return .err(code: "invalid_id", message: "id required", data: nil)
+        }
         let surfaceResult = v2ResolveSurfaceForConversation(params: params)
         guard case .success(let surfaceId) = surfaceResult else {
             if case .failure(let err) = surfaceResult { return err }
             return .err(code: "internal_error", message: "surface resolution", data: nil)
         }
         let reason = v2String(params, "reason")
+        // The bridge wraps each result in Optional (nil = store timeout),
+        // and `active(for:)` itself returns Optional. Unwrap both.
+        let activeOpt: ConversationRef?? = conversationStoreSync { store in
+            await store.active(for: surfaceId.uuidString)
+        }
+        guard case .some(let maybeActive) = activeOpt else {
+            return .err(code: "internal_error", message: "store timeout", data: nil)
+        }
+        guard let active = maybeActive else {
+            return .err(code: "not_found",
+                        message: "no active conversation for surface",
+                        data: ["surface_id": surfaceId.uuidString])
+        }
+        if active.kind != kind || active.id != id {
+            return .err(code: "id_mismatch",
+                        message: "active ref kind/id does not match request",
+                        data: [
+                            "surface_id": surfaceId.uuidString,
+                            "active_kind": active.kind,
+                            "active_id": active.id,
+                            "requested_kind": kind,
+                            "requested_id": id
+                        ])
+        }
         _ = conversationStoreSync { store -> Void in
             await store.tombstone(surfaceId: surfaceId.uuidString, reason: reason)
         }
         return .ok([
             "surface_id": surfaceId.uuidString,
+            "kind": kind,
+            "id": id,
             "result": "tombstoned"
         ])
     }
