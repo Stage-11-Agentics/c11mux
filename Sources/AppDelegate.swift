@@ -2404,7 +2404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             _ = NSLocale.preferredLanguages
 
             SentrySDK.start { options in
-                options.dsn = "https://ce836c6e3462a139dcd469f5e4d3ceec@o4511028450295808.ingest.us.sentry.io/4511028453900288"
+                options.dsn = "https://c89589d4b8d541c559b2d2933bb17cf2@o4511028450295808.ingest.us.sentry.io/4511304571158528"
                 #if DEBUG
                 options.environment = "development"
                 options.debug = true
@@ -2425,6 +2425,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 options.enableCaptureFailedRequests = false
             }
         }
+
+        // Subscribe to MetricKit unconditionally: payloads stay local on disk
+        // (~/Library/Logs/c11/metrickit/). Forwarding to Sentry is gated on
+        // telemetry consent inside CrashDiagnostics itself.
+        CrashDiagnostics.shared.install()
 
         if telemetryEnabled && !isRunningUnderXCTest {
             PostHogAnalytics.shared.startIfNeeded()
