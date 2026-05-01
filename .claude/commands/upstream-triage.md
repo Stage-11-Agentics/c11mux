@@ -44,7 +44,7 @@ If `$ARGUMENTS` is empty, ask the user what they want to triage. Default suggest
 
 ## Validation
 
-For any user-visible import, run the OpenAI CUA harness (`tools/computer-use/openai-runner`, currently on `feat/openai-cua-runner` branch) against a tagged c11 build before declaring the c11 PR ready. Skip validation for purely internal changes (refactors, build config, agent-instruction docs). Attach the verdict to the c11 PR body. See RUNBOOK.md §6b for the full procedure.
+For any user-visible import, run the OpenAI CUA harness at `tools/computer-use/openai-runner` against a tagged c11 build before declaring the c11 PR ready. Skip validation for purely internal changes (refactors, build config, agent-instruction docs). Attach the verdict to the c11 PR body. See RUNBOOK.md §6b for the full procedure.
 
 ## Hard rules
 

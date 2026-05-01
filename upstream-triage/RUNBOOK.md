@@ -180,7 +180,7 @@ The runner reads `OPENAI_API_KEY` from the environment. Artifacts (transcripts, 
 - Don't validate trivial (purely internal) changes — the harness time isn't free and adds no signal.
 - If `doctor` fails, fix the harness setup before continuing the sweep — don't ship un-validated UI changes silently.
 
-> **Status note:** as of 2026-05-01, the OpenAI CUA harness lives on the `feat/openai-cua-runner` branch (4 commits ahead of an older main, deletes some files that have since been added). It needs to be rebased onto current main and merged before the sweep can use validation. Until then, validation is `skipped (no harness)` — the operator's live review is the only safety net for UI behavior. Plan to merge before the first user-visible PR import lands.
+> **Status note:** the OpenAI CUA harness is on c11/main at `tools/computer-use/` (merged via PR #100 on 2026-04-30). Build the mac adapter once with `swift build --package-path tools/computer-use/mac-adapter`, then run `doctor` to confirm permissions. Validation is live for any user-visible PR import.
 
 ### 7. REPORT
 
