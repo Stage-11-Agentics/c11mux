@@ -59,20 +59,21 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
-# HEAD must point at the tip of origin/main. Branch name is incidental
-# (worktrees may be detached or use a different branch name pointing at main).
+# HEAD must point at the tip of local `main`. Branch name is incidental —
+# worktrees may use a different branch name (e.g. `probe-main`) that tracks
+# main. The invariant is the commit, not the branch label.
 HEAD_SHA="$(git rev-parse HEAD)"
-ORIGIN_MAIN_SHA="$(git rev-parse origin/main 2>/dev/null || echo '')"
-if [[ -z "$ORIGIN_MAIN_SHA" ]]; then
+MAIN_SHA="$(git rev-parse main 2>/dev/null || echo '')"
+if [[ -z "$MAIN_SHA" ]]; then
   echo "STATUS=error"
   echo "BRANCH="
-  echo "DETAIL=origin/main not found; run: git fetch origin"
+  echo "DETAIL=local main branch not found"
   exit 1
 fi
-if [[ "$HEAD_SHA" != "$ORIGIN_MAIN_SHA" ]]; then
+if [[ "$HEAD_SHA" != "$MAIN_SHA" ]]; then
   echo "STATUS=error"
   echo "BRANCH="
-  echo "DETAIL=HEAD ($HEAD_SHA) is not at origin/main tip ($ORIGIN_MAIN_SHA)"
+  echo "DETAIL=HEAD ($HEAD_SHA) is not at local main tip ($MAIN_SHA); run on main or a worktree at main's tip"
   exit 1
 fi
 
@@ -143,6 +144,10 @@ if [[ "$CHERRY" == -* ]]; then
   exit 0
 fi
 
+# Capture original ref so we can restore it on cleanup paths.
+# Use the symbolic name if we're on a branch, else the SHA.
+ORIGINAL_REF="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse HEAD)"
+
 # --- create probe branch ---
 
 # If a stale probe branch exists, refuse — caller must clean up.
@@ -169,7 +174,7 @@ if git cherry-pick "${CHERRY_ARGS[@]}" "$MERGE_SHA" >/tmp/probe-${PR}.log 2>&1; 
   # But: if the result is empty (no diff vs main), treat as empty.
   if git diff --quiet HEAD~1 HEAD 2>/dev/null; then
     git reset --hard HEAD~1 >/dev/null 2>&1
-    git checkout main >/dev/null 2>&1
+    git checkout "$ORIGINAL_REF" >/dev/null 2>&1
     git branch -D "$BRANCH" >/dev/null 2>&1
     echo "STATUS=empty"
     echo "BRANCH="
