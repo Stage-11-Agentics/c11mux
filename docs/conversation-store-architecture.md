@@ -1,9 +1,29 @@
 # Conversation Store Architecture
 
-**Status:** Draft. Awaiting Trident plan review.
-**Owner:** TBD (operator delegates after plan review converges).
+**Status:** v1 implemented; reviewed 2026-04-27 (`notes/trident-review-C11-24-pack-20260427-2343/`); shipping with explicit scope reduction (see "v1 scope vs v1.1" below).
+**Owner:** delegator agent on C11-24.
 **Supersedes:** `notes/session-resume-fix-plan.md` (the C11-24 hot-fix plan, now obsolete).
 **Related:** PR #89 (current C11-24 implementation, shipped in 0.43.0 opt-in / 0.44.0-pre default-on), PR #94 (held release).
+
+## v1 scope vs v1.1 (post-review)
+
+The post-implementation Trident review (2026-04-27) found that the strategy machinery (capture, resume, scrapers, ambiguity policy) is complete and unit-tested but the **production restore path is snapshot-only** in v1: refs that were captured into the snapshot at last clean shutdown resume; refs lost between snapshots do not. The forced pull-scrape pass that would re-discover them on dirty shutdown / first launch ships in v1.1.
+
+**In v1.0 (this plan):**
+- Wrapper-claim → snapshot persistence → snapshot-driven resume across the four kinds (Claude Code, Codex, Opencode, Kimi).
+- `claude-hook session-start` push captures the real id while c11 is alive.
+- Inverted dirty/clean shutdown sentinel; `markAllUnknown` on dirty (post-review fix sequenced after `seedFromSnapshot`).
+- All v2 socket verbs + CLI surface + privacy contract + skill update.
+
+**Deferred to v1.1 (0.45.0+) with explicit TODO markers:**
+- **Forced pull-scrape pass** in `AppDelegate.applicationDidFinishLaunching` after `seedFromSnapshot`. The pieces (`ClaudeCodeScraper`, `CodexScraper`, `strategy.capture(inputs:)`) are built and tested; only the production caller is missing.
+- **`SurfaceActivityTracker` snapshot persistence** (`seed(from:)` / `snapshot()` exist; no callers in `SessionPersistence.swift`). The Codex `mtime ≥ surface lastActivityTimestamp` filter relies on this.
+- **Codex cwd recovery** via bounded JSONL metadata parse — pending privacy-contract design call (the structural Mirror test on `ScrapeCandidate` is built to forbid transcript-bearing fields; opening the JSONL even for first-line metadata needs a guarded carve-out).
+- Workspace partitioning on `c11 conversation list`. v1 stores process-wide; `--workspace` is rejected with a clear error.
+
+The §"Failure modes" table and §"Strategies" table below describe the **v1.1 target behaviour** for completeness; rows that depend on the deferred pull-scrape pass are explicitly marked. Until v1.1, the legacy `AgentRestartRegistry` remains in tree as the kill-switch fallback (`CMUX_DISABLE_CONVERSATION_STORE=1`), so operators don't lose resume capability if v1 regresses.
+
+**Why scope-down rather than wire it up before merge:** the Codex scraper today stamps the surface's cwd into every candidate (`Scrapers/ClaudeCodeScraper.swift:108`), which makes the strategy's `cwd != candCwd` filter a structural no-op. Wiring the pull-scrape pass without first solving cwd recovery would surface "ambiguous, skip" on every restart for every operator with multiple recent Codex sessions — strictly worse than the snapshot-only v1. The privacy-contract design call for cwd parsing is the right gate for v1.1.
 
 ## TL;DR
 
@@ -83,13 +103,13 @@ enum ConversationState: String, Codable { case alive, suspended, tombstoned, unk
 ```swift
 enum ResumeAction: Sendable {
     case typeCommand(text: String, submitWithReturn: Bool)
-    case launchProcess(argv: [String], env: [String: String])
-    case composite([ResumeAction])
     case skip(reason: String)
 }
 ```
 
-Every strategy that emits `typeCommand` MUST validate `ConversationRef.id` against a documented grammar (regex or validator) and apply explicit shell-quoting/escaping before interpolation. If the id fails validation or the ref is still a placeholder, the strategy MUST return `.skip(reason:)` rather than synthesizing a command. See §Per-TUI strategies for each kind's grammar. Strategies SHOULD prefer `launchProcess(argv:env:)` over `typeCommand` where the surface model permits, since argv avoids shell parsing entirely.
+Every strategy that emits `typeCommand` MUST validate `ConversationRef.id` against a documented grammar (regex or validator) and apply explicit shell-quoting/escaping before interpolation. If the id fails validation or the ref is still a placeholder, the strategy MUST return `.skip(reason:)` rather than synthesizing a command. See §Per-TUI strategies for each kind's grammar.
+
+`.composite` and `.launchProcess` removed in v1; reintroduce when a strategy demonstrably needs semantics that `.typeCommand` cannot express. The argv-form fresh-launch case (Opencode, Kimi) collapses to `.typeCommand` of the shell-quoted binary name, since v1's executor already routed `.launchProcess` through `TextBoxSubmit.send`.
 
 ### Surface ↔ Conversation mapping (persisted)
 
@@ -253,7 +273,7 @@ Without this primitive, the Codex disambiguation cannot be tested or implemented
 
 - **Capture push:** Wrapper claim only (placeholder ref).
 - **Capture pull:** TBD at impl — opencode's session storage needs reverse engineering. If none exists, strategy is fresh-launch-only and `capture()` returns `nil` (the wrapper claim is left as the only ref).
-- **Resume:** `.skip(reason: "fresh-launch-only")` if `placeholder: true` (no real id ever resolved); otherwise `launchProcess(argv: ["opencode"], env: [:])`.
+- **Resume:** `.skip(reason: "fresh-launch-only")` if `placeholder: true` (no real id ever resolved); otherwise `.typeCommand(text: conversationShellQuote("opencode"), submitWithReturn: true)`.
 
 ### Kimi
 
@@ -334,7 +354,7 @@ No code changes required to v1 to enable this; just do not break the field shape
 
 ## Remote / cloud forward-compat
 
-`ConversationRef.kind` and `ConversationRef.id` are opaque to the store. A future `claude-code-cloud` strategy interprets `id` as a remote conversation URL; its `resume` action might be `launchProcess(argv: ["claude-cloud", "resume", id])` or `typeCommand` of a CLI invocation. The `ConversationStore` does not need to know.
+`ConversationRef.kind` and `ConversationRef.id` are opaque to the store. A future `claude-code-cloud` strategy interprets `id` as a remote conversation URL; its `resume` action would be a `typeCommand` of the appropriate CLI invocation (with shell-quoted id). The `ConversationStore` does not need to know.
 
 The same primitive could host SSH-tunneled remote agents, web-hosted Claude conversations, or future agent services. v1 ships local strategies only; the seam is what matters.
 
@@ -358,11 +378,6 @@ func execute(_ action: ResumeAction, on panelId: UUID) {
         guard let panel = panels[panelId] as? TerminalPanel else { return }
         if submit { TextBoxSubmit.send(text, via: panel.surface) }
         else      { panel.surface.sendText(text) }
-    case .launchProcess(let argv, let env):
-        guard let panel = panels[panelId] as? TerminalPanel else { return }
-        panel.runProcess(argv, env: env)
-    case .composite(let actions):
-        actions.forEach { execute($0, on: panelId) }
     case .skip(let reason):
         Diagnostics.log("conversation.resume.skipped panel=\(panelId) reason=\(reason)")
     }
@@ -383,15 +398,17 @@ Where existing socket handlers are sync, they call into the store via a small `T
 
 ## Failure modes and how each is handled
 
+Rows marked **(v1.1)** depend on the deferred forced-pull-scrape pass; in v1.0 the listed v1.1 behaviour does not engage and the store falls back to "no resume for that ref" (legacy `AgentRestartRegistry` behaviour via the kill-switch path).
+
 | Failure | Today | With ConversationStore |
 |---|---|---|
 | Hook fires after shutdown begins | Clears metadata | `isTerminatingApp` check; no transition |
-| Hook env strips `CMUX_SURFACE_ID` | Silently routes to focused | CLI errors out; no write; pull-scrape catches up |
-| TUI crashes before hook fires | No ref captured | Pull-scrape on next autosave catches it |
-| c11 crashes | Snapshot may be stale | `unknown` transition + forced pull-scrape on launch |
-| Two panes same TUI same cwd | "last wins" | Push-id deterministic for Claude; for Codex strategy, multi-candidate triggers ambiguity policy (state → `unknown`, advisory surfaced, no auto-resume) |
+| Hook env strips `CMUX_SURFACE_ID` | Silently routes to focused | CLI errors out; no write; **pull-scrape catches up (v1.1)** |
+| TUI crashes before hook fires | No ref captured | **Pull-scrape on next autosave catches it (v1.1)** |
+| c11 crashes | Snapshot may be stale | `unknown` transition (v1: post-`seedFromSnapshot`); **+ forced pull-scrape on launch (v1.1)** |
+| Two panes same TUI same cwd | "last wins" | Push-id deterministic for Claude (v1: hook fires while alive). **For Codex strategy, multi-candidate triggers ambiguity policy (state → `unknown`, advisory surfaced, no auto-resume) (v1.1, depends on cwd recovery design call).** |
 | Sleep / power-off mid-session | Same as crash | Same as crash |
-| TUI session file deleted out-of-band | Silent stale resume | For Claude: pull-scrape returns nothing → `tombstoned`. For hookless (Codex/Opencode/Kimi): pull-scrape returns nothing → `unknown` (operator clears explicitly) |
+| TUI session file deleted out-of-band | Silent stale resume | **For Claude: pull-scrape returns nothing → `tombstoned`. For hookless (Codex/Opencode/Kimi): pull-scrape returns nothing → `unknown` (operator clears explicitly) (v1.1)** |
 | Wrapper not on PATH (system update) | Silent loss of capture | Wrapper-claim absent → strategy degrades to pull-scrape only; no regression |
 
 ## Testing
@@ -419,7 +436,7 @@ The architecture is designed to make the staging-QA bug class structurally less 
 - **One-release backward-compat bridge for `claude.session_id` reserved metadata.** PR #89 has shipped opt-in in 0.43.0 and default-on in 0.44.0-pre, so operators (and Atin's testing rigs) have snapshots where `claude.session_id` is baked into surface metadata. On snapshot read, if `surface.metadata.claude.session_id` is present and the panel's `SurfaceConversations.active` is empty, lift the value into a `ConversationRef(kind: "claude-code", id: <value>, placeholder: false, capturedVia: .scrape, state: .unknown, diagnosticReason: "lifted from legacy claude.session_id metadata")` and run the standard reconcile path. New writes drop the `claude.session_id` metadata key. The bridge is removed in 0.46.0 (or v1.1, whichever ships later). A unit test covers the read-side path.
 - **No feature flag for the architecture itself.** The new design is the only design. The current `agentRestartOnRestoreEnabled` policy flag stays as the global on/off for *resume execution* (off-by-default with env-var to flip on, until a v1.0 promotion in a later release). Capture (claim, push, scrape) runs regardless of the flag — see §Wrapper changes.
 - **Skill update is part of the change, not a follow-up.** Per c11's `CLAUDE.md`, every change to the CLI, socket protocol, metadata schema, or surface-model is incomplete until the skill is updated. The `c11 conversation claim|push|tombstone|list|get|clear` surface, the no-focused-fallback rule, the agent-facing inspection workflow (`c11 conversation get` before debugging resume), and any deprecation note on `claude-hook` MUST land in `skills/c11/SKILL.md` (and adjacent skill files where appropriate) in the same merge as the implementation. Conversation primitives are agent-facing and warrant **progressive discoverability** per skill.md best practices: a brief mention in the top-level skill so agents know the primitive exists, then deeper reference (CLI verb table, lifecycle states, ambiguity behavior, examples) in a peer reference file (e.g., `skills/c11/references/conversation.md`) loaded on demand. Treat the skill update as a merge-blocker.
-- **Architecture-level kill switch.** A `CMUX_DISABLE_CONVERSATION_STORE=1` env var is honored on launch: when set, c11 falls back to the legacy `claude.session_id` reserved-metadata path that the backward-compat bridge already understands, and the new wrapper-claim/push/scrape paths no-op. The kill switch ships only for the v1 release window — removed in 0.46.0 / v1.1 alongside the legacy metadata bridge. This is a rollback rail for store bugs that escape pre-release validation; it does not gate `agentRestartOnRestoreEnabled` behavior, which remains the runtime resume on/off.
+- **Architecture-level kill switch.** A `CMUX_DISABLE_CONVERSATION_STORE=1` env var is honored on launch: when set, c11 falls back to the legacy `claude.session_id` reserved-metadata path that the backward-compat bridge already understands, and the new wrapper-claim/push/scrape paths no-op. The kill switch ships only for the v1 release window — removed in 0.46.0 / v1.1 alongside the legacy metadata bridge. This is a rollback rail for store bugs that escape pre-release validation; it does not gate `agentRestartOnRestoreEnabled` behavior, which remains the runtime resume on/off. Scope of the safety net: `claude-hook session-start` no longer writes the legacy `claude.session_id` reserved key regardless of the kill switch, so the kill switch only restores resume capability for already-captured 0.43.0 / 0.44.0-pre snapshots. New sessions captured under the kill switch will not resume on restart. The kill switch is a one-release safety net for already-captured state, not a full rollback.
 - **0.44.0 ships with the conversation-store as its marquee feature.** The other 25+ upstream picks ride along. The held PR #94 gets the implementation diff stacked onto its branch (or, more likely, the branch is recreated from main after impl merges to keep history clean). The current 0.44.0 changelog entry for "Claude Code session resume across c11 restarts" gets rewritten to describe the conversation-store version.
 
 ## Out of scope (do not ship in this work)
