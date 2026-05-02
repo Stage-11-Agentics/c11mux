@@ -118,7 +118,7 @@ done
 # the actual claude process PID, which hooks use for stale-session detection.
 export CMUX_CLAUDE_PID=$$
 
-# c11mux Module 1: declare agent identity via `cmux set-agent` (source=declare).
+# c11 Module 1: declare agent identity via `cmux set-agent` (source=declare).
 # Runs in the background so startup latency is unaffected. Precedence at the
 # store level ensures a prior explicit value is not overwritten.
 #

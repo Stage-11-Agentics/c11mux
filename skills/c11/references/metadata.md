@@ -2,7 +2,7 @@
 
 Every surface in c11 carries an open-ended JSON metadata blob. Agents read and write it over the socket. c11 stores it, renders a narrow set of **canonical keys** in the sidebar and title bar, and leaves everything else opaque for consumers (Lattice, internal dashboards, future Stage 11 tooling). This is the transport — and the vocabulary — that lets a spike's agents speak to the room they are working in.
 
-Canonical spec: [`docs/c11mux-module-2-metadata-spec.md`](../../../docs/c11mux-module-2-metadata-spec.md). This reference summarizes the agent-facing surface.
+This reference summarizes the agent-facing metadata surface (canonical keys, CLI, socket methods, precedence, and consumer patterns).
 
 ## Contents
 

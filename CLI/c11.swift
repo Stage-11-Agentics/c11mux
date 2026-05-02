@@ -14530,8 +14530,6 @@ struct CMUXTermMain {
 // One-command wiring of cmux's notification shims and agent-declaration
 // calls into each first-class TUI's configuration.
 //
-// Spec: docs/c11mux-module-4-integration-installers-spec.md
-//
 // Everything here is filesystem-local; install does not touch the running
 // cmux socket. Menubar integration lives in Sources/AppDelegate.swift and
 // goes through the existing v2 surface.create + surface.send_text path.
@@ -14659,7 +14657,7 @@ struct IntegrationInstallerConstants {
 
 /// Canonical hook entries c11 writes into `~/.claude/settings.json`.
 /// Identity is established by content-hash match against the `x-cmux.entries`
-/// table. See `docs/c11mux-module-4-integration-installers-spec.md`.
+/// table.
 private func claudeCanonicalEntries() -> [(event: String, entry: [String: Any])] {
     return [
         ("SessionStart", [
