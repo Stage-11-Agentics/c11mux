@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  c11mux spike icon — Concept A (see docs/c11mux-module-5-brand-identity-spec.md).
+  c11 spike icon — Concept A.
 
   One gold wedge rising from 20% to 80% of icon height on a void squircle.
   Proportions are computed for a 1024x1024 canvas; scale linearly for other sizes.
