@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Generate the c11mux Stage 11 app icon at every macOS-required size.
+"""Generate the c11 Stage 11 app icon at every macOS-required size.
 
-Source art: design/c11mux-lattice-icon-source.png — Hyperfuturistic
+Source art: design/c11-lattice-icon-source.png — Hyperfuturistic
 lattice (white on black), from Gregorovitch art.
 
 Produces:
@@ -25,7 +25,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(REPO, "Assets.xcassets")
-SOURCE_IMAGE = os.path.join(REPO, "design", "c11mux-lattice-icon-source.png")
+SOURCE_IMAGE = os.path.join(REPO, "design", "c11-lattice-icon-source.png")
 
 GOLD = (201, 168, 76, 255)
 SURFACE = (0, 0, 0, 255)
@@ -209,7 +209,7 @@ def add_banner(
 
 
 def dark_variant(icon: Image.Image) -> Image.Image:
-    """Return a dark-appearance variant. For c11mux the palette does not
+    """Return a dark-appearance variant. For c11 the palette does not
     diverge between light and dark modes, so the dark variant is
     identical. We still emit these files so the Contents.json
     appearances entries resolve."""
@@ -304,7 +304,7 @@ def write_icon_format() -> None:
             os.remove(os.path.join(assets_dir, name))
 
     base = render_icon(IMAGESET_SIZE)
-    source_name = "c11mux-lattice.png"
+    source_name = "c11-lattice.png"
     base.save(os.path.join(assets_dir, source_name), "PNG")
 
     icon_config = {
@@ -315,7 +315,7 @@ def write_icon_format() -> None:
                     {
                         "glass": False,
                         "image-name": source_name,
-                        "name": "c11mux-lattice",
+                        "name": "c11-lattice",
                         "position": {
                             "scale": 1,
                             "translation-in-points": [0, 0],
@@ -338,7 +338,7 @@ def write_icon_format() -> None:
 
 
 def write_icns() -> None:
-    """Generate design/c11mux.icns from the base AppIcon PNGs using iconutil."""
+    """Generate design/c11.icns from the base AppIcon PNGs using iconutil."""
     import shutil
     import subprocess
     import tempfile
@@ -357,9 +357,9 @@ def write_icns() -> None:
         ("512@2x.png", "icon_512x512@2x.png"),
     ]
 
-    out_icns = os.path.join(REPO, "design", "c11mux.icns")
+    out_icns = os.path.join(REPO, "design", "c11.icns")
     with tempfile.TemporaryDirectory() as tmp:
-        iconset_dir = os.path.join(tmp, "c11mux.iconset")
+        iconset_dir = os.path.join(tmp, "c11.iconset")
         os.makedirs(iconset_dir)
         for src_name, dst_name in pairs:
             shutil.copy2(
@@ -377,7 +377,7 @@ def write_icns() -> None:
                 file=sys.stderr,
             )
             return
-    print(f"  Wrote design/c11mux.icns")
+    print(f"  Wrote design/c11.icns")
 
 
 def main() -> int:
