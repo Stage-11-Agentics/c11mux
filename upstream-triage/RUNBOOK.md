@@ -1,8 +1,19 @@
 # RUNBOOK — `/upstream-triage`
 
-You are an agent importing upstream cmux PRs into c11. **You are doing the import, not orchestrating a pipeline.** The tools (probe, divergence map, playbook) help you think and act faster — they don't decide for you.
+You are an agent importing upstream cmux PRs into c11. **You are doing the import, not orchestrating a pipeline.** The tools (probe, divergence map, playbook) help you think and act faster, they don't decide for you.
 
-Your job per PR: *decide whether c11 wants this, judge how hard it is, and — if it's worth the effort — write the c11 version of it.*
+Your job per PR: *decide whether c11 wants this, judge how hard it is, and if it's worth the effort, write the c11 version of it.*
+
+## Modes
+
+The runbook supports two modes. Pick one per session.
+
+- **Mode A: per-PR live.** A single agent walks through one PR (or a small explicit list) end-to-end with the operator in the loop. The procedure below ("Setup", "The per-PR loop", "Open vs closed PRs", "Working with the operator") is Mode A. Use it for discovery work, big architectural collisions, or any PR where the agent expects to surface scope questions live. Slow, high-context, high-fidelity.
+- **Mode B: fleet sweep.** A classifier reads N PRs at a time, builds a single decision table, takes one batch-level approval from the operator, then dispatches a parallel implementation fleet across a worktree pool. CUA validation runs serialized at the end of the batch. See "Mode B: fleet sweep" below. Use it for `--since` or `--catchup` runs where Mode A would not finish in this lifetime. Fast, lower-context.
+
+Default is Mode A for an arbitrary PR or a small named list. Default is Mode B when sweeping a backlog (operator says "catch us up to upstream" or names a date range).
+
+Mode B reuses every primitive from Mode A: same EVALUATE / READ / LOCATE / JUDGE / APPLY / VALIDATE / REPORT vocabulary, same hard rules. The difference is the wrapper flow: who runs which step, how the batch is approved, where the work happens.
 
 ## Setup (once per run)
 
@@ -258,6 +269,102 @@ Triage log: upstream-triage/triage-log/<date>.md#<N>
 **Labels:** `upstream-import` (create if missing).
 
 **Do not** auto-merge. The operator reviews and merges.
+
+## Mode B: fleet sweep
+
+Mode B is for sweeping a backlog. The unit of work is a **batch** of N PRs, not a single PR. One agent fills two roles across the batch's life: **classifier** at the start, **coordinator** at the end. N parallel **implementation agents** do the actual import.
+
+### Roles
+
+- **Classifier / coordinator (1 agent).** Reads N PRs, runs EVALUATE+READ+LOCATE+JUDGE+probe in parallel, builds the decision table, holds for operator review. After the implementation fleet finishes, switches to coordinator: collects per-PR lessons, merges into divergence-map and playbook, runs the serialized CUA pass, updates the triage log.
+- **Implementation agents (N).** Each claims one row from the table, claims one worktree slot from the pool, lands its PR (cherry-pick or rewrite), opens a c11 PR, writes its lessons file, releases its slot. Does not edit divergence-map or playbook directly.
+- **Operator.** One review point per batch (the table). Optional second review at end-of-batch to merge the c11 PRs.
+
+### The batch loop
+
+1. **Classify.** Classifier picks N PRs (default N=5; tune to feel). For each PR, runs EVALUATE + READ + LOCATE + JUDGE + `probe.sh` in parallel, then assigns one Action:
+
+   | Action | Meaning |
+   |---|---|
+   | `ATTEMPT` | Easy or moderate, clear-yes; fleet can land it without scope ceremony. |
+   | `SCOPE-AGREE` | Moderate or hard with a real scope question; needs an in-flight scope note before APPLY. |
+   | `NEEDS-HUMAN` | Real architectural call (overlap, cross-cutting, ambiguous fit). Operator decides direction. |
+   | `SKIP-doesnt-fit` | EVALUATE = no. One-line reason. |
+   | `DEFERRED-hard` | EVALUATE = yes, Difficulty = hard. Stack for a focused session. |
+
+   Output: one markdown table at `upstream-triage/batches/<YYYY-MM-DD>-batch-<n>.md`:
+
+   ```markdown
+   | # | Title | Eval | Diff | Probe | Action |
+   |---|-------|------|------|-------|--------|
+   | 2916 | Add `--layout` to workspace.create | maybe | moderate | conflict | NEEDS-HUMAN |
+   | ...  | ...                                | ...   | ...      | ...      | ...         |
+   ```
+
+2. **Operator review.** Classifier surfaces the table. Default surface is a c11 markdown surface (`c11 new-pane --type markdown`) for any table over 3 rows; inline scrollback is fine for shorter tables. Operator responds with this thin grammar:
+
+   - `go`: accept the table as written, dispatch the fleet.
+   - `redirect <pr#> <new-action>`: change one row's Action. Chainable: `redirect 2916 SCOPE-AGREE; redirect 3411 SKIP-doesnt-fit`.
+   - `ask <pr#>`: operator wants to talk about this row first. Classifier holds that row, dispatches the rest.
+   - `defer <pr#>`: move row to DEFERRED-hard.
+   - `walk`: abandon the batch. Nothing dispatches.
+
+   Classifier holds until `go` or `walk`.
+
+3. **Dispatch the fleet.** For each `ATTEMPT` and `SCOPE-AGREE` row:
+   - Implementation agent claims a worktree slot via `upstream-triage/scripts/worktree-pool.sh claim`.
+   - For `SCOPE-AGREE` rows, agent writes the in-flight scope note first and waits for the operator's nod before APPLY.
+   - Agent runs Mode A's APPLY step on its slot (cherry-pick or rewrite per JUDGE).
+   - Agent pushes branch, opens c11 PR, writes `upstream-triage/lessons/<pr-#>.md`, releases its slot.
+   - Agents do not touch divergence-map or playbook. Those land at consolidate time.
+
+4. **Validate (serialized).** After all `ATTEMPT` and `SCOPE-AGREE` agents finish, the coordinator runs the OpenAI CUA harness once per user-visible PR, in turn. The desktop has one cursor; this step does not parallelize. Each PR gets a Validation section in its body before merge-readiness. Skip validation for PRs that are purely internal (per the VALIDATE step's skip list).
+
+5. **Consolidate.** Coordinator:
+   - Reads each `upstream-triage/lessons/<pr-#>.md`.
+   - Merges divergence-map and playbook additions into the canonical files. Commits as `chore(triage): consolidate <date> batch <n>`.
+   - Appends one combined block to `triage-log/<YYYY-MM-DD>.md` covering the batch.
+   - Surfaces the batch's c11 PRs to the operator for merge review.
+
+### Worktree pool
+
+Mode B uses a long-lived pool of worktrees, not per-PR creation. Per-PR `git worktree add` is roughly 20s of overhead per dispatch; over a 5-PR batch that is a minute of nothing.
+
+- Pool location: `c11-worktrees/import-pool-1` ... `c11-worktrees/import-pool-N`. (Matches the existing `c11-worktrees/` convention; do not put pool slots at the top level of `code/`.)
+- Each slot has its own lockfile (`.claimed-by-<agent-id>` inside the slot's `.git/`).
+- `worktree-pool.sh init <N>` creates slots from `origin/main`.
+- `worktree-pool.sh claim` returns a free slot path, marks it claimed.
+- `worktree-pool.sh release <path>` resets the slot (`git checkout main && git reset --hard origin/main && git clean -fd`), removes the lock.
+- Slots are reused across batches. The pool is a fixture, not a per-batch artifact.
+
+### Per-PR lessons files
+
+Implementation agents write to `upstream-triage/lessons/<pr-#>.md`, never directly to divergence-map or playbook. This avoids N agents trampling the same file. Format:
+
+```markdown
+# Lessons: PR #<N>
+
+## Divergence-map additions
+<bulleted updates with rationale, or `none`>
+
+## Playbook additions
+<bulleted patterns the playbook needs, or `none`>
+
+## Notes for the operator
+<anything worth surfacing at consolidate time>
+```
+
+Coordinator merges these at end of batch.
+
+### Failure isolation
+
+If implementation agent #3 errors mid-import, agents #1, #2, #4, #5 keep going. Coordinator surfaces #3's failure separately at consolidate time. Slot reclamation: coordinator runs `worktree-pool.sh release <slot>` during cleanup. The failed PR drops to `NEEDS-HUMAN` for the next batch.
+
+### Tuning
+
+- **Batch size N.** Start at 5. Dial after a few runs. The constraint is parallel-agent count, not classifier throughput.
+- **Validation timing.** Default is "validate at end of batch". If the desktop is the operator's daily driver, run validation in a quiet window.
+- **When to skip Mode B.** Single PR with a known architectural collision. Operator wants to drive judgment live. Backlog is empty.
 
 ## Hard rules
 
