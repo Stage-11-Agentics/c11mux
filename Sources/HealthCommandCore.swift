@@ -721,11 +721,25 @@ func renderHealthTable(
     return lines.joined(separator: "\n") + "\n"
 }
 
+/// Replaces a leading `home` prefix with literal `~` so JSON output the
+/// operator pastes into tickets / chat / agent transcripts does not leak
+/// the macOS username.
+func redactHomePath(_ path: String, home: String) -> String {
+    guard !home.isEmpty else { return path }
+    let trimmed = home.hasSuffix("/") ? String(home.dropLast()) : home
+    if path == trimmed { return "~" }
+    if path.hasPrefix(trimmed + "/") {
+        return "~" + path.dropFirst(trimmed.count)
+    }
+    return path
+}
+
 func renderHealthJSON(
     events: [HealthEvent],
     window: HealthCollectionWindow,
     rails: Set<HealthEvent.Rail>,
-    warnings: [String]
+    warnings: [String],
+    home: String = NSHomeDirectory()
 ) throws -> Data {
     let iso = ISO8601DateFormatter()
     iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -741,7 +755,7 @@ func renderHealthJSON(
             "rail": ev.rail.rawValue,
             "severity": ev.severity.rawValue,
             "summary": ev.summary,
-            "path": ev.path,
+            "path": redactHomePath(ev.path, home: home),
         ]
     }
 

@@ -67,7 +67,8 @@ final class CLIHealthRuntimeTests: XCTestCase {
             events: events,
             window: window,
             rails: allRails,
-            warnings: ["sample-warning"]
+            warnings: ["sample-warning"],
+            home: tmp.path
         )
         let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
 
@@ -89,7 +90,9 @@ final class CLIHealthRuntimeTests: XCTestCase {
             XCTAssertNotNil(ev["rail"] as? String)
             XCTAssertNotNil(ev["severity"] as? String)
             XCTAssertNotNil(ev["summary"] as? String)
-            XCTAssertNotNil(ev["path"] as? String)
+            let path = try XCTUnwrap(ev["path"] as? String)
+            XCTAssertTrue(path.hasPrefix("~/"), "JSON paths must be redacted with ~ prefix; got \(path)")
+            XCTAssertFalse(path.contains(tmp.path), "JSON paths must not leak the absolute home; got \(path)")
         }
 
         let win = try XCTUnwrap(obj["window"] as? [String: Any])

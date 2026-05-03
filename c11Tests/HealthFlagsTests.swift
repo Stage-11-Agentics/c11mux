@@ -322,4 +322,34 @@ final class HealthFlagsTests: XCTestCase {
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f.string(from: date).replacingOccurrences(of: ":", with: "-")
     }
+
+    // MARK: redactHomePath
+
+    func testRedactHomePathReplacesPrefix() {
+        let result = redactHomePath(
+            "/Users/alice/Library/Caches/com.stage11.c11/io.sentry/envelopes/x",
+            home: "/Users/alice"
+        )
+        XCTAssertEqual(result, "~/Library/Caches/com.stage11.c11/io.sentry/envelopes/x")
+    }
+
+    func testRedactHomePathHandlesTrailingSlashHome() {
+        let result = redactHomePath("/Users/bob/Logs/x", home: "/Users/bob/")
+        XCTAssertEqual(result, "~/Logs/x")
+    }
+
+    func testRedactHomePathLeavesUnrelatedPathUnchanged() {
+        let result = redactHomePath("/var/db/something", home: "/Users/carol")
+        XCTAssertEqual(result, "/var/db/something")
+    }
+
+    func testRedactHomePathDoesNotMatchPartialComponent() {
+        // /Users/alice should not match /Users/alice2/...
+        let result = redactHomePath("/Users/alice2/Logs", home: "/Users/alice")
+        XCTAssertEqual(result, "/Users/alice2/Logs")
+    }
+
+    func testRedactHomePathExactMatch() {
+        XCTAssertEqual(redactHomePath("/Users/dan", home: "/Users/dan"), "~")
+    }
 }

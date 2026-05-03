@@ -87,7 +87,8 @@ func runHealth(commandArgs: [String], jsonOutput: Bool) throws {
             events: events,
             window: window,
             rails: rails,
-            warnings: warnings
+            warnings: warnings,
+            home: home
         )
         if let text = String(data: data, encoding: .utf8) {
             print(text)
