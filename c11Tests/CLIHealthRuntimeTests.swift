@@ -99,6 +99,46 @@ final class CLIHealthRuntimeTests: XCTestCase {
         XCTAssertEqual(win["mode"] as? String, "default-24h")
     }
 
+    func testCollectHealthEventsHasStableTiebreak() throws {
+        // Two events with the same timestamp across rails: the sort must
+        // be deterministic so `--json` output never flaps for downstream
+        // consumers (jq filters, CI gates, fleet aggregators).
+        let tmp = try makeTempHome()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let now = Date()
+        let stamp = filenameSafeISOForNow()
+
+        // Two MetricKit files at the exact same parsed timestamp.
+        let metricDir = tmp.appendingPathComponent("Library/Logs/c11/metrickit", isDirectory: true)
+        try FileManager.default.createDirectory(at: metricDir, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: metricDir.appendingPathComponent("\(stamp)-crash1.json"))
+
+        // Two sentinel files at the same parsed timestamp under different bundles.
+        for bundle in ["com.stage11.c11.debug.aaa", "com.stage11.c11.debug.bbb"] {
+            let sessionsDir = tmp.appendingPathComponent(
+                "Library/Caches/\(bundle)/sessions",
+                isDirectory: true
+            )
+            try FileManager.default.createDirectory(at: sessionsDir, withIntermediateDirectories: true)
+            let body: [String: Any] = ["version": "0.44.1", "launched_at": ISO8601DateFormatter().string(from: now)]
+            let data = try JSONSerialization.data(withJSONObject: body, options: [])
+            try data.write(to: sessionsDir.appendingPathComponent("unclean-exit-\(stamp).json"))
+        }
+
+        let window = HealthCollectionWindow(
+            mode: .defaultLast24h,
+            since: now.addingTimeInterval(-24 * 3600),
+            until: now.addingTimeInterval(60)
+        )
+        let allRails = Set(HealthEvent.Rail.allCases)
+        let events1 = collectHealthEvents(window: window, rails: allRails, home: tmp.path)
+        let events2 = collectHealthEvents(window: window, rails: allRails, home: tmp.path)
+
+        XCTAssertEqual(events1.map(\.path), events2.map(\.path),
+                       "two collections of identical disk state must produce identical event order")
+    }
+
     func testGracefulOnEmptyHome() throws {
         let tmp = try makeTempHome()
         defer { try? FileManager.default.removeItem(at: tmp) }

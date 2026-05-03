@@ -65,7 +65,14 @@ func collectHealthEvents(
     if rails.contains(.sentinel) {
         events.append(contentsOf: scanLaunchSentinel(home: home, since: window.since))
     }
-    return events.sorted { $0.timestamp > $1.timestamp }
+    // Stable secondary/tertiary keys keep `--json` output deterministic
+    // when two events share a timestamp (sub-millisecond batches across
+    // rails are common).
+    return events.sorted { lhs, rhs in
+        if lhs.timestamp != rhs.timestamp { return lhs.timestamp > rhs.timestamp }
+        if lhs.rail.rawValue != rhs.rail.rawValue { return lhs.rail.rawValue < rhs.rail.rawValue }
+        return lhs.path < rhs.path
+    }
 }
 
 // MARK: - IPS rail
@@ -163,7 +170,11 @@ private func readFirstLine(of url: URL) -> String? {
     guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
     defer { try? handle.close() }
     let data = (try? handle.read(upToCount: 8192)) ?? Data()
-    guard let text = String(data: data, encoding: .utf8) else { return nil }
+    // Lossy UTF-8: tolerate a multi-byte sequence sitting astride the
+    // 8192-byte read boundary by inserting U+FFFD instead of returning
+    // nil. The caller only cares about the first line; the trailing
+    // replacement char is harmless because we cut at the first `\n`.
+    let text = String(decoding: data, as: UTF8.self)
     if let nl = text.firstIndex(of: "\n") {
         return String(text[..<nl])
     }
