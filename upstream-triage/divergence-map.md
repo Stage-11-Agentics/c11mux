@@ -2,6 +2,14 @@
 
 Where c11 has diverged from `manaflow-ai/cmux`. The agent uses this as prior knowledge: it knows where to expect adaptation work, and where upstream changes simply don't apply.
 
+## Principle: compatibility bias
+
+When c11 has a feature that overlaps with upstream's, the default move is to align c11 with upstream's naming, parameters, and shape, not to preserve c11's divergent version. Sacrifice compatibility only when there is a concrete reason, and document the reason inline (in the playbook entry, the lessons file, or the relevant code comment) so future readers can audit the call.
+
+This reframes the EVALUATE step. The question is not "does c11 want this upstream change as-is?" It is "does c11 want this functionality, and if c11 already has an overlap, can we adapt c11 toward upstream rather than skip?" Skipping is still a valid answer, but it is the answer of last resort, not the default.
+
+The bias exists because c11 is a fork of cmux, not a separate product. Operators migrate between them. Skills, scripts, and muscle memory written against cmux should keep working in c11 wherever the divergence is not load-bearing. Every divergence we keep is rent the operator pays forever.
+
 **Categories:**
 
 - **`skip`** — there is no c11 equivalent. Upstream changes here have no home in c11. Don't try to land them, even via rewrite.
