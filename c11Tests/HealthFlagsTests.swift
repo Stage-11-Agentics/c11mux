@@ -141,9 +141,11 @@ final class HealthFlagsTests: XCTestCase {
         let now = Date()
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let priorLaunchedAt = isoFormatter.string(from: now.addingTimeInterval(-3600))
+        let priorTimestamp = now.addingTimeInterval(-3600)
+        let priorLaunchedAt = isoFormatter.string(from: priorTimestamp)
+        let priorStamp = filenameSafeISO(priorTimestamp)
 
-        let activeBody: [String: Any] = [
+        let priorBody: [String: Any] = [
             "version": "0.43.0",
             "build": "0.43.0.1",
             "commit": "abcdef12",
@@ -151,8 +153,8 @@ final class HealthFlagsTests: XCTestCase {
             "launched_at": priorLaunchedAt,
             "pid": 12345,
         ]
-        let data = try JSONSerialization.data(withJSONObject: activeBody, options: [.prettyPrinted, .sortedKeys])
-        try data.write(to: sessionsDir.appendingPathComponent("active.json"))
+        let data = try JSONSerialization.data(withJSONObject: priorBody, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: sessionsDir.appendingPathComponent("unclean-exit-\(priorStamp).json"))
 
         let warning = metricKitBaselineWarning(
             home: tmp.path,
@@ -177,11 +179,46 @@ final class HealthFlagsTests: XCTestCase {
         let now = Date()
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let oldLaunchedAt = isoFormatter.string(from: now.addingTimeInterval(-2 * 86400))
+        let oldTimestamp = now.addingTimeInterval(-2 * 86400)
+        let oldLaunchedAt = isoFormatter.string(from: oldTimestamp)
+        let oldStamp = filenameSafeISO(oldTimestamp)
 
-        let activeBody: [String: Any] = [
+        let oldBody: [String: Any] = [
             "version": "0.43.0",
             "launched_at": oldLaunchedAt,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: oldBody, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: sessionsDir.appendingPathComponent("unclean-exit-\(oldStamp).json"))
+
+        let warning = metricKitBaselineWarning(
+            home: tmp.path,
+            bundleVersion: "0.44.1",
+            metricKitCount: 0,
+            now: now
+        )
+        XCTAssertNil(warning, "version bumps older than 24h should not warn")
+    }
+
+    func testMetricKitBaselineWarningSilentWhenOnlyActiveJsonPresent() throws {
+        // active.json is the *current* session; it must not be treated as a
+        // prior-baseline marker. Without an unclean-exit archive, there is
+        // no prior version to compare against, so the warning must stay silent
+        // even after a version bump.
+        let tmp = try makeTempHome()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let sessionsDir = tmp.appendingPathComponent(
+            "Library/Caches/com.stage11.c11/sessions",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: sessionsDir, withIntermediateDirectories: true)
+
+        let now = Date()
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let activeBody: [String: Any] = [
+            "version": "0.43.0",
+            "launched_at": isoFormatter.string(from: now.addingTimeInterval(-60)),
         ]
         let data = try JSONSerialization.data(withJSONObject: activeBody, options: [.prettyPrinted, .sortedKeys])
         try data.write(to: sessionsDir.appendingPathComponent("active.json"))
@@ -192,7 +229,7 @@ final class HealthFlagsTests: XCTestCase {
             metricKitCount: 0,
             now: now
         )
-        XCTAssertNil(warning, "version bumps older than 24h should not warn")
+        XCTAssertNil(warning, "active.json alone is the current session, not a prior baseline")
     }
 
     func testTelemetryAmbiguityFooterSilentWhenCacheMissing() {
@@ -242,5 +279,11 @@ final class HealthFlagsTests: XCTestCase {
             .appendingPathComponent("c11-flags-tests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
+    }
+
+    private func filenameSafeISO(_ date: Date) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.string(from: date).replacingOccurrences(of: ":", with: "-")
     }
 }

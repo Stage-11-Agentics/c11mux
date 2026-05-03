@@ -501,23 +501,23 @@ private func mostRecentSentinelMarker(home: String) -> UncleanExitMarker? {
 
         for url in files {
             let name = url.lastPathComponent
-            let isUnclean = name.hasPrefix("unclean-exit-") && name.hasSuffix(".json")
-            let isActive = name == "active.json"
-            guard isUnclean || isActive else { continue }
+            // active.json is the *current* session; including it means
+            // the post-bump warning compares the current version against
+            // itself and silently returns nil. Only prior unclean-exit
+            // archives are valid baselines.
+            guard name.hasPrefix("unclean-exit-"), name.hasSuffix(".json") else { continue }
+
+            let stamp = String(name.dropFirst("unclean-exit-".count).dropLast(".json".count))
+            var ts: Date? = parseFilenameSafeISO(stamp)
 
             guard let data = try? Data(contentsOf: url),
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             else { continue }
 
-            var ts: Date? = nil
-            if let str = obj["launched_at"] as? String {
+            if ts == nil, let str = obj["launched_at"] as? String {
                 let f = ISO8601DateFormatter()
                 f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                 ts = f.date(from: str)
-            }
-            if ts == nil, isUnclean {
-                let stamp = String(name.dropFirst("unclean-exit-".count).dropLast(".json".count))
-                ts = parseFilenameSafeISO(stamp)
             }
             if ts == nil, let attrs = try? fm.attributesOfItem(atPath: url.path) {
                 ts = attrs[.modificationDate] as? Date
