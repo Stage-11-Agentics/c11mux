@@ -14,9 +14,8 @@
 
 <p align="center">
   <video src="https://github.com/user-attachments/assets/e0211428-1021-428c-8217-813a69d7d513" controls muted playsinline width="85%"></video>
-  <br>
-  <sub><i>ninety seconds inside c11. composing terminals, agents, browsers, and markdown surfaces into one room.</i></sub>
 </p>
+<p align="center"><sub><i>ninety seconds inside c11. composing terminals, agents, browsers, and markdown surfaces into one workspace.</i></sub></p>
 
 ---
 
@@ -78,9 +77,8 @@ the operator isn't managing a layout. the agents aren't waiting for instructions
 
 <p align="center">
   <video src="https://github.com/user-attachments/assets/21ca3700-a6be-44ad-9f5e-add380d940b3" controls muted playsinline width="85%"></video>
-  <br>
-  <sub><i>splits, spawns, surface manifests, sidebar telemetry. the workspace reshapes around the work.</i></sub>
 </p>
+<p align="center"><sub><i>splits, spawns, surface manifests, sidebar telemetry. the workspace reshapes around the work.</i></sub></p>
 
 ### example prompts to Spark the Light.
 
