@@ -14,7 +14,6 @@ struct HealthEvent {
     enum Severity: String {
         case crash
         case queued
-        case metrickit
         case hang
         case resource
         case mixed
@@ -27,6 +26,17 @@ struct HealthEvent {
     let severity: Severity
     let summary: String
     let path: String
+}
+
+/// Single source of truth for the ISO-8601 formatter c11 health uses to
+/// stamp / parse timestamps. Hoisted to avoid the per-call allocation
+/// previously duplicated across `parseFilenameSafeISO`,
+/// `mostRecentSentinelMarker`, and `renderHealthJSON`.
+@inline(__always)
+private func makeFractionalISOFormatter() -> ISO8601DateFormatter {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return f
 }
 
 struct HealthCollectionWindow {
@@ -295,9 +305,7 @@ private func parseFilenameSafeISO(_ stamp: String) -> Date? {
     chars[13] = ":"
     chars[16] = ":"
     let normalized = String(chars)
-    let f = ISO8601DateFormatter()
-    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return f.date(from: normalized)
+    return makeFractionalISOFormatter().date(from: normalized)
 }
 
 private func isValidMetricKitKind(_ kind: String) -> Bool {
@@ -535,9 +543,7 @@ private func mostRecentSentinelMarker(home: String) -> UncleanExitMarker? {
             else { continue }
 
             if ts == nil, let str = obj["launched_at"] as? String {
-                let f = ISO8601DateFormatter()
-                f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                ts = f.date(from: str)
+                ts = makeFractionalISOFormatter().date(from: str)
             }
             if ts == nil, let attrs = try? fm.attributesOfItem(atPath: url.path) {
                 ts = attrs[.modificationDate] as? Date
@@ -800,8 +806,7 @@ func renderHealthJSON(
     warnings: [String],
     home: String = NSHomeDirectory()
 ) throws -> Data {
-    let iso = ISO8601DateFormatter()
-    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let iso = makeFractionalISOFormatter()
 
     var railCounts: [String: [String: Int]] = [:]
     for rail in HealthEvent.Rail.allCases where rails.contains(rail) {
