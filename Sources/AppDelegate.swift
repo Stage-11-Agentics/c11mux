@@ -2339,6 +2339,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching(_ notification: Notification) {
         mirrorC11CmuxEnv()
 
+        // Write before anything else can crash. If a previous launch ended without
+        // calling applicationWillTerminate (Force Quit, SIGKILL, jetsam, in-process
+        // crash that Sentry didn't flush), this archives that marker as
+        // unclean-exit-<ts>.json — the only local rail that survives signal-bypass
+        // termination regardless of telemetry consent.
+        LaunchSentinel.recordLaunchAndArchivePrevious()
+
         // Migrate preferences from legacy upstream cmux bundle IDs before anything
         // else touches UserDefaults. One-time, idempotent, guarded by a flag key.
         migrateLegacyPreferencesIfNeeded()
@@ -2785,6 +2792,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
         notificationStore?.clearAll()
         enableSuddenTerminationIfNeeded()
+        LaunchSentinel.clearActive()
     }
 
     func applicationWillResignActive(_ notification: Notification) {
