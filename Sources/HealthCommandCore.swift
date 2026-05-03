@@ -667,13 +667,23 @@ func parseUncleanExitFile(at url: URL, since: Date) -> HealthEvent? {
 private let healthEmptyResultLine =
     "c11 health: nothing in the last 24h across ips, sentry, metrickit, sentinel."
 
-func renderHealthTable(_ events: [HealthEvent], warnings: [String] = []) -> String {
+/// `timeZone` is exposed for golden-file tests; production callers leave it
+/// nil to use the operator's local time.
+func renderHealthTable(
+    _ events: [HealthEvent],
+    warnings: [String] = [],
+    timeZone: TimeZone? = nil
+) -> String {
     var lines: [String] = []
     if events.isEmpty {
         lines.append(healthEmptyResultLine)
     } else {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        if let timeZone {
+            f.timeZone = timeZone
+        }
         lines.append("TIME             | RAIL      | SEVERITY     | SUMMARY")
         for ev in events {
             let time = f.string(from: ev.timestamp)
