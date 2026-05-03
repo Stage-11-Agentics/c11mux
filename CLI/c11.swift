@@ -7265,8 +7265,11 @@ struct CMUXCLI {
         throw CLIError(message: "Unable to resolve surface ID")
     }
 
-    /// Return the help/usage text for a subcommand, or nil if the command is unknown.
-    private func subcommandUsage(_ command: String) -> String? {
+    /// Return the help/usage text for a subcommand, or nil if the command is
+    /// unknown. `commandArgs` is the slice after the top-level command token,
+    /// allowing two-level dispatch for commands like `workspace` that have
+    /// their own subcommand surface (e.g. `c11 workspace new --help`).
+    private func subcommandUsage(_ command: String, commandArgs: [String] = []) -> String? {
         switch command {
         case "ping":
             return """
@@ -8813,6 +8816,88 @@ struct CMUXCLI {
               c11 list-snapshots
               c11 list-snapshots --json
             """
+        case "workspace":
+            // CMUX-37: two-level dispatch. Without a subcommand, list the
+            // three known workspace subcommands. With one, return its
+            // per-subcommand help text.
+            let sub = commandArgs.first(where: { !$0.hasPrefix("-") })
+            switch sub {
+            case "apply":
+                return """
+                Usage: c11 workspace apply --file <path|->
+
+                Apply a `WorkspaceApplyPlan` JSON document. Materializes the
+                plan into a fresh workspace via `workspace.apply` v2.
+
+                Flags:
+                  --file <path|->   Plan source. `-` reads from stdin.
+
+                Example:
+                  c11 workspace apply --file ./plan.json
+                  cat ./plan.json | c11 workspace apply --file -
+                """
+            case "new":
+                return """
+                Usage: c11 workspace new [--blueprint <path>]
+
+                Create a new workspace from a blueprint. Without `--blueprint`,
+                drops into an interactive picker that lists the built-in
+                blueprints plus any discovered under
+                `~/.config/cmux/blueprints/` and `<repo>/.cmux/blueprints/`.
+
+                Flags:
+                  --blueprint <path>   Apply the blueprint at the given path
+                                       directly, skipping the picker.
+
+                Examples:
+                  c11 workspace new
+                  c11 workspace new --blueprint ~/.config/cmux/blueprints/agent-room.json
+                """
+            case "export-blueprint":
+                return """
+                Usage: c11 workspace export-blueprint --name <name>
+                                                      [--workspace <id|ref|index>]
+                                                      [--description <text>]
+                                                      [--out <path>]
+                                                      [--force]
+
+                Capture the current (or named) workspace as a
+                `WorkspaceBlueprintFile` and write it to disk. Default
+                destination is `~/.config/cmux/blueprints/<name>.json`.
+
+                Flags:
+                  --name <name>            Required. Blueprint name (also the file stem).
+                  --workspace <ref>        Source workspace. Defaults to the caller's workspace.
+                  --description <text>     Optional description embedded in the blueprint envelope.
+                  --out <path>             Move the written file to this path.
+                  --force                  Overwrite an existing blueprint with the same name.
+
+                Examples:
+                  c11 workspace export-blueprint --name agent-room
+                  c11 workspace export-blueprint --name agent-room --workspace workspace:1 --force
+                """
+            case nil:
+                return """
+                Usage: c11 workspace <subcommand> [options]
+
+                Workspace persistence and blueprint commands.
+
+                Subcommands:
+                  apply              Apply a WorkspaceApplyPlan JSON document.
+                  new                Create a workspace from a blueprint (interactive or by path).
+                  export-blueprint   Capture a workspace as a reusable blueprint file.
+
+                Run `c11 workspace <subcommand> --help` for per-subcommand flags.
+                """
+            default:
+                return """
+                Usage: c11 workspace <subcommand> [options]
+
+                Unknown workspace subcommand: '\(sub ?? "")'.
+                Known subcommands: apply, new, export-blueprint.
+                Run `c11 workspace --help` for the full list.
+                """
+            }
         default:
             return nil
         }
@@ -8821,8 +8906,16 @@ struct CMUXCLI {
     /// Dispatch help for a subcommand. Returns true if help was printed.
     private func dispatchSubcommandHelp(command: String, commandArgs: [String]) -> Bool {
         guard commandArgs.contains("--help") || commandArgs.contains("-h") else { return false }
-        guard let text = subcommandUsage(command) else { return false }
-        print("c11 \(command)")
+        guard let text = subcommandUsage(command, commandArgs: commandArgs) else { return false }
+        // For two-level commands (e.g. `c11 workspace new --help`) include the
+        // resolved subcommand in the header so the operator can tell which
+        // help block they got back.
+        let subToken = commandArgs.first(where: { !$0.hasPrefix("-") })
+        if let subToken {
+            print("c11 \(command) \(subToken)")
+        } else {
+            print("c11 \(command)")
+        }
         print("")
         print(text)
         return true
@@ -14346,6 +14439,10 @@ struct CMUXCLI {
           workspace-action --action <name> [--workspace <id|ref|index>] [--title <text>]
           list-workspaces
           new-workspace [--cwd <path>] [--command <text>]
+          workspace                                        (workspace persistence subcommands)
+          workspace apply --file <path|->                  (apply a WorkspaceApplyPlan JSON)
+          workspace new [--blueprint <path>]               (create from a blueprint, interactive picker without --blueprint)
+          workspace export-blueprint --name <name> [--workspace <ref>] [--description <text>] [--out <path>] [--force]
           ssh <destination> [--name <title>] [--port <n>] [--identity <path>] [--ssh-option <opt>] [-- <remote-command-args>]
           remote-daemon-status [--os <darwin|linux>] [--arch <arm64|amd64>]
           new-split <left|right|up|down> [--workspace <id|ref>] [--surface <id|ref>] [--panel <id|ref>] [--title <text>]
