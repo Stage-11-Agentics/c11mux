@@ -5,7 +5,98 @@
 **Related platform ticket:** C11-7 (`task_01KPS4FBHSSCCJC3EP43YJ7XMZ`) — socket reliability. CMUX-37 depends on it; does not absorb it.
 **Related feature ticket:** C11-13 (`task_01KPYFX4PV4QQQYHCPE0R02GEZ`) — inter-agent messaging primitive. Shares the CMUX-11 per-surface metadata layer; see alignment doc below.
 **Alignment doc:** [`docs/c11-13-cmux-37-alignment.md`](../../docs/c11-13-cmux-37-alignment.md) — locked conventions for `mailbox.*` metadata namespace, surface-name addressing, strings-only values for v1, and `WorkspaceApplyPlan` composition path.
-**Last refreshed:** 2026-04-24 (added C11-13 alignment)
+**Last refreshed:** 2026-05-03 (final-push plan added at top; older phase plans below kept as historical context)
+
+> **Read me first:** the active plan is **[Final-Push Plan (2026-05-03)](#final-push-plan-2026-05-03)** below. Phases 0 and 1 sections later in this file are historical — they describe work that already shipped via PRs #75, #77, #78, #79. Do not redo that work.
+
+## Final-Push Plan (2026-05-03)
+
+**Goal:** close CMUX-37. Land five workstreams in **one cohesive PR** off branch `cmux-37/final-push`. No follow-up tickets for in-scope items. Operator framing: this ticket has been an albatross; the move is a clean close.
+
+**Ground truth for what's missing:** `/tmp/cmux-37-smoke-report.md` (2026-05-03 smoke pass on tagged build `cmux-37-smoke`).
+
+### Already shipped (don't redo)
+
+- PR #75 (Phase 0): `WorkspaceApplyPlan` value type + `WorkspaceLayoutExecutor`.
+- PR #79 (Phases 2–5): `c11 snapshot` / `restore` / `list-snapshots` / `workspace new` / `workspace apply` / `workspace export-blueprint`, browser/markdown surface round-trip, agent registry rows.
+- Snapshots persisted as JSON in `~/.c11-snapshots/<ulid>.json` (legacy fallback at `~/.cmux-snapshots/`).
+- Blueprints currently persisted as JSON in `~/.config/cmux/blueprints/<name>.json`.
+- Built-ins: `agent-room`, `side-by-side`, `basic-terminal`.
+
+### The five workstreams
+
+1. **Markdown blueprint format.** Replace JSON blueprints with Markdown + YAML frontmatter (Obsidian-friendly). Parser `.md → WorkspaceApplyPlan`: YAML frontmatter → workspace metadata (`title`, `description`, `custom_color`); first fenced YAML codeblock under `## Layout` → layout tree → `SurfaceSpec[]`. Writer `WorkspaceApplyPlan → .md` for `workspace export-blueprint`. Default write path renames `~/.config/cmux/blueprints/` → `~/.config/c11/blueprints/`; back-compat **read** of old path stays. `workspace new --blueprint <path>` accepts `.md`. Picker discovers `.md` alongside built-ins. **JSON blueprint reading continues to work** — don't break the shipped path. Round-trip test: export a workspace as `.md`, materialize from that `.md`, compare structure to original.
+
+2. **Snapshot manifest layer for `--all`.** Per-workspace snapshots remain the primitive — no rearchitecture. Add a manifest layer: `snapshot --all` keeps writing N per-workspace files **and** writes one manifest at `~/.c11-snapshots/sets/<ulid>.json` (timestamp, workspace order, selected workspace, c11 version, list of inner snapshot IDs — pointer file only, no data duplication). `restore <id>` becomes polymorphic (single workspace vs. manifest). `list-snapshots --sets` (or sibling `list-snapshot-sets`) for discovery.
+
+3. **Restore diagnostic cleanup.** The smoke validator saw `restore` exit 0 but emit `failure:` lines for expected behaviors: terminal `workingDirectory` ignored on seed terminals, six `metadata_override` warnings for title overrides. Audit `WorkspaceLayoutExecutor` diagnostic emission and reclassify these to `info:` (or silence). Reserve `failure:` for genuine errors.
+
+4. **`c11 workspace <sub> --help` routing.** `c11 workspace new` works; `c11 workspace new --help` says `Unknown command 'workspace'`. Help dispatch for `workspace` subcommands is broken. Fix routing so `c11 workspace <subcmd> --help` reaches the subcommand's help.
+
+5. **CLI socket safety (`C11_SOCKET`).** During smoke setup the orchestrator set `C11_SOCKET=…` thinking it was the override; CLI ignores it (uses `CMUX_SOCKET_PATH`), auto-discovered the live socket via `last-socket-path`, and silently mutated the operator's live workspace. Fixes:
+   - Accept `C11_SOCKET` as the **primary** override; keep `CMUX_SOCKET_PATH` as a back-compat alias.
+   - When auto-discovering from `last-socket-path`, log one stderr line naming the picked socket + pointer file. Suppress with `--quiet` or `C11_QUIET_DISCOVERY=1`.
+   - Document precedence in `c11 --help`: `--socket` flag → `C11_SOCKET` → `CMUX_SOCKET_PATH` → auto-discovery.
+   - **Don't** add a deprecation warning on `CMUX_SOCKET_PATH` yet — that's a separate ticket.
+
+### Housekeeping (fold into the same PR)
+
+- Rename ticket title (`lattice update CMUX-37 --title …`): drop "c11mux" → "c11". Update description prose accordingly.
+- Strip the stale "plan freshness warning" block from the ticket description.
+- Do **not** rename historical commits, shipped public identifiers, or env var aliases.
+
+### Parallelization
+
+The five workstreams have **low file overlap**, so impl can be split:
+
+| Workstream | Primary surface | Notes |
+|---|---|---|
+| 1. Markdown blueprints | New parser/writer files; `Sources/Workspace*Blueprint*.swift`; `CLI/c11.swift` blueprint flag handler | Largest. Independent. |
+| 2. Manifest layer | `Sources/WorkspaceSnapshotStore.swift`; `CLI/c11.swift` snapshot/restore/list handlers | Touches snapshot CLI. |
+| 3. Diagnostic cleanup | `Sources/WorkspaceLayoutExecutor.swift` | Surgical reclassification. |
+| 4. `workspace --help` routing | `CLI/c11.swift` arg-parse / help dispatch | Surgical. |
+| 5. `C11_SOCKET` + discovery log | `CLI/c11.swift` socket resolution; `c11 --help` text | Surgical. |
+
+Recommendation: spawn **two impl siblings** — one for (1) Markdown blueprints (the bulk), one bundling (2) + (3) + (4) + (5) (all relatively small, mostly CLI/executor). Avoid three+ siblings: (3)/(4)/(5) all touch `CLI/c11.swift` and would conflict.
+
+### Commit grouping (rough; impl can refine)
+
+1. Markdown blueprint parser (read path) + tests.
+2. Markdown blueprint writer + `export-blueprint` default to `.md` + back-compat JSON read + tests.
+3. `~/.config/c11/blueprints/` rename with legacy-path read fallback.
+4. Snapshot manifest writer + `snapshot --all` writes manifest pointer.
+5. `restore` polymorphism + `list-snapshots --sets`.
+6. `WorkspaceLayoutExecutor` diagnostic reclassification.
+7. `workspace --help` routing fix.
+8. `C11_SOCKET` env var precedence + discovery stderr log + `--help` doc.
+9. Localization sweep (translator sub-agent, parallel per locale) for any new user-facing strings introduced.
+10. Ticket title/description rename + plan-freshness-warning strip (post-impl, before PR open).
+
+### Acceptance (validation phase will check)
+
+- Round-trip a workspace: export as `.md`, `cat` shows YAML frontmatter + `## Layout` codeblock, `workspace new --blueprint <that.md>` materializes a matching workspace.
+- `snapshot --all` writes per-workspace files **and** a manifest under `sets/`. `restore <manifest-id>` rehydrates all listed workspaces and re-establishes selection.
+- `restore <single-id>` shows no `failure:` lines for the seven previously-noisy expected conditions.
+- `c11 workspace new --help` and `c11 workspace export-blueprint --help` print real help, not "Unknown command".
+- `C11_SOCKET=/tmp/c11-debug-cmux-37-final.sock c11 ping` hits the smoke build, not the live workspace. `CMUX_SOCKET_PATH=…` still works. Auto-discovery emits a stderr breadcrumb.
+
+### Do NOT ship in this PR
+
+- Deprecation warning on `CMUX_SOCKET_PATH` (future ticket).
+- Any changes to typing-latency-sensitive paths in `WindowTerminalHostView.hitTest`, `TabItemView`, `TerminalSurface.forceRefresh`. Workstreams above don't need them.
+- Renaming public CMUX-* commit identifiers, the historical `cmux` CLI compat alias, or shipped public APIs.
+- Restructuring the existing JSON blueprint reader. Read path is preserved.
+
+### Phase model from here
+
+- **Plan (this section).** Done; if Plan sibling wants to refine, it edits this section in place.
+- **Impl.** Two siblings per parallelization table.
+- **Translator.** Spawn per-locale only if new user-facing strings appear (likely a couple of error messages in the Markdown parser; the help text changes too).
+- **Review.** `trident-code-review`. Apply-by-default fixes inline; surface escalations via Lattice comment. Max 3 rework cycles.
+- **Validate.** Tagged build `cmux-37-final`; codex computer-use validation against the acceptance bullets above; report to `/tmp/cmux-37-final-smoke-report.md`. Validate sibling MUST pin `--socket /tmp/c11-debug-cmux-37-final.sock` on every CLI call (the wrong-socket disaster from the smoke pass is what workstream 5 fixes; until 5 lands and is in the smoke build, sub-agents must be explicit).
+- **Handoff.** PR open against `main`, attach to ticket, `lattice comment` summary, leave at `review` for operator merge. Do not call `lattice complete`.
+
+---
 
 ## What this is
 
@@ -212,7 +303,11 @@ Restore preserves CMUX-11 pane manifests + CMUX-14 lineage chains verbatim.
 
 ---
 
-## Phase 0 Implementation Plan (2026-04-24)
+## Historical (shipped) — Phase 0 Implementation Plan (2026-04-24)
+
+> Shipped via PR #75 (0111f0e4, 2026-04-24). Kept for context; do not redo.
+
+
 
 *Agent:* `agent:claude-opus-4-7-cmux-37-plan`. Scope is the `WorkspaceApplyPlan` value type and the app-side `WorkspaceLayoutExecutor` only — no Blueprints, Snapshots, restart registry, or CLI sugar beyond the one debug entry point. Later phases build on top.
 
@@ -553,7 +648,11 @@ After R7 lands and is pushed, the rework Impl agent posts the completion comment
 
 ---
 
-## Phase 1 Implementation Plan (2026-04-24)
+## Historical (shipped) — Phase 1 Implementation Plan (2026-04-24)
+
+> Shipped via PR #79 (dab51bd2, 2026-04-26) along with Phases 2–5. Kept for context; do not redo.
+
+
 
 *Agent:* `agent:claude-opus-4-7-cmux-37-p1-plan`. Scope is **Snapshot capture + file format, Snapshot restore, `c11 snapshot` / `c11 restore` / `c11 list-snapshots`, and Claude session resume (cc-only)**. No Blueprints, no picker, no `--all`, no codex/kimi/opencode registry rows. Terminal surfaces are the primary target, but the snapshot file faithfully carries browser/markdown kinds too so Phase 3's `--all` + non-terminal work is a schema extension (new fields), not a format break. Built entirely on top of Phase 0's shipped `WorkspaceApplyPlan` / `WorkspaceLayoutExecutor`.
 
@@ -841,3 +940,5 @@ The registry is **not Codable**. It flows through `ApplyOptions.restartRegistry`
 ### Stop line
 
 Phase 1 ships `c11 snapshot` / `c11 restore` / `c11 list-snapshots` + Claude session resume (cc-only) + the session-id metadata-write augment to the `claude-hook session-start` handler + the `skills/c11/references/claude-resume.md` doc. Blueprints, the new-workspace picker, `c11 snapshot --all`, codex/opencode/kimi restart-registry rows, browser-history / markdown-scrollback persistence beyond what the snapshot file already carries — all remain out of scope for Phase 1 and land in Phases 2–5 per the master plan.
+
+## Reset 2026-05-03 by agent:claude-opus-4-7-cmux-37
