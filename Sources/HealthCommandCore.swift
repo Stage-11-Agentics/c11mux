@@ -559,22 +559,40 @@ func metricKitBaselineWarning(
     return "MetricKit baseline still establishing after version bump (\(marker.version) to \(curr)); diagnostic payloads may not deliver for ~24h."
 }
 
-/// Fires when `<home>/Library/Caches/com.stage11.c11/io.sentry/` exists and
-/// is empty AND we have zero queued events overall. Operator can't tell
-/// from "0 events" alone whether telemetry is off or just freshly drained.
+/// Fires when zero queued events overall AND at least one `io.sentry/`
+/// directory exists across the `com.stage11.c11*` bundle family but every
+/// such directory is empty. Mirrors `scanSentryQueued`'s family iteration
+/// so the footer fires on machines that only ran a debug build (no
+/// production-bundle cache present), not just on production-only machines.
 func telemetryAmbiguityFooter(home: String, sentryCount: Int) -> String? {
     guard sentryCount == 0 else { return nil }
-    let probe = "\(home)/Library/Caches/com.stage11.c11/io.sentry"
+    let cacheURL = URL(fileURLWithPath: "\(home)/Library/Caches")
     let fm = FileManager.default
-    var isDir: ObjCBool = false
-    guard fm.fileExists(atPath: probe, isDirectory: &isDir), isDir.boolValue else { return nil }
 
-    let probeURL = URL(fileURLWithPath: probe)
-    if let enumerator = fm.enumerator(
-        at: probeURL,
-        includingPropertiesForKeys: [.isRegularFileKey],
+    guard let bundleDirs = try? fm.contentsOfDirectory(
+        at: cacheURL,
+        includingPropertiesForKeys: [.isDirectoryKey],
         options: [.skipsHiddenFiles]
-    ) {
+    ) else { return nil }
+
+    var sawAnySentryDir = false
+    for bundleDir in bundleDirs {
+        guard bundleDir.lastPathComponent.hasPrefix("com.stage11.c11") else { continue }
+        let isDir = (try? bundleDir.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+        guard isDir else { continue }
+
+        let sentryRoot = bundleDir.appendingPathComponent("io.sentry", isDirectory: true)
+        var sentryIsDir: ObjCBool = false
+        guard fm.fileExists(atPath: sentryRoot.path, isDirectory: &sentryIsDir),
+              sentryIsDir.boolValue
+        else { continue }
+        sawAnySentryDir = true
+
+        guard let enumerator = fm.enumerator(
+            at: sentryRoot,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else { continue }
         for case let f as URL in enumerator {
             if (try? f.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true {
                 return nil
@@ -582,7 +600,8 @@ func telemetryAmbiguityFooter(home: String, sentryCount: Int) -> String? {
         }
     }
 
-    return "Production Sentry cache empty: telemetry may be off, or events shipped on last launch and cleared the cache."
+    guard sawAnySentryDir else { return nil }
+    return "Sentry cache empty across c11 bundles: telemetry may be off, or events shipped on last launch and cleared the cache."
 }
 
 // MARK: - Launch sentinel rail

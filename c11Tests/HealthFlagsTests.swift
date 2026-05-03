@@ -274,6 +274,42 @@ final class HealthFlagsTests: XCTestCase {
         XCTAssertNil(warning, "non-empty cache must not produce the ambiguity footer")
     }
 
+    func testTelemetryAmbiguityFooterFiresOnDebugBundleOnly() throws {
+        // Regression: previously the footer hardcoded the production bundle
+        // path and never fired on dev machines that only ran the debug build.
+        let tmp = try makeTempHome()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let debugSentry = tmp.appendingPathComponent(
+            "Library/Caches/com.stage11.c11.debug.example/io.sentry",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: debugSentry, withIntermediateDirectories: true)
+
+        let warning = telemetryAmbiguityFooter(home: tmp.path, sentryCount: 0)
+        XCTAssertNotNil(warning, "an empty io.sentry under any c11* bundle must fire the footer")
+    }
+
+    func testTelemetryAmbiguityFooterSilentWhenAnyBundleHasEnvelope() throws {
+        let tmp = try makeTempHome()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let emptyDebug = tmp.appendingPathComponent(
+            "Library/Caches/com.stage11.c11.debug.empty/io.sentry",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: emptyDebug, withIntermediateDirectories: true)
+        let populated = tmp.appendingPathComponent(
+            "Library/Caches/com.stage11.c11.debug.populated/io.sentry/envelopes",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: populated, withIntermediateDirectories: true)
+        try Data([0]).write(to: populated.appendingPathComponent("env-1"))
+
+        let warning = telemetryAmbiguityFooter(home: tmp.path, sentryCount: 0)
+        XCTAssertNil(warning, "any bundle holding queued envelopes must silence the family-wide footer")
+    }
+
     private func makeTempHome() throws -> URL {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("c11-flags-tests-\(UUID().uuidString)", isDirectory: true)
