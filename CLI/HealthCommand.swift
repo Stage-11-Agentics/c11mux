@@ -1,8 +1,40 @@
 import Foundation
+import Darwin
 
 // Thin CLI entry for `c11 health`. Wired from CLI/c11.swift.
 // All parsing, scanning, and rendering lives in Sources/HealthCommandCore.swift
 // so the main `c11` target (and c11Tests) can exercise the same code paths.
+
+/// The c11-cli target ships without an Info.plist, so `Bundle.main` is empty
+/// when this binary runs standalone. To get the running c11 app's version
+/// (needed by `metricKitBaselineWarning`), walk up from the executable's
+/// path until an `.app` bundle is found. Mirrors `CLISocketSentryTelemetry`.
+private func runningC11AppVersion() -> String? {
+    if let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+       !v.isEmpty {
+        return v
+    }
+
+    var size: UInt32 = 0
+    _ = _NSGetExecutablePath(nil, &size)
+    guard size > 0 else { return nil }
+    var buffer = [CChar](repeating: 0, count: Int(size))
+    guard _NSGetExecutablePath(&buffer, &size) == 0 else { return nil }
+
+    var current = URL(fileURLWithPath: String(cString: buffer))
+        .deletingLastPathComponent()
+        .standardizedFileURL
+    while current.path != "/" {
+        if current.pathExtension == "app",
+           let bundle = Bundle(url: current),
+           let v = bundle.infoDictionary?["CFBundleShortVersionString"] as? String,
+           !v.isEmpty {
+            return v
+        }
+        current = current.deletingLastPathComponent().standardizedFileURL
+    }
+    return nil
+}
 
 func runHealth(commandArgs: [String], jsonOutput: Bool) throws {
     let opts: HealthCLIOptions
@@ -34,7 +66,7 @@ func runHealth(commandArgs: [String], jsonOutput: Bool) throws {
 
     let metrickitCount = events.filter { $0.rail == .metrickit }.count
     let sentryCount = events.filter { $0.rail == .sentry }.count
-    let bundleVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+    let bundleVersion = runningC11AppVersion()
 
     var warnings: [String] = []
     if rails.contains(.metrickit),
