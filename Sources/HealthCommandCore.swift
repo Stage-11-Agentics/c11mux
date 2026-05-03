@@ -691,20 +691,59 @@ func parseUncleanExitFile(at url: URL, since: Date) -> HealthEvent? {
     )
 }
 
-/// Default empty-result line when no events are present and no rail filter is in effect.
-private let healthEmptyResultLine =
-    "c11 health: nothing in the last 24h across ips, sentry, metrickit, sentinel."
+/// Default rail set used to build the empty-result line when no `rails`
+/// argument is supplied (e.g., callers that have not been migrated yet).
+private let healthAllRails: [HealthEvent.Rail] = [.ips, .sentry, .metrickit, .sentinel]
+
+/// Renders the empty-result line dynamically so it reflects the actual
+/// rails queried and the actual time window (rather than always claiming
+/// "the last 24h across ips, sentry, metrickit, sentinel").
+func healthEmptyResultLine(
+    rails: [HealthEvent.Rail] = healthAllRails,
+    window: HealthCollectionWindow? = nil
+) -> String {
+    let railList = rails.isEmpty
+        ? healthAllRails.map(\.rawValue).joined(separator: ", ")
+        : rails.map(\.rawValue).joined(separator: ", ")
+    let windowPhrase: String
+    if let window {
+        switch window.mode {
+        case .defaultLast24h:
+            windowPhrase = "in the last 24h"
+        case .sinceBoot:
+            windowPhrase = "since boot"
+        case .sinceDuration:
+            let elapsed = window.until.timeIntervalSince(window.since)
+            windowPhrase = "in the last \(formatDurationPhrase(elapsed))"
+        }
+    } else {
+        windowPhrase = "in the last 24h"
+    }
+    return "c11 health: nothing \(windowPhrase) across \(railList)."
+}
+
+private func formatDurationPhrase(_ seconds: TimeInterval) -> String {
+    let s = Int(seconds.rounded())
+    if s % 86400 == 0 { return "\(s / 86400)d" }
+    if s % 3600 == 0 { return "\(s / 3600)h" }
+    if s % 60 == 0 { return "\(s / 60)m" }
+    return "\(s)s"
+}
 
 /// `timeZone` is exposed for golden-file tests; production callers leave it
-/// nil to use the operator's local time.
+/// nil to use the operator's local time. `rails` and `window` are used
+/// only to build the empty-result line; they default so existing callers
+/// keep their previous behavior.
 func renderHealthTable(
     _ events: [HealthEvent],
     warnings: [String] = [],
-    timeZone: TimeZone? = nil
+    timeZone: TimeZone? = nil,
+    rails: [HealthEvent.Rail] = healthAllRails,
+    window: HealthCollectionWindow? = nil
 ) -> String {
     var lines: [String] = []
     if events.isEmpty {
-        lines.append(healthEmptyResultLine)
+        lines.append(healthEmptyResultLine(rails: rails, window: window))
     } else {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd HH:mm"

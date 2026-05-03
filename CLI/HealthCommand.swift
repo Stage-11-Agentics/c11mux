@@ -96,5 +96,6 @@ func runHealth(commandArgs: [String], jsonOutput: Bool) throws {
         return
     }
 
-    print(renderHealthTable(events, warnings: warnings), terminator: "")
+    let railList = HealthEvent.Rail.allCases.filter { rails.contains($0) }
+    print(renderHealthTable(events, warnings: warnings, rails: railList, window: window), terminator: "")
 }

@@ -126,6 +126,46 @@ final class CLIHealthRuntimeTests: XCTestCase {
         XCTAssertEqual(rendered, golden)
     }
 
+    func testEmptyResultLineReflectsRailFilter() {
+        let rendered = renderHealthTable([], rails: [.sentinel])
+        XCTAssertTrue(
+            rendered.contains("across sentinel."),
+            "empty line must name only the queried rail; got \(rendered)"
+        )
+        XCTAssertFalse(
+            rendered.contains("ips, sentry, metrickit"),
+            "empty line must not list rails the operator did not ask about; got \(rendered)"
+        )
+    }
+
+    func testEmptyResultLineReflectsSinceWindow() {
+        let now = Date()
+        let window = HealthCollectionWindow(
+            mode: .sinceDuration,
+            since: now.addingTimeInterval(-30 * 60),
+            until: now
+        )
+        let rendered = renderHealthTable([], rails: [.ips, .sentry], window: window)
+        XCTAssertTrue(
+            rendered.contains("in the last 30m"),
+            "empty line must reflect the actual --since window; got \(rendered)"
+        )
+    }
+
+    func testEmptyResultLineReflectsSinceBoot() {
+        let now = Date()
+        let window = HealthCollectionWindow(
+            mode: .sinceBoot,
+            since: now.addingTimeInterval(-3600),
+            until: now
+        )
+        let rendered = renderHealthTable([], window: window)
+        XCTAssertTrue(
+            rendered.contains("nothing since boot"),
+            "empty line must say 'since boot' for --since-boot mode; got \(rendered)"
+        )
+    }
+
     func testFourEventsTableMatchesGolden() throws {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
