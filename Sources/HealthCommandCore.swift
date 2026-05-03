@@ -345,6 +345,246 @@ func scanMetricKit(home: String, since: Date) -> [HealthEvent] {
     return events
 }
 
+// MARK: - Flags + boot time
+
+enum HealthCLIError: Error, CustomStringConvertible {
+    case mutuallyExclusiveSinceFlags
+    case missingValue(flag: String)
+    case invalidSinceValue(String)
+    case unknownRail(String)
+    case unknownFlag(String)
+
+    var description: String {
+        switch self {
+        case .mutuallyExclusiveSinceFlags:
+            return "--since and --since-boot are mutually exclusive"
+        case .missingValue(let flag):
+            return "\(flag) requires a value"
+        case .invalidSinceValue(let v):
+            return "invalid --since value '\(v)' (expected like 30m, 2h, 24h, 3d)"
+        case .unknownRail(let r):
+            return "unknown --rail '\(r)' (expected one of ips, sentry, metrickit, sentinel)"
+        case .unknownFlag(let f):
+            return "unknown flag '\(f)'"
+        }
+    }
+}
+
+struct HealthCLIOptions {
+    let mode: HealthCollectionWindow.Mode
+    /// Used only when `mode == .sinceDuration`; ignored for boot/default modes.
+    let windowDuration: TimeInterval
+    let railFilter: HealthEvent.Rail?
+    let json: Bool
+}
+
+/// Accepts compact-suffix duration strings: 30m, 2h, 24h, 3d. Returns the
+/// corresponding `TimeInterval`, or nil for malformed input.
+func parseSinceFlag(_ value: String) -> TimeInterval? {
+    guard let last = value.last else { return nil }
+    let head = value.dropLast()
+    guard !head.isEmpty, let n = Double(head), n > 0 else { return nil }
+    switch last {
+    case "m": return n * 60
+    case "h": return n * 3600
+    case "d": return n * 86400
+    default: return nil
+    }
+}
+
+/// Reads `kern.boottime` via `sysctlbyname`. Falls back to 24h ago on
+/// failure so callers do not have to handle nil for a value the kernel
+/// always exposes on macOS.
+func bootTime() -> Date {
+    var tv = timeval()
+    var size = MemoryLayout<timeval>.size
+    let result = sysctlbyname("kern.boottime", &tv, &size, nil, 0)
+    if result == 0 {
+        let seconds = TimeInterval(tv.tv_sec) + TimeInterval(tv.tv_usec) / 1_000_000
+        return Date(timeIntervalSince1970: seconds)
+    }
+    return Date(timeIntervalSinceNow: -24 * 3600)
+}
+
+func parseHealthCLIArgs(_ args: [String]) throws -> HealthCLIOptions {
+    var since: TimeInterval? = nil
+    var sinceBoot = false
+    var rail: HealthEvent.Rail? = nil
+    var json = false
+
+    var i = 0
+    while i < args.count {
+        let arg = args[i]
+        switch arg {
+        case "--json":
+            json = true
+            i += 1
+        case "--since":
+            guard i + 1 < args.count else { throw HealthCLIError.missingValue(flag: "--since") }
+            let v = args[i + 1]
+            guard let interval = parseSinceFlag(v) else {
+                throw HealthCLIError.invalidSinceValue(v)
+            }
+            since = interval
+            i += 2
+        case "--since-boot":
+            sinceBoot = true
+            i += 1
+        case "--rail":
+            guard i + 1 < args.count else { throw HealthCLIError.missingValue(flag: "--rail") }
+            let v = args[i + 1]
+            guard let r = HealthEvent.Rail(rawValue: v) else {
+                throw HealthCLIError.unknownRail(v)
+            }
+            rail = r
+            i += 2
+        case "-h", "--help":
+            // Help is dispatched upstream via dispatchSubcommandHelp; tolerate here.
+            i += 1
+        default:
+            throw HealthCLIError.unknownFlag(arg)
+        }
+    }
+
+    if since != nil && sinceBoot {
+        throw HealthCLIError.mutuallyExclusiveSinceFlags
+    }
+
+    let mode: HealthCollectionWindow.Mode
+    let duration: TimeInterval
+    if let since {
+        mode = .sinceDuration
+        duration = since
+    } else if sinceBoot {
+        mode = .sinceBoot
+        duration = 0
+    } else {
+        mode = .defaultLast24h
+        duration = 24 * 3600
+    }
+
+    return HealthCLIOptions(
+        mode: mode,
+        windowDuration: duration,
+        railFilter: rail,
+        json: json
+    )
+}
+
+// MARK: - Diagnostic warnings
+
+private struct UncleanExitMarker {
+    let timestamp: Date
+    let version: String
+}
+
+private func mostRecentSentinelMarker(home: String) -> UncleanExitMarker? {
+    let cacheURL = URL(fileURLWithPath: "\(home)/Library/Caches")
+    let fm = FileManager.default
+
+    guard let bundleDirs = try? fm.contentsOfDirectory(
+        at: cacheURL,
+        includingPropertiesForKeys: nil,
+        options: [.skipsHiddenFiles]
+    ) else { return nil }
+
+    var best: UncleanExitMarker? = nil
+
+    for bundleDir in bundleDirs {
+        guard bundleDir.lastPathComponent.hasPrefix("com.stage11.c11") else { continue }
+        let sessionsDir = bundleDir.appendingPathComponent("sessions", isDirectory: true)
+        guard let files = try? fm.contentsOfDirectory(
+            at: sessionsDir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { continue }
+
+        for url in files {
+            let name = url.lastPathComponent
+            let isUnclean = name.hasPrefix("unclean-exit-") && name.hasSuffix(".json")
+            let isActive = name == "active.json"
+            guard isUnclean || isActive else { continue }
+
+            guard let data = try? Data(contentsOf: url),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else { continue }
+
+            var ts: Date? = nil
+            if let str = obj["launched_at"] as? String {
+                let f = ISO8601DateFormatter()
+                f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                ts = f.date(from: str)
+            }
+            if ts == nil, isUnclean {
+                let stamp = String(name.dropFirst("unclean-exit-".count).dropLast(".json".count))
+                ts = parseFilenameSafeISO(stamp)
+            }
+            if ts == nil, let attrs = try? fm.attributesOfItem(atPath: url.path) {
+                ts = attrs[.modificationDate] as? Date
+            }
+
+            guard let timestamp = ts,
+                  let version = obj["version"] as? String,
+                  !version.isEmpty
+            else { continue }
+
+            if best == nil || best!.timestamp < timestamp {
+                best = UncleanExitMarker(timestamp: timestamp, version: version)
+            }
+        }
+    }
+
+    return best
+}
+
+/// Fires when MetricKit count is 0 AND the running c11 was version-bumped
+/// within the last 24h. Compares `bundleVersion` against the most-recent
+/// prior session marker's `version`; if the marker is missing, returns nil
+/// (we have no baseline to compare against).
+func metricKitBaselineWarning(
+    home: String,
+    bundleVersion: String?,
+    metricKitCount: Int,
+    now: Date = Date()
+) -> String? {
+    guard metricKitCount == 0,
+          let curr = bundleVersion, !curr.isEmpty,
+          let marker = mostRecentSentinelMarker(home: home)
+    else { return nil }
+
+    guard marker.version != curr else { return nil }
+    let age = now.timeIntervalSince(marker.timestamp)
+    guard age >= 0, age <= 24 * 3600 else { return nil }
+
+    return "MetricKit baseline still establishing after version bump (\(marker.version) to \(curr)); diagnostic payloads may not deliver for ~24h."
+}
+
+/// Fires when `<home>/Library/Caches/com.stage11.c11/io.sentry/` exists and
+/// is empty AND we have zero queued events overall. Operator can't tell
+/// from "0 events" alone whether telemetry is off or just freshly drained.
+func telemetryAmbiguityFooter(home: String, sentryCount: Int) -> String? {
+    guard sentryCount == 0 else { return nil }
+    let probe = "\(home)/Library/Caches/com.stage11.c11/io.sentry"
+    let fm = FileManager.default
+    var isDir: ObjCBool = false
+    guard fm.fileExists(atPath: probe, isDirectory: &isDir), isDir.boolValue else { return nil }
+
+    let probeURL = URL(fileURLWithPath: probe)
+    if let enumerator = fm.enumerator(
+        at: probeURL,
+        includingPropertiesForKeys: [.isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    ) {
+        for case let f as URL in enumerator {
+            if (try? f.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true {
+                return nil
+            }
+        }
+    }
+
+    return "Production Sentry cache empty: telemetry may be off, or events shipped on last launch and cleared the cache."
+}
+
 // MARK: - Launch sentinel rail
 
 /// One row per `unclean-exit-*.json` archive written by
@@ -427,11 +667,29 @@ func parseUncleanExitFile(at url: URL, since: Date) -> HealthEvent? {
 private let healthEmptyResultLine =
     "c11 health: nothing in the last 24h across ips, sentry, metrickit, sentinel."
 
-func renderHealthTable(_ events: [HealthEvent]) -> String {
+func renderHealthTable(_ events: [HealthEvent], warnings: [String] = []) -> String {
+    var lines: [String] = []
     if events.isEmpty {
-        return healthEmptyResultLine + "\n"
+        lines.append(healthEmptyResultLine)
+    } else {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        lines.append("TIME             | RAIL      | SEVERITY     | SUMMARY")
+        for ev in events {
+            let time = f.string(from: ev.timestamp)
+            let rail = ev.rail.rawValue.padding(toLength: 9, withPad: " ", startingAt: 0)
+            let sev = ev.severity.rawValue.padding(toLength: 12, withPad: " ", startingAt: 0)
+            lines.append("\(time) | \(rail) | \(sev) | \(ev.summary)")
+        }
     }
-    return ""
+    if !warnings.isEmpty {
+        lines.append("")
+        lines.append("Warnings:")
+        for w in warnings {
+            lines.append("  - \(w)")
+        }
+    }
+    return lines.joined(separator: "\n") + "\n"
 }
 
 func renderHealthJSON(

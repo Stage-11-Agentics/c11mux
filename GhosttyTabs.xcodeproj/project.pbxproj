@@ -39,6 +39,7 @@
 		DH011BF0A1B2C3D4E5F60718 /* HealthSentryParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH011BF1A1B2C3D4E5F60718 /* HealthSentryParserTests.swift */; };
 		DH012BF0A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH012BF1A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift */; };
 		DH013BF0A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH013BF1A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift */; };
+		DH014BF0A1B2C3D4E5F60718 /* HealthFlagsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH014BF1A1B2C3D4E5F60718 /* HealthFlagsTests.swift */; };
 		C112400A1B2C3D4E5F60718 /* WorkspaceRestartCommandsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C112400B1B2C3D4E5F60718 /* WorkspaceRestartCommandsTests.swift */; };
 		D800ABF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCapture.swift */; };
 		D800BBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStore.swift */; };
@@ -340,6 +341,7 @@
 		DH011BF1A1B2C3D4E5F60718 /* HealthSentryParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSentryParserTests.swift; sourceTree = "<group>"; };
 		DH012BF1A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthMetricKitParserTests.swift; sourceTree = "<group>"; };
 		DH013BF1A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSentinelParserTests.swift; sourceTree = "<group>"; };
+		DH014BF1A1B2C3D4E5F60718 /* HealthFlagsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthFlagsTests.swift; sourceTree = "<group>"; };
 		C112400B1B2C3D4E5F60718 /* WorkspaceRestartCommandsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceRestartCommandsTests.swift; sourceTree = "<group>"; };
 		D800ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotCapture.swift; sourceTree = "<group>"; };
 		D800BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotStore.swift; sourceTree = "<group>"; };
@@ -913,6 +915,7 @@
 					DH011BF1A1B2C3D4E5F60718 /* HealthSentryParserTests.swift */,
 					DH012BF1A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift */,
 					DH013BF1A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift */,
+					DH014BF1A1B2C3D4E5F60718 /* HealthFlagsTests.swift */,
 					C112400B1B2C3D4E5F60718 /* WorkspaceRestartCommandsTests.swift */,
 					D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */,
 					D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */,
@@ -1292,6 +1295,7 @@
 					DH011BF0A1B2C3D4E5F60718 /* HealthSentryParserTests.swift in Sources */,
 					DH012BF0A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift in Sources */,
 					DH013BF0A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift in Sources */,
+					DH014BF0A1B2C3D4E5F60718 /* HealthFlagsTests.swift in Sources */,
 					C112400A1B2C3D4E5F60718 /* WorkspaceRestartCommandsTests.swift in Sources */,
 					D800CBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift in Sources */,
 					D800DBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift in Sources */,
