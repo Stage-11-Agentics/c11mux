@@ -677,6 +677,12 @@ func scanLaunchSentinel(home: String, since: Date) -> [HealthEvent] {
 /// Returns nil when the file's stamp predates `since`, or when the file
 /// cannot be read or parsed. Filename is the source of truth for the
 /// timestamp; the JSON body is best-effort metadata.
+///
+/// Filename ISO timestamp is the source of truth for the row's TIME column;
+/// the JSON body is informational metadata. When the body is corrupt or missing
+/// keys, render "unknown" rather than dropping the row, so the operator still
+/// sees evidence that an unclean exit happened. Do NOT skip these rows: the
+/// presence of the file is the signal.
 func parseUncleanExitFile(at url: URL, since: Date) -> HealthEvent? {
     let name = url.lastPathComponent
     let prefix = "unclean-exit-"
@@ -685,9 +691,9 @@ func parseUncleanExitFile(at url: URL, since: Date) -> HealthEvent? {
     let stamp = String(name.dropFirst(prefix.count).dropLast(suffix.count))
     guard let date = parseFilenameSafeISO(stamp), date >= since else { return nil }
 
-    var version = "?"
-    var build = "?"
-    var commit = "????????"
+    var version = "unknown"
+    var build = "unknown"
+    var commit = "unknown"
 
     if let data = try? Data(contentsOf: url),
        let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {

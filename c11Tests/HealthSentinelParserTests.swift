@@ -37,6 +37,35 @@ final class HealthSentinelParserTests: XCTestCase {
         XCTAssertEqual(event.timestamp, expected)
     }
 
+    func testCorruptBodyRendersUnknownPlaceholders() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("c11-health-tests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let target = tmp.appendingPathComponent("unclean-exit-2026-05-03T15-19-00.123Z.json")
+        try Data("not valid json".utf8).write(to: target)
+
+        let event = try XCTUnwrap(parseUncleanExitFile(at: target, since: Date.distantPast))
+        XCTAssertEqual(event.severity, .unclean_exit,
+                       "corrupt-body rows must still surface; the file's presence is the signal")
+        XCTAssertEqual(event.summary, "unknown (unknown) unknown",
+                       "corrupt body must render 'unknown' placeholders, not '?' or '????????'")
+    }
+
+    func testMissingJSONKeysRenderUnknownPlaceholders() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("c11-health-tests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+
+        let target = tmp.appendingPathComponent("unclean-exit-2026-05-03T15-19-00.123Z.json")
+        try Data("{}".utf8).write(to: target)
+
+        let event = try XCTUnwrap(parseUncleanExitFile(at: target, since: Date.distantPast))
+        XCTAssertEqual(event.summary, "unknown (unknown) unknown")
+    }
+
     func testRejectsWhenStampPredatesSince() throws {
         let url = fixturesURL.appendingPathComponent("unclean-exit-2026-05-03T15-19-00.123Z.json")
         let cutoff = ISO8601DateFormatter().date(from: "2099-01-01T00:00:00Z")!
