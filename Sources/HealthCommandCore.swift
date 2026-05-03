@@ -93,6 +93,11 @@ struct IPSHeader {
     let incidentID: String?
     let bundleID: String?
     let bugType: String?
+    /// OS-reported crash time from the first-line JSON `timestamp` field
+    /// (e.g. `"2026-05-03 15:19:00.000 -0400"`). Used in preference to file
+    /// mtime so `--since` filters reflect when the crash actually happened
+    /// rather than when CrashReporter finished writing the file.
+    let timestamp: Date?
 }
 
 func parseIPSFirstLine(_ line: String) -> IPSHeader? {
@@ -102,8 +107,20 @@ func parseIPSFirstLine(_ line: String) -> IPSHeader? {
     return IPSHeader(
         incidentID: obj["incident_id"] as? String,
         bundleID: obj["bundleID"] as? String,
-        bugType: obj["bug_type"] as? String
+        bugType: obj["bug_type"] as? String,
+        timestamp: (obj["timestamp"] as? String).flatMap(parseIPSTimestamp)
     )
+}
+
+/// Parses an Apple CrashReporter timestamp string. Format example:
+/// `"2026-05-03 15:19:00.000 -0400"` (space-separated date/time, fractional
+/// seconds, RFC 822 timezone offset). Returns nil for missing or malformed
+/// values; callers must fall back to file mtime.
+func parseIPSTimestamp(_ raw: String) -> Date? {
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS Z"
+    return f.date(from: raw)
 }
 
 func scanIPS(home: String, since: Date) -> [HealthEvent] {
@@ -153,22 +170,29 @@ func scanIPS(home: String, since: Date) -> [HealthEvent] {
 private func ipsEventIfRecent(at url: URL, since: Date) -> HealthEvent? {
     let fm = FileManager.default
     guard let attrs = try? fm.attributesOfItem(atPath: url.path),
-          let mtime = attrs[.modificationDate] as? Date,
-          mtime >= since
+          let mtime = attrs[.modificationDate] as? Date
     else { return nil }
 
     let summary: String
+    let timestamp: Date
     if let line = readFirstLine(of: url), let header = parseIPSFirstLine(line) {
         let bundle = header.bundleID ?? "?"
         let bug = header.bugType ?? "?"
         let inc = header.incidentID.map { String($0.prefix(8)) } ?? "?"
         summary = "\(bundle) bug_type=\(bug) (\(inc))"
+        // Prefer the OS-reported crash time. CrashReporter can lag the
+        // actual crash by seconds-to-minutes, so file mtime is a strictly
+        // worse proxy when the header carries a timestamp.
+        timestamp = header.timestamp ?? mtime
     } else {
         summary = url.lastPathComponent
+        timestamp = mtime
     }
 
+    guard timestamp >= since else { return nil }
+
     return HealthEvent(
-        timestamp: mtime,
+        timestamp: timestamp,
         rail: .ips,
         severity: .crash,
         summary: summary,
@@ -775,6 +799,7 @@ func renderHealthTable(
             f.timeZone = timeZone
         }
         lines.append("TIME             | RAIL      | SEVERITY     | SUMMARY")
+        lines.append("(TIME reflects the OS-reported event time when available, file mtime otherwise)")
         for ev in events {
             let time = f.string(from: ev.timestamp)
             let rail = ev.rail.rawValue.padding(toLength: 9, withPad: " ", startingAt: 0)

@@ -261,13 +261,16 @@ final class CLIHealthRuntimeTests: XCTestCase {
         let fm = FileManager.default
 
         // IPS rail: top-level c11-named .ips with a parseable first line.
+        // Generate the timestamp dynamically so the parsed value is always
+        // within the 24h window the test queries (the scanner now prefers
+        // the JSON `timestamp` over mtime for since-filtering).
         let reportsDir = home.appendingPathComponent("Library/Logs/DiagnosticReports", isDirectory: true)
         try fm.createDirectory(at: reportsDir, withIntermediateDirectories: true)
-        let ipsBody = """
-        {"app_name":"c11","app_version":"0.44.1","bundleID":"com.stage11.c11","bug_type":"309","incident_id":"00000000-0000-0000-0000-000000000001","timestamp":"2026-05-03 15:19:00.000 -0400"}
-        {"crashed_thread":0}
-
-        """
+        let ipsTSFormatter = DateFormatter()
+        ipsTSFormatter.locale = Locale(identifier: "en_US_POSIX")
+        ipsTSFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS Z"
+        let ipsTimestamp = ipsTSFormatter.string(from: Date())
+        let ipsBody = "{\"app_name\":\"c11\",\"app_version\":\"0.44.1\",\"bundleID\":\"com.stage11.c11\",\"bug_type\":\"309\",\"incident_id\":\"00000000-0000-0000-0000-000000000001\",\"timestamp\":\"" + ipsTimestamp + "\"}\n{\"crashed_thread\":0}\n"
         try ipsBody.data(using: .utf8)!.write(
             to: reportsDir.appendingPathComponent("c11-runtime-test.ips")
         )
