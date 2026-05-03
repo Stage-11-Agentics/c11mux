@@ -1557,6 +1557,11 @@ struct CMUXCLI {
             return
         }
 
+        if command == "health" {
+            try runHealth(commandArgs: commandArgs, jsonOutput: jsonOutput)
+            return
+        }
+
         if command == "welcome" {
             printWelcome()
             return
@@ -7726,6 +7731,26 @@ struct CMUXCLI {
             Example:
               c11 remote-daemon-status
               c11 remote-daemon-status --os linux --arch arm64
+            """
+        case "health":
+            return """
+            Usage: c11 health [--since <duration> | --since-boot] [--rail <name>] [--json]
+
+            Read-only crash-visibility sweep across four local rails: Apple IPS reports,
+            queued Sentry envelopes, MetricKit diagnostic payloads, and the c11 launch
+            sentinel (catches Force Quit and SIGKILL where Sentry cannot).
+
+            Flags:
+              --since <duration>     Time window: 30m, 2h, 24h, 3d. Default 24h.
+              --since-boot           Limit to events since the last system boot.
+              --rail <name>          Filter to one rail: ips, sentry, metrickit, sentinel. Specify at most once. Default: all rails.
+              --json                 Emit structured JSON instead of the default table.
+
+            Example:
+              c11 health
+              c11 health --since 30m
+              c11 health --since-boot --rail sentinel
+              c11 health --json
             """
         case "new-split":
             return """
@@ -14366,6 +14391,7 @@ struct CMUXCLI {
           drag-surface-to-split --surface <id|ref> <left|right|up|down>
           refresh-surfaces
           surface-health [--workspace <id|ref>]
+          health [--since <duration> | --since-boot] [--rail <name>] [--json]
           trigger-flash [--workspace <id|ref>] [--surface <id|ref>]
           list-panels [--workspace <id|ref>]
           focus-panel --panel <id|ref> [--workspace <id|ref>]
