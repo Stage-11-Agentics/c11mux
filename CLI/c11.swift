@@ -17342,6 +17342,9 @@ extension CMUXCLI {
         """
         c11 mailbox — inter-agent messaging
 
+        Per-workspace messaging primitive for coordinating between c11 surfaces.
+        Full guide: docs/c11-mailbox-guide.md (agent quick-reference: skills/c11/SKILL.md).
+
           send       write an envelope to the per-workspace outbox
           recv       drain or peek the caller's inbox
           trace      pretty-print _dispatch.log lines for an envelope id
