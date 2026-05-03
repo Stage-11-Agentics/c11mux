@@ -59,6 +59,9 @@ func collectHealthEvents(
     if rails.contains(.sentry) {
         events.append(contentsOf: scanSentryQueued(home: home, since: window.since))
     }
+    if rails.contains(.metrickit) {
+        events.append(contentsOf: scanMetricKit(home: home, since: window.since))
+    }
     return events.sorted { $0.timestamp > $1.timestamp }
 }
 
@@ -218,6 +221,121 @@ private func walkSentryDir(_ dir: URL, bundleName: String, since: Date) -> [Heal
             rail: .sentry,
             severity: .queued,
             summary: "\(bundleName)/\(url.lastPathComponent)",
+            path: url.path
+        ))
+    }
+    return events
+}
+
+// MARK: - MetricKit rail
+
+/// Filename grammar for files written by `CrashDiagnostics.persist` in
+/// `Sources/SentryHelper.swift`:
+///
+///     <stamp>-<kind>.json
+///
+/// where `<stamp>` is `YYYY-MM-DDTHH-MM-SS.fffZ` (ISO 8601 with `:` replaced
+/// by `-`, always UTC, fixed 24 chars) and `<kind>` is one of:
+///   - `metric` (MXMetricPayload telemetry baseline; skipped in v1)
+///   - `diagnostic` (MXDiagnosticPayload with no per-category counts)
+///   - one or more of `crash<n>` / `hang<n>` / `cpu<n>` / `disk<n>` joined by
+///     `-` in the fixed order crash, hang, cpu, disk.
+struct MetricKitFilename {
+    let timestamp: Date
+    let kind: String
+}
+
+/// Returns nil for `metric` rows (per plan: skip telemetry baselines), nil
+/// for unparseable stamps, and nil for malformed kind tokens.
+func parseMetricKitFilename(_ name: String) -> MetricKitFilename? {
+    guard name.hasSuffix(".json") else { return nil }
+    let stem = String(name.dropLast(".json".count))
+
+    // The stamp is exactly 24 characters: YYYY-MM-DDTHH-MM-SS.fffZ.
+    let stampLength = 24
+    guard stem.count > stampLength + 1 else { return nil }
+    let stampEnd = stem.index(stem.startIndex, offsetBy: stampLength)
+    let stampStr = String(stem[..<stampEnd])
+
+    let afterStamp = stem[stampEnd...]
+    guard afterStamp.first == "-" else { return nil }
+    let kind = String(afterStamp.dropFirst())
+
+    guard let date = parseFilenameSafeISO(stampStr) else { return nil }
+    guard isValidMetricKitKind(kind) else { return nil }
+
+    // Skip MXMetricPayload baselines: they aren't diagnostic events.
+    if kind == "metric" { return nil }
+
+    return MetricKitFilename(timestamp: date, kind: kind)
+}
+
+private func parseFilenameSafeISO(_ stamp: String) -> Date? {
+    guard stamp.count == 24, stamp.last == "Z" else { return nil }
+    var chars = Array(stamp)
+    guard chars[10] == "T",
+          chars[13] == "-",
+          chars[16] == "-",
+          chars[19] == "."
+    else { return nil }
+    chars[13] = ":"
+    chars[16] = ":"
+    let normalized = String(chars)
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return f.date(from: normalized)
+}
+
+private func isValidMetricKitKind(_ kind: String) -> Bool {
+    if kind == "metric" || kind == "diagnostic" { return true }
+    let tokens = kind.split(separator: "-").map(String.init)
+    guard !tokens.isEmpty else { return false }
+    return tokens.allSatisfy(isValidCategoryToken)
+}
+
+private func isValidCategoryToken(_ token: String) -> Bool {
+    let prefixes = ["crash", "hang", "cpu", "disk"]
+    for prefix in prefixes where token.hasPrefix(prefix) {
+        let suffix = token.dropFirst(prefix.count)
+        return !suffix.isEmpty && suffix.allSatisfy { $0.isNumber }
+    }
+    return false
+}
+
+private func metricKitSeverity(forKind kind: String) -> HealthEvent.Severity {
+    if kind == "diagnostic" { return .diagnostic }
+    let tokens = kind.split(separator: "-").map(String.init)
+    let hasCrash = tokens.contains { $0.hasPrefix("crash") }
+    let hasHang = tokens.contains { $0.hasPrefix("hang") }
+    let hasResource = tokens.contains { $0.hasPrefix("cpu") || $0.hasPrefix("disk") }
+    let categoryCount = [hasCrash, hasHang, hasResource].filter { $0 }.count
+    if categoryCount > 1 { return .mixed }
+    if hasCrash { return .crash }
+    if hasHang { return .hang }
+    if hasResource { return .resource }
+    return .diagnostic
+}
+
+func scanMetricKit(home: String, since: Date) -> [HealthEvent] {
+    let dir = URL(fileURLWithPath: "\(home)/Library/Logs/c11/metrickit")
+    let fm = FileManager.default
+
+    guard let files = try? fm.contentsOfDirectory(
+        at: dir,
+        includingPropertiesForKeys: nil,
+        options: [.skipsHiddenFiles]
+    ) else { return [] }
+
+    var events: [HealthEvent] = []
+    for url in files where url.pathExtension == "json" {
+        guard let parsed = parseMetricKitFilename(url.lastPathComponent),
+              parsed.timestamp >= since
+        else { continue }
+        events.append(HealthEvent(
+            timestamp: parsed.timestamp,
+            rail: .metrickit,
+            severity: metricKitSeverity(forKind: parsed.kind),
+            summary: parsed.kind,
             path: url.path
         ))
     }
