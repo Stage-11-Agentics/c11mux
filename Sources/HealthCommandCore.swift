@@ -52,7 +52,113 @@ func collectHealthEvents(
     rails: Set<HealthEvent.Rail>,
     home: String = NSHomeDirectory()
 ) -> [HealthEvent] {
-    return []
+    var events: [HealthEvent] = []
+    if rails.contains(.ips) {
+        events.append(contentsOf: scanIPS(home: home, since: window.since))
+    }
+    return events.sorted { $0.timestamp > $1.timestamp }
+}
+
+// MARK: - IPS rail
+
+/// Apple's CrashReporter ".ips" files start with a single-line JSON header,
+/// then a newline, then a JSON payload. We parse only that first line.
+struct IPSHeader {
+    let incidentID: String?
+    let bundleID: String?
+    let bugType: String?
+}
+
+func parseIPSFirstLine(_ line: String) -> IPSHeader? {
+    guard let data = line.data(using: .utf8),
+          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return nil }
+    return IPSHeader(
+        incidentID: obj["incident_id"] as? String,
+        bundleID: obj["bundleID"] as? String,
+        bugType: obj["bug_type"] as? String
+    )
+}
+
+func scanIPS(home: String, since: Date) -> [HealthEvent] {
+    let baseDir = "\(home)/Library/Logs/DiagnosticReports"
+    let baseURL = URL(fileURLWithPath: baseDir)
+    let fm = FileManager.default
+
+    guard let topLevel = try? fm.contentsOfDirectory(
+        at: baseURL,
+        includingPropertiesForKeys: [.isDirectoryKey],
+        options: [.skipsHiddenFiles]
+    ) else { return [] }
+
+    var events: [HealthEvent] = []
+
+    for entry in topLevel {
+        let isDir = (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+        let name = entry.lastPathComponent
+
+        if isDir {
+            guard name.hasPrefix("com.stage11.c11") else { continue }
+            if let inside = try? fm.contentsOfDirectory(
+                at: entry,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            ) {
+                for url in inside where url.pathExtension == "ips" {
+                    if let ev = ipsEventIfRecent(at: url, since: since) {
+                        events.append(ev)
+                    }
+                }
+            }
+            continue
+        }
+
+        guard entry.pathExtension == "ips" else { continue }
+        let stem = entry.deletingPathExtension().lastPathComponent
+        guard stem.lowercased().contains("c11") else { continue }
+        if let ev = ipsEventIfRecent(at: entry, since: since) {
+            events.append(ev)
+        }
+    }
+
+    return events
+}
+
+private func ipsEventIfRecent(at url: URL, since: Date) -> HealthEvent? {
+    let fm = FileManager.default
+    guard let attrs = try? fm.attributesOfItem(atPath: url.path),
+          let mtime = attrs[.modificationDate] as? Date,
+          mtime >= since
+    else { return nil }
+
+    let summary: String
+    if let line = readFirstLine(of: url), let header = parseIPSFirstLine(line) {
+        let bundle = header.bundleID ?? "?"
+        let bug = header.bugType ?? "?"
+        let inc = header.incidentID.map { String($0.prefix(8)) } ?? "?"
+        summary = "\(bundle) bug_type=\(bug) (\(inc))"
+    } else {
+        summary = url.lastPathComponent
+    }
+
+    return HealthEvent(
+        timestamp: mtime,
+        rail: .ips,
+        severity: .crash,
+        summary: summary,
+        path: url.path
+    )
+}
+
+private func readFirstLine(of url: URL) -> String? {
+    guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+    defer { try? handle.close() }
+    let data = (try? handle.read(upToCount: 8192)) ?? Data()
+    guard let text = String(data: data, encoding: .utf8) else { return nil }
+    if let nl = text.firstIndex(of: "\n") {
+        return String(text[..<nl])
+    }
+    return text
 }
 
 /// Default empty-result line when no events are present and no rail filter is in effect.
