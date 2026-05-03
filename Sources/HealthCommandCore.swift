@@ -62,6 +62,9 @@ func collectHealthEvents(
     if rails.contains(.metrickit) {
         events.append(contentsOf: scanMetricKit(home: home, since: window.since))
     }
+    if rails.contains(.sentinel) {
+        events.append(contentsOf: scanLaunchSentinel(home: home, since: window.since))
+    }
     return events.sorted { $0.timestamp > $1.timestamp }
 }
 
@@ -340,6 +343,84 @@ func scanMetricKit(home: String, since: Date) -> [HealthEvent] {
         ))
     }
     return events
+}
+
+// MARK: - Launch sentinel rail
+
+/// One row per `unclean-exit-*.json` archive written by
+/// `LaunchSentinel.recordLaunchAndArchivePrevious()` in
+/// `Sources/SentryHelper.swift`. Catches Force-Quit / SIGKILL terminations
+/// where neither Sentry nor `.ips` files survive.
+func scanLaunchSentinel(home: String, since: Date) -> [HealthEvent] {
+    let cacheURL = URL(fileURLWithPath: "\(home)/Library/Caches")
+    let fm = FileManager.default
+
+    guard let bundleDirs = try? fm.contentsOfDirectory(
+        at: cacheURL,
+        includingPropertiesForKeys: [.isDirectoryKey],
+        options: [.skipsHiddenFiles]
+    ) else { return [] }
+
+    var events: [HealthEvent] = []
+
+    for bundleDir in bundleDirs {
+        let bundleName = bundleDir.lastPathComponent
+        guard bundleName.hasPrefix("com.stage11.c11") else { continue }
+        let isDir = (try? bundleDir.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+        guard isDir else { continue }
+
+        let sessionsDir = bundleDir.appendingPathComponent("sessions", isDirectory: true)
+        guard let sessionFiles = try? fm.contentsOfDirectory(
+            at: sessionsDir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { continue }
+
+        for url in sessionFiles {
+            let name = url.lastPathComponent
+            guard name.hasPrefix("unclean-exit-"),
+                  name.hasSuffix(".json")
+            else { continue }
+            guard let event = parseUncleanExitFile(at: url, since: since) else { continue }
+            events.append(event)
+        }
+    }
+
+    return events
+}
+
+/// Returns nil when the file's stamp predates `since`, or when the file
+/// cannot be read or parsed. Filename is the source of truth for the
+/// timestamp; the JSON body is best-effort metadata.
+func parseUncleanExitFile(at url: URL, since: Date) -> HealthEvent? {
+    let name = url.lastPathComponent
+    let prefix = "unclean-exit-"
+    let suffix = ".json"
+    guard name.hasPrefix(prefix), name.hasSuffix(suffix) else { return nil }
+    let stamp = String(name.dropFirst(prefix.count).dropLast(suffix.count))
+    guard let date = parseFilenameSafeISO(stamp), date >= since else { return nil }
+
+    var version = "?"
+    var build = "?"
+    var commit = "????????"
+
+    if let data = try? Data(contentsOf: url),
+       let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        if let v = obj["version"] as? String, !v.isEmpty { version = v }
+        if let b = obj["build"] as? String, !b.isEmpty { build = b }
+        if let c = obj["commit"] as? String, !c.isEmpty {
+            commit = String(c.prefix(8))
+        }
+    }
+
+    let summary = "\(version) (\(build)) \(commit)"
+    return HealthEvent(
+        timestamp: date,
+        rail: .sentinel,
+        severity: .unclean_exit,
+        summary: summary,
+        path: url.path
+    )
 }
 
 /// Default empty-result line when no events are present and no rail filter is in effect.
