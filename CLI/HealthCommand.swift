@@ -41,8 +41,7 @@ func runHealth(commandArgs: [String], jsonOutput: Bool) throws {
     do {
         opts = try parseHealthCLIArgs(commandArgs)
     } catch let error as HealthCLIError {
-        FileHandle.standardError.write(Data("c11 health: \(error.description)\n".utf8))
-        throw CLIError(message: error.description)
+        throw CLIError(message: "c11 health: \(error.description)")
     }
 
     let wantsJSON = jsonOutput || opts.json
