@@ -786,6 +786,10 @@ func renderHealthTable(
     return lines.joined(separator: "\n") + "\n"
 }
 
+/// Wire-format version for `c11 health --json`. Bump on any breaking
+/// shape change so downstream consumers can branch on it.
+public let healthJSONSchemaVersion = 1
+
 /// Replaces a leading `home` prefix with literal `~` so JSON output the
 /// operator pastes into tickets / chat / agent transcripts does not leak
 /// the macOS username.
@@ -824,6 +828,7 @@ func renderHealthJSON(
     }
 
     let payload: [String: Any] = [
+        "schema_version": healthJSONSchemaVersion,
         "window": [
             "since": iso.string(from: window.since),
             "until": iso.string(from: window.until),

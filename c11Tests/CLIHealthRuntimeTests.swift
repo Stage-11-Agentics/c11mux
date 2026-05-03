@@ -72,6 +72,7 @@ final class CLIHealthRuntimeTests: XCTestCase {
         )
         let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
 
+        XCTAssertEqual(obj["schema_version"] as? Int, healthJSONSchemaVersion)
         XCTAssertNotNil(obj["window"] as? [String: Any])
         XCTAssertNotNil(obj["rails"] as? [String: Any])
         XCTAssertNotNil(obj["events"] as? [[String: Any]])
