@@ -7743,7 +7743,7 @@ struct CMUXCLI {
             Flags:
               --since <duration>     Time window: 30m, 2h, 24h, 3d. Default 24h.
               --since-boot           Limit to events since the last system boot.
-              --rail <name>          Filter to one rail: ips, sentry, metrickit, sentinel.
+              --rail <name>          Filter to one rail: ips, sentry, metrickit, sentinel. Specify at most once. Default: all rails.
               --json                 Emit structured JSON instead of the default table.
 
             Example:

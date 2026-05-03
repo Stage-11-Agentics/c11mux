@@ -95,6 +95,16 @@ final class HealthFlagsTests: XCTestCase {
         }
     }
 
+    func testRejectsDuplicateRailFlag() {
+        XCTAssertThrowsError(try parseHealthCLIArgs(["--rail", "ips", "--rail", "sentinel"])) { error in
+            if case HealthCLIError.duplicateFlag(let f) = error {
+                XCTAssertEqual(f, "--rail")
+            } else {
+                XCTFail("expected .duplicateFlag(\"--rail\"); got \(error)")
+            }
+        }
+    }
+
     // MARK: bootTime
 
     func testBootTimeIsRecentPast() {
@@ -102,6 +112,13 @@ final class HealthFlagsTests: XCTestCase {
         XCTAssertLessThan(boot, Date(), "boot time must be before now")
         let yearAgo = Date(timeIntervalSinceNow: -365 * 86400)
         XCTAssertGreaterThan(boot, yearAgo, "boot time must be within the last year on a normal machine")
+    }
+
+    func testBootTimeFallbackDoesNotEmitDiagnosticOnSuccess() {
+        // sysctl works on macOS, so the success path must NOT call onFallback.
+        var called = false
+        _ = bootTime { _ in called = true }
+        XCTAssertFalse(called, "kern.boottime succeeds on macOS; fallback diagnostic must not fire")
     }
 
     // MARK: warnings

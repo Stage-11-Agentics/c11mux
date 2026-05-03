@@ -353,6 +353,7 @@ enum HealthCLIError: Error, CustomStringConvertible {
     case invalidSinceValue(String)
     case unknownRail(String)
     case unknownFlag(String)
+    case duplicateFlag(String)
 
     var description: String {
         switch self {
@@ -366,6 +367,8 @@ enum HealthCLIError: Error, CustomStringConvertible {
             return "unknown --rail '\(r)' (expected one of ips, sentry, metrickit, sentinel)"
         case .unknownFlag(let f):
             return "unknown flag '\(f)'"
+        case .duplicateFlag(let f):
+            return "\(f) may only be specified once"
         }
     }
 }
@@ -394,8 +397,12 @@ func parseSinceFlag(_ value: String) -> TimeInterval? {
 
 /// Reads `kern.boottime` via `sysctlbyname`. Falls back to 24h ago on
 /// failure so callers do not have to handle nil for a value the kernel
-/// always exposes on macOS.
-func bootTime() -> Date {
+/// always exposes on macOS. On failure, writes a single diagnostic line
+/// via `onFallback` (defaults to stderr) so the operator is told that
+/// `--since-boot` silently became a 24h window.
+func bootTime(onFallback: (String) -> Void = { msg in
+    FileHandle.standardError.write(Data((msg + "\n").utf8))
+}) -> Date {
     var tv = timeval()
     var size = MemoryLayout<timeval>.size
     let result = sysctlbyname("kern.boottime", &tv, &size, nil, 0)
@@ -403,6 +410,7 @@ func bootTime() -> Date {
         let seconds = TimeInterval(tv.tv_sec) + TimeInterval(tv.tv_usec) / 1_000_000
         return Date(timeIntervalSince1970: seconds)
     }
+    onFallback("c11 health: kern.boottime unavailable (errno=\(errno)), falling back to 24h window")
     return Date(timeIntervalSinceNow: -24 * 3600)
 }
 
@@ -436,6 +444,7 @@ func parseHealthCLIArgs(_ args: [String]) throws -> HealthCLIOptions {
             guard let r = HealthEvent.Rail(rawValue: v) else {
                 throw HealthCLIError.unknownRail(v)
             }
+            guard rail == nil else { throw HealthCLIError.duplicateFlag("--rail") }
             rail = r
             i += 2
         case "-h", "--help":
