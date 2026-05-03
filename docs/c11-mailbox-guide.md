@@ -69,49 +69,16 @@ If `mailbox.delivery` is not set on the recipient, the envelope still lands in `
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant Sender as Sender agent
-    participant CLI as c11 mailbox send
-    participant FS as _outbox/
-    participant W as Outbox watcher
-    participant D as Dispatcher
-    participant Proc as _processing/
-    participant V as Envelope validator
-    participant Res as Surface resolver
-    participant Inbox as recipient inbox
-    participant H as Handlers (stdin/silent)
-    participant Log as _dispatch.log
+    participant A as Sender surface
+    participant FS as _outbox/ → inbox
+    participant B as Recipient surface
 
-    Sender->>CLI: --to watcher --body "..."
-    CLI->>CLI: resolve caller via CMUX_SURFACE_ID + surface.get_metadata
-    CLI->>CLI: build + validate envelope (schema v1)
-    CLI->>FS: write .ULID.tmp, then rename to ULID.msg (atomic)
-    FS-->>W: fsevent (or initial scan on dispatcher start)
-    W->>D: new .msg URL
-    D->>Proc: atomic move .msg -> _processing/
-    D->>V: validate bytes
-    alt valid
-        V-->>D: envelope
-        D->>Log: received {id, from, to, topic}
-        D->>Res: surfacesWithMailboxMetadata()
-        Res-->>D: list of live surfaces filtered by name == to
-        D->>Log: resolved {id, recipients[]}
-        loop per recipient
-            D->>Inbox: atomic write envelope copy
-            D->>Log: copied {id, recipient}
-        end
-        loop per recipient, per handler in mailbox.delivery
-            D->>H: invoke (2 s outer timeout)
-            H-->>D: ok | timeout | closed | eio
-            D->>Log: handler {id, recipient, handler, outcome, bytes?, elapsed_ms?}
-        end
-        D->>Proc: remove .msg
-        D->>Log: cleaned {id}
-    else invalid
-        D->>FS: move to _rejected/<id>.msg + write .err sidecar
-        D->>Log: rejected {id?, reason}
-    end
+    A->>FS: c11 mailbox send --to B
+    FS->>B: dispatcher routes by surface name
+    Note over B: framed <c11-msg> appears in PTY<br/>(or sits in inbox until drained)
 ```
+
+Under the hood the dispatcher validates the envelope against schema v1, resolves the recipient by surface title, copies into the recipient's inbox, and runs each registered delivery handler. Every state transition appends to `_dispatch.log` (NDJSON). Malformed envelopes land in `_rejected/` with a `.err` sidecar describing what failed. See [Internals: full send sequence](#internals-full-send-sequence) at the bottom for the complete step-by-step.
 
 ### Two equivalent send paths
 
@@ -425,6 +392,60 @@ What is steady-state durable today:
 - Envelopes sitting in `_outbox/` when c11 restarts are picked up by the dispatcher's initial scan.
 - The atomic `.tmp → .msg` rename means a writer crash leaves a dot-prefixed temp file that the GC sweep deletes 5 minutes later.
 - Inbox copies are atomic writes; a dispatcher crash mid-copy leaves either nothing or the full file.
+
+---
+
+## Internals: full send sequence
+
+For maintainers and people debugging a stuck envelope. Not needed to use the mailbox — the three-box diagram in [Send flow](#send-flow) is the user contract.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Sender as Sender agent
+    participant CLI as c11 mailbox send
+    participant FS as _outbox/
+    participant W as Outbox watcher
+    participant D as Dispatcher
+    participant Proc as _processing/
+    participant V as Envelope validator
+    participant Res as Surface resolver
+    participant Inbox as recipient inbox
+    participant H as Handlers (stdin/silent)
+    participant Log as _dispatch.log
+
+    Sender->>CLI: --to watcher --body "..."
+    CLI->>CLI: resolve caller via CMUX_SURFACE_ID + surface.get_metadata
+    CLI->>CLI: build + validate envelope (schema v1)
+    CLI->>FS: write .ULID.tmp, then rename to ULID.msg (atomic)
+    FS-->>W: fsevent (or initial scan on dispatcher start)
+    W->>D: new .msg URL
+    D->>Proc: atomic move .msg -> _processing/
+    D->>V: validate bytes
+    alt valid
+        V-->>D: envelope
+        D->>Log: received {id, from, to, topic}
+        D->>Res: surfacesWithMailboxMetadata()
+        Res-->>D: list of live surfaces filtered by name == to
+        D->>Log: resolved {id, recipients[]}
+        loop per recipient
+            D->>Inbox: atomic write envelope copy
+            D->>Log: copied {id, recipient}
+        end
+        loop per recipient, per handler in mailbox.delivery
+            D->>H: invoke (2 s outer timeout)
+            H-->>D: ok | timeout | closed | eio
+            D->>Log: handler {id, recipient, handler, outcome, bytes?, elapsed_ms?}
+        end
+        D->>Proc: remove .msg
+        D->>Log: cleaned {id}
+    else invalid
+        D->>FS: move to _rejected/<id>.msg + write .err sidecar
+        D->>Log: rejected {id?, reason}
+    end
+```
+
+`Envelope validator` and `Surface resolver` are methods on the dispatcher, drawn here as separate participants for clarity. `_dispatch.log` is a side effect of every state transition rather than a true peer. `_processing/` is the dispatcher's claim zone — file moves here while in flight, removed on success, currently leaks on c11 crash (Stage 3 ships the recovery sweep).
 
 ---
 
