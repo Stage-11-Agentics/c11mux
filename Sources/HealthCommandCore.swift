@@ -56,6 +56,9 @@ func collectHealthEvents(
     if rails.contains(.ips) {
         events.append(contentsOf: scanIPS(home: home, since: window.since))
     }
+    if rails.contains(.sentry) {
+        events.append(contentsOf: scanSentryQueued(home: home, since: window.since))
+    }
     return events.sorted { $0.timestamp > $1.timestamp }
 }
 
@@ -159,6 +162,66 @@ private func readFirstLine(of url: URL) -> String? {
         return String(text[..<nl])
     }
     return text
+}
+
+// MARK: - Sentry queued rail
+
+/// Walks `<home>/Library/Caches/com.stage11.c11*/io.sentry/` recursively and
+/// emits one event per file. Sentry-Cocoa typically writes envelopes under
+/// `io.sentry/envelopes/`, but we don't make that assumption: any regular file
+/// inside `io.sentry/` is treated as a queued event. Envelope contents are
+/// never parsed.
+func scanSentryQueued(home: String, since: Date) -> [HealthEvent] {
+    let cacheURL = URL(fileURLWithPath: "\(home)/Library/Caches")
+    let fm = FileManager.default
+
+    guard let bundleDirs = try? fm.contentsOfDirectory(
+        at: cacheURL,
+        includingPropertiesForKeys: [.isDirectoryKey],
+        options: [.skipsHiddenFiles]
+    ) else { return [] }
+
+    var events: [HealthEvent] = []
+
+    for bundleDir in bundleDirs {
+        let bundleName = bundleDir.lastPathComponent
+        guard bundleName.hasPrefix("com.stage11.c11") else { continue }
+        let isDir = (try? bundleDir.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+        guard isDir else { continue }
+
+        let sentryRoot = bundleDir.appendingPathComponent("io.sentry", isDirectory: true)
+        guard fm.fileExists(atPath: sentryRoot.path) else { continue }
+        events.append(contentsOf: walkSentryDir(sentryRoot, bundleName: bundleName, since: since))
+    }
+
+    return events
+}
+
+private func walkSentryDir(_ dir: URL, bundleName: String, since: Date) -> [HealthEvent] {
+    let fm = FileManager.default
+    guard let enumerator = fm.enumerator(
+        at: dir,
+        includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
+        options: [.skipsHiddenFiles]
+    ) else { return [] }
+
+    var events: [HealthEvent] = []
+    for case let url as URL in enumerator {
+        guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey]),
+              values.isRegularFile == true,
+              let mtime = values.contentModificationDate,
+              mtime >= since
+        else { continue }
+
+        events.append(HealthEvent(
+            timestamp: mtime,
+            rail: .sentry,
+            severity: .queued,
+            summary: "\(bundleName)/\(url.lastPathComponent)",
+            path: url.path
+        ))
+    }
+    return events
 }
 
 /// Default empty-result line when no events are present and no rail filter is in effect.
