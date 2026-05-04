@@ -1703,6 +1703,12 @@ class TerminalController {
     }
 
     private nonisolated func socketWorkerV2Response(_ request: V2SocketRequest) -> String {
+        // C11-26 review M1: emit the off-main diagnostic at the dispatcher seam
+        // so future migrated methods get it for free instead of "we forgot."
+        #if DEBUG
+        dlog("v2.\(request.method) isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
+        #endif
+
         switch request.method {
         case "surface.send_text":
             return v2Result(id: request.id, v2SurfaceSendText(params: request.params))
@@ -2122,6 +2128,13 @@ class TerminalController {
         // through to the main-actor handler would re-introduce the deadlock the
         // worker policy exists to avoid.
         guard Self.executionPolicy(forV2Method: method) == .mainActor else {
+            // C11-26 review M2: in DEBUG, this routing bug should fail loudly so
+            // CI catches it before it ships. Release-mode behavior (return an
+            // invalid_dispatch error) is unchanged.
+            #if DEBUG
+            dlog("v2.invalid_dispatch method=\(method) — worker-policy method reached processV2Command")
+            assertionFailure("\(method) is on the socket-worker policy and must not reach processV2Command")
+            #endif
             return v2Error(
                 id: id,
                 code: "invalid_dispatch",
@@ -6690,10 +6703,6 @@ class TerminalController {
     // out of scope per ticket non-goals; this helper avoids touching them) and
     // then re-hops to @MainActor for the actual send.
     private nonisolated func v2SurfaceSendText(params: [String: Any]) -> V2CallResult {
-        #if DEBUG
-        dlog("v2.surface.send_text isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
-        #endif
-
         guard let text = params["text"] as? String else {
             return .err(code: "invalid_params", message: "Missing text", data: nil)
         }
@@ -6780,10 +6789,6 @@ class TerminalController {
     // CFRunLoopRun on a held main queue). Migrate it to the same Phase A /
     // Phase B pattern. See `v2SurfaceSendText` for the full rationale.
     private nonisolated func v2SurfaceSendKey(params: [String: Any]) -> V2CallResult {
-        #if DEBUG
-        dlog("v2.surface.send_key isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
-        #endif
-
         guard let key = v2String(params, "key") else {
             return .err(code: "invalid_params", message: "Missing key", data: nil)
         }
@@ -6855,10 +6860,6 @@ class TerminalController {
     // Single-phase: one Task @MainActor + DispatchSemaphore wraps the whole
     // body, no Phase B waiting.
     private nonisolated func v2SurfaceClearHistory(params: [String: Any]) -> V2CallResult {
-        #if DEBUG
-        dlog("v2.surface.clear_history isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
-        #endif
-
         let semaphore = DispatchSemaphore(value: 0)
         nonisolated(unsafe) var result: V2CallResult = .err(code: "internal_error", message: "Failed to clear history", data: nil)
         Task { @MainActor in
@@ -6908,10 +6909,6 @@ class TerminalController {
     // C11-26: surface.read_text matches surface.clear_history shape — no
     // waitForTerminalSurface, no deadlock vector — migrated for uniformity.
     private nonisolated func v2SurfaceReadText(params: [String: Any]) -> V2CallResult {
-        #if DEBUG
-        dlog("v2.surface.read_text isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
-        #endif
-
         var includeScrollback = v2Bool(params, "scrollback") ?? false
         let lineLimit = v2Int(params, "lines")
         if let lineLimit, lineLimit <= 0 {
