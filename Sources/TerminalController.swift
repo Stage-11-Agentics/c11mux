@@ -290,14 +290,14 @@ class TerminalController {
         }
     }
 
-    private static func socketCommandAllowsInAppFocusMutations(commandKey: String, isV2: Bool) -> Bool {
+    private nonisolated static func socketCommandAllowsInAppFocusMutations(commandKey: String, isV2: Bool) -> Bool {
         if isV2 {
             return focusIntentV2Methods.contains(commandKey)
         }
         return focusIntentV1Commands.contains(commandKey)
     }
 
-    private func withSocketCommandPolicy<T>(commandKey: String, isV2: Bool, _ body: () -> T) -> T {
+    private nonisolated func withSocketCommandPolicy<T>(commandKey: String, isV2: Bool, _ body: () -> T) -> T {
         let allowsFocusMutation = Self.socketCommandAllowsInAppFocusMutations(commandKey: commandKey, isV2: isV2)
         Self.socketCommandPolicyLock.lock()
         Self.socketCommandPolicyDepth += 1
@@ -1630,9 +1630,90 @@ class TerminalController {
                     continue
                 }
 
-                let response = processCommand(trimmed)
+                let response = processCommandUsingSocketExecutionPolicy(trimmed)
                 writeSocketResponse(response, to: socket)
             }
+        }
+    }
+
+    // MARK: - Socket command execution policy
+    //
+    // C11-26: Some v2 methods must run on the socket worker thread, not the main actor,
+    // so callers that internally wait on `@MainActor` notifications (e.g. via
+    // `v2AwaitCallback` / `waitForTerminalSurface`) cannot deadlock on a nested
+    // `CFRunLoopRun` reached from inside an outer `DispatchQueue.main.sync` block.
+    // Entries in `socketWorkerV2Methods` are dispatched directly on the worker via
+    // `socketWorkerV2Response` and short-hop to `@MainActor` only for bounded slices
+    // of work that genuinely need it. Methods absent from the set continue to flow
+    // through the legacy `v2MainSync { self.processCommand(...) }` path unchanged.
+
+    private enum SocketCommandExecutionPolicy: Equatable {
+        case mainActor
+        case socketWorker
+    }
+
+    private struct V2SocketRequest {
+        let id: Any?
+        let method: String
+        let params: [String: Any]
+    }
+
+    private nonisolated static let socketWorkerV2Methods: Set<String> = []
+
+    private nonisolated static func executionPolicy(forV2Method method: String) -> SocketCommandExecutionPolicy {
+        if socketWorkerV2Methods.contains(method) {
+            return .socketWorker
+        }
+        return .mainActor
+    }
+
+    private nonisolated func parseV2SocketRequest(_ command: String) -> V2SocketRequest? {
+        guard command.hasPrefix("{"),
+              let data = command.data(using: .utf8),
+              let dict = (try? JSONSerialization.jsonObject(with: data, options: [])) as? [String: Any] else {
+            return nil
+        }
+
+        let method = (dict["method"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !method.isEmpty else {
+            return nil
+        }
+
+        return V2SocketRequest(
+            id: dict["id"],
+            method: method,
+            params: dict["params"] as? [String: Any] ?? [:]
+        )
+    }
+
+    private nonisolated func socketWorkerV2ResponseIfNeeded(for command: String) -> String? {
+        guard let request = parseV2SocketRequest(command),
+              Self.executionPolicy(forV2Method: request.method) == .socketWorker else {
+            return nil
+        }
+
+        return withSocketCommandPolicy(commandKey: request.method, isV2: true) {
+            socketWorkerV2Response(request)
+        }
+    }
+
+    private nonisolated func socketWorkerV2Response(_ request: V2SocketRequest) -> String {
+        switch request.method {
+        default:
+            return v2Error(id: request.id, code: "method_not_found", message: "Unknown method")
+        }
+    }
+
+    private nonisolated func processCommandUsingSocketExecutionPolicy(_ command: String) -> String {
+        if let response = socketWorkerV2ResponseIfNeeded(for: command) {
+            return response
+        }
+
+        if Thread.isMainThread {
+            return MainActor.assumeIsolated { self.processCommand(command) }
+        }
+        return DispatchQueue.main.sync {
+            MainActor.assumeIsolated { self.processCommand(command) }
         }
     }
 
@@ -2020,6 +2101,19 @@ class TerminalController {
 
         guard !method.isEmpty else {
             return v2Error(id: id, code: "invalid_request", message: "Missing method")
+        }
+
+        // C11-26: Methods on the socket-worker policy must be dispatched via
+        // socketWorkerV2Response (off main); reaching processV2Command for one of
+        // them means the routing layer mis-targeted the request, and falling
+        // through to the main-actor handler would re-introduce the deadlock the
+        // worker policy exists to avoid.
+        guard Self.executionPolicy(forV2Method: method) == .mainActor else {
+            return v2Error(
+                id: id,
+                code: "invalid_dispatch",
+                message: "\(method) must run on the socket worker"
+            )
         }
 
         v2MainSync { self.v2RefreshKnownRefs() }
@@ -3231,7 +3325,7 @@ class TerminalController {
     // MARK: - V2 Helpers (encoding + result plumbing)
     // MARK: - V2 Helpers (encoding + result plumbing)
 
-    private func v2OrNull(_ value: Any?) -> Any {
+    private nonisolated func v2OrNull(_ value: Any?) -> Any {
         // Avoid relying on `?? NSNull()` inference (Swift toolchains can disagree).
         if let value { return value }
         return NSNull()
@@ -3268,7 +3362,7 @@ class TerminalController {
         return nil
     }
 
-    private func v2Ok(id: Any?, result: Any) -> String {
+    private nonisolated func v2Ok(id: Any?, result: Any) -> String {
         return v2Encode([
             "id": v2OrNull(id),
             "ok": true,
@@ -3276,7 +3370,7 @@ class TerminalController {
         ])
     }
 
-    private func v2Error(id: Any?, code: String, message: String, data: Any? = nil) -> String {
+    private nonisolated func v2Error(id: Any?, code: String, message: String, data: Any? = nil) -> String {
         var err: [String: Any] = ["code": code, "message": message]
         if let data {
             err["data"] = data
@@ -3293,7 +3387,7 @@ class TerminalController {
         case err(code: String, message: String, data: Any?)
     }
 
-    private func v2Result(id: Any?, _ res: V2CallResult) -> String {
+    private nonisolated func v2Result(id: Any?, _ res: V2CallResult) -> String {
         switch res {
         case .ok(let payload):
             return v2Ok(id: id, result: payload)
@@ -3302,7 +3396,7 @@ class TerminalController {
         }
     }
 
-    private func v2Encode(_ object: Any) -> String {
+    private nonisolated func v2Encode(_ object: Any) -> String {
         guard JSONSerialization.isValidJSONObject(object),
               let data = try? JSONSerialization.data(withJSONObject: object, options: []),
               var s = String(data: data, encoding: .utf8) else {
