@@ -1661,6 +1661,8 @@ class TerminalController {
     private nonisolated static let socketWorkerV2Methods: Set<String> = [
         "surface.send_text",
         "surface.send_key",
+        "surface.read_text",
+        "surface.clear_history",
     ]
 
     private nonisolated static func executionPolicy(forV2Method method: String) -> SocketCommandExecutionPolicy {
@@ -1706,6 +1708,10 @@ class TerminalController {
             return v2Result(id: request.id, v2SurfaceSendText(params: request.params))
         case "surface.send_key":
             return v2Result(id: request.id, v2SurfaceSendKey(params: request.params))
+        case "surface.read_text":
+            return v2Result(id: request.id, v2SurfaceReadText(params: request.params))
+        case "surface.clear_history":
+            return v2Result(id: request.id, v2SurfaceClearHistory(params: request.params))
         default:
             return v2Error(id: request.id, code: "method_not_found", message: "Unknown method")
         }
@@ -2290,11 +2296,10 @@ class TerminalController {
         // by socketWorkerV2Response. Reaching this switch for it would mean the
         // routing layer mis-targeted the request; the invalid_dispatch guard above
         // catches that and returns an error.
-        // surface.send_key is on the socketWorker execution policy and is dispatched
-        // by socketWorkerV2Response. The invalid_dispatch guard above catches any
+        // surface.send_key, surface.clear_history, and surface.read_text are on
+        // the socketWorker execution policy and are dispatched by
+        // socketWorkerV2Response. The invalid_dispatch guard above catches any
         // mis-routed request before it reaches this switch.
-        case "surface.clear_history":
-            return v2Result(id: id, self.v2SurfaceClearHistory(params: params))
         case "surface.trigger_flash":
             return v2Result(id: id, self.v2SurfaceTriggerFlash(params: params))
         case "surface.set_metadata":
@@ -2530,8 +2535,8 @@ class TerminalController {
         case "sidebar.state":
             return v2Result(id: id, self.v2SidebarState(params: params))
 
-        case "surface.read_text":
-            return v2Result(id: id, self.v2SurfaceReadText(params: params))
+        // surface.read_text is on the socketWorker execution policy and is
+        // dispatched by socketWorkerV2Response.
 
         // M7 — title bar projection (read-only sugar)
         case "surface.get_titlebar_state":
@@ -3551,7 +3556,7 @@ class TerminalController {
         }
         return v2ResolveHandleRef(trimmed)
     }
-    private func v2Bool(_ params: [String: Any], _ key: String) -> Bool? {
+    private nonisolated func v2Bool(_ params: [String: Any], _ key: String) -> Bool? {
         if let b = params[key] as? Bool { return b }
         if let n = params[key] as? NSNumber { return n.boolValue }
         if let s = params[key] as? String {
@@ -3580,7 +3585,7 @@ class TerminalController {
         }
         return nil
     }
-    private func v2Int(_ params: [String: Any], _ key: String) -> Int? {
+    private nonisolated func v2Int(_ params: [String: Any], _ key: String) -> Int? {
         if let i = params[key] as? Int { return i }
         if let n = params[key] as? NSNumber { return n.intValue }
         if let s = params[key] as? String { return Int(s) }
@@ -6806,13 +6811,24 @@ class TerminalController {
         }
     }
 
-    private func v2SurfaceClearHistory(params: [String: Any]) -> V2CallResult {
-        guard let tabManager = v2ResolveTabManager(params: params) else {
-            return .err(code: "unavailable", message: "TabManager not available", data: nil)
-        }
+    // C11-26: surface.clear_history doesn't have the deadlock vector (no
+    // waitForTerminalSurface inside its body), but is migrated to the
+    // socketWorker policy for uniformity with the rest of the surface.* family.
+    // Single-phase: one Task @MainActor + DispatchSemaphore wraps the whole
+    // body, no Phase B waiting.
+    private nonisolated func v2SurfaceClearHistory(params: [String: Any]) -> V2CallResult {
+        #if DEBUG
+        dlog("v2.surface.clear_history isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
+        #endif
 
-        var result: V2CallResult = .err(code: "internal_error", message: "Failed to clear history", data: nil)
-        v2MainSync {
+        let semaphore = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var result: V2CallResult = .err(code: "internal_error", message: "Failed to clear history", data: nil)
+        Task { @MainActor in
+            defer { semaphore.signal() }
+            guard let tabManager = v2ResolveTabManager(params: params) else {
+                result = .err(code: "unavailable", message: "TabManager not available", data: nil)
+                return
+            }
             guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
                 result = .err(code: "not_found", message: "Workspace not found", data: nil)
                 return
@@ -6843,14 +6859,16 @@ class TerminalController {
                 "window_ref": v2Ref(kind: .window, uuid: windowId)
             ])
         }
-
+        semaphore.wait()
         return result
     }
 
-    private func v2SurfaceReadText(params: [String: Any]) -> V2CallResult {
-        guard let tabManager = v2ResolveTabManager(params: params) else {
-            return .err(code: "unavailable", message: "TabManager not available", data: nil)
-        }
+    // C11-26: surface.read_text matches surface.clear_history shape — no
+    // waitForTerminalSurface, no deadlock vector — migrated for uniformity.
+    private nonisolated func v2SurfaceReadText(params: [String: Any]) -> V2CallResult {
+        #if DEBUG
+        dlog("v2.surface.read_text isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
+        #endif
 
         var includeScrollback = v2Bool(params, "scrollback") ?? false
         let lineLimit = v2Int(params, "lines")
@@ -6861,13 +6879,18 @@ class TerminalController {
             includeScrollback = true
         }
 
-        var result: V2CallResult = .err(code: "internal_error", message: "Failed to read terminal text", data: nil)
-        v2MainSync {
+        let semaphore = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var result: V2CallResult = .err(code: "internal_error", message: "Failed to read terminal text", data: nil)
+        Task { @MainActor in
+            defer { semaphore.signal() }
+            guard let tabManager = v2ResolveTabManager(params: params) else {
+                result = .err(code: "unavailable", message: "TabManager not available", data: nil)
+                return
+            }
             guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
                 result = .err(code: "not_found", message: "Workspace not found", data: nil)
                 return
             }
-
             let surfaceId = v2UUID(params, "surface_id") ?? ws.focusedPanelId
             guard let surfaceId else {
                 result = .err(code: "not_found", message: "No focused surface", data: nil)
@@ -6906,6 +6929,7 @@ class TerminalController {
                 "window_ref": v2Ref(kind: .window, uuid: windowId)
             ])
         }
+        semaphore.wait()
         return result
     }
 
