@@ -6725,16 +6725,33 @@ class TerminalController {
 
         let queued: Bool
         let phaseBSema = DispatchSemaphore(value: 0)
-        if let surface = resolvedSurface {
+        if resolvedSurface != nil {
+            // C11-26 review B2: revalidate the live surface pointer inside the
+            // Phase B @MainActor turn before passing it to sendSocketText.
+            // resolvedSurface was captured in Phase A (or by waitForTerminalSurfaceOffMain
+            // on the worker); TerminalSurface.teardownSurface() runs on @MainActor and
+            // nils-then-frees the underlying ghostty_surface_t, so it can fire between
+            // Phase A and this turn. Calling ghostty_surface_text on a freed pointer is
+            // undefined behavior; re-read instead and fall through to the queue path
+            // if the surface was torn down across the hop.
+            nonisolated(unsafe) var attachedAtPhaseB = false
             Task { @MainActor in
-                sendSocketText(text, surface: surface)
-                // Ensure we present a new frame after injecting input so snapshot-based tests
-                // (and socket-driven agents) can observe the updated terminal without requiring
-                // a focus change to trigger a draw.
-                resolved.terminalPanel.surface.forceRefresh(reason: "terminalController.v2SurfaceSendText")
-                phaseBSema.signal()
+                defer { phaseBSema.signal() }
+                if let liveSurface = resolved.terminalPanel.surface.surface {
+                    sendSocketText(text, surface: liveSurface)
+                    // Ensure we present a new frame after injecting input so snapshot-based tests
+                    // (and socket-driven agents) can observe the updated terminal without requiring
+                    // a focus change to trigger a draw.
+                    resolved.terminalPanel.surface.forceRefresh(reason: "terminalController.v2SurfaceSendText")
+                    attachedAtPhaseB = true
+                } else {
+                    // Surface was torn down between Phase A and Phase B. Fall through to
+                    // the pending queue as a last resort.
+                    resolved.terminalPanel.sendText(text)
+                }
             }
-            queued = false
+            phaseBSema.wait()
+            queued = !attachedAtPhaseB
         } else {
             // Surface not available within 2s (e.g., terminal not yet attached to any window).
             // Fall back to the pending queue as a last resort.
@@ -6742,9 +6759,9 @@ class TerminalController {
                 resolved.terminalPanel.sendText(text)
                 phaseBSema.signal()
             }
+            phaseBSema.wait()
             queued = true
         }
-        phaseBSema.wait()
 
         #if DEBUG
         let sendMs = (ProcessInfo.processInfo.systemUptime - sendStart) * 1000.0
@@ -6791,24 +6808,32 @@ class TerminalController {
         } else {
             resolvedSurface = waitForTerminalSurfaceOffMain(resolved.terminalPanel, waitUpTo: 2.0)
         }
-        guard let surface = resolvedSurface else {
+        guard resolvedSurface != nil else {
             return .err(code: "internal_error", message: "Surface not ready", data: ["surface_id": resolved.surfaceIdString])
         }
 
         enum PhaseBOutcome {
             case ok
             case unknownKey
+            case surfaceNotReady
         }
         let phaseBSema = DispatchSemaphore(value: 0)
-        nonisolated(unsafe) var phaseBOutcome: PhaseBOutcome = .unknownKey
+        nonisolated(unsafe) var phaseBOutcome: PhaseBOutcome = .surfaceNotReady
         Task { @MainActor in
-            if sendNamedKey(surface, keyName: key) {
+            defer { phaseBSema.signal() }
+            // C11-26 review B2: revalidate the live surface pointer on
+            // @MainActor before sendNamedKey. See v2SurfaceSendText for the
+            // teardown-between-phases rationale.
+            guard let liveSurface = resolved.terminalPanel.surface.surface else {
+                phaseBOutcome = .surfaceNotReady
+                return
+            }
+            if sendNamedKey(liveSurface, keyName: key) {
                 resolved.terminalPanel.surface.forceRefresh(reason: "terminalController.v2SurfaceSendKey")
                 phaseBOutcome = .ok
             } else {
                 phaseBOutcome = .unknownKey
             }
-            phaseBSema.signal()
         }
         phaseBSema.wait()
 
@@ -6817,6 +6842,8 @@ class TerminalController {
             return .ok(resolved.responseEnvelope)
         case .unknownKey:
             return .err(code: "invalid_params", message: "Unknown key", data: ["key": key])
+        case .surfaceNotReady:
+            return .err(code: "internal_error", message: "Surface not ready", data: ["surface_id": resolved.surfaceIdString])
         }
     }
 
