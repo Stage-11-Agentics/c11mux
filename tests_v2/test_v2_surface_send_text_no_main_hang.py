@@ -51,8 +51,8 @@ use the tagged build socket the delegator produced via
     C11_SOCKET=/tmp/c11-debug-c11-26-fix.sock python3 \\
         tests_v2/test_v2_surface_send_text_no_main_hang.py
 
-Or via the existing CI pipeline (`gh workflow run test-e2e.yml`) once the
-workflow's test list picks the new file up.
+Or via the project's tests-v2 runner (`scripts/run-tests-v2.sh`) once the
+runner's test list picks the new file up.
 """
 
 from __future__ import annotations
@@ -98,11 +98,17 @@ def _seed_workspace_and_surface(c: cmux) -> Tuple[str, str]:
     ws_id = str(created.get("workspace_id") or "")
     _must(bool(ws_id), f"workspace.create returned no workspace_id: {created}")
 
-    # The default workspace ships with a focused terminal surface; give it a
-    # moment to attach before we ask for the surface list.
-    time.sleep(0.2)
-    surfaces = c.list_surfaces(ws_id)
-    _must(bool(surfaces), f"workspace {ws_id} has no surfaces: {surfaces}")
+    # The default workspace ships with a focused terminal surface; poll for it
+    # to attach instead of a fixed sleep — see C11-26 review S3. Worst-case CI
+    # variance still completes well under the 2 s budget.
+    surfaces: list = []
+    deadline = time.monotonic() + 2.0
+    while time.monotonic() < deadline:
+        surfaces = c.list_surfaces(ws_id)
+        if surfaces:
+            break
+        time.sleep(0.05)
+    _must(bool(surfaces), f"workspace {ws_id} has no surfaces after 2.0s poll: {surfaces}")
     sid = str(surfaces[0][1])
     _must(bool(sid), f"surface.list returned surface without id: {surfaces}")
     return ws_id, sid

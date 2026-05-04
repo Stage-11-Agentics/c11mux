@@ -6650,9 +6650,21 @@ class TerminalController {
     // an outer DispatchQueue.main.sync block — that is the C11-26 deadlock; this
     // off-main variant avoids the nested run loop entirely.
     private nonisolated func waitForTerminalSurfaceOffMain(_ terminalPanel: TerminalPanel, waitUpTo timeout: TimeInterval) -> ghostty_surface_t? {
+        // Off-main reads of `TerminalSurface.surface` are intentional here: the
+        // property is a pointer-sized value (Darwin guarantees naturally aligned
+        // word loads/stores are atomic), so a torn read is not possible. The
+        // post-observer recheck below closes the observer-registration race
+        // window — without it, an attach that fires between the first read and
+        // observer install would never wake the semaphore. If
+        // `TerminalSurface.surface` is ever migrated to `@MainActor` isolation,
+        // this helper must be revisited (the off-main reads would then violate
+        // actor isolation and need to round-trip via Task { @MainActor in ... }).
         if let surface = terminalPanel.surface.surface { return surface }
         let terminalSurface = terminalPanel.surface
         terminalSurface.requestBackgroundSurfaceStartIfNeeded()
+        #if DEBUG
+        dlog("v2.send_text waiting for surface attach (slow path) — backgroundSurfaceStartIfNeeded re-dispatched async")
+        #endif
 
         let semaphore = DispatchSemaphore(value: 0)
         let lock = NSLock()
