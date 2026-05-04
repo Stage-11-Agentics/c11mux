@@ -114,3 +114,64 @@ func sentryCaptureError(
 ) {
     sentryCaptureMessage(message, level: .error, category: category, data: data, contextKey: contextKey)
 }
+
+/// Telemetry-independent launch sentinel. Catches Force Quit, SIGKILL, jetsam,
+/// and other signal-bypass terminations that Sentry's in-process crash handler
+/// can't see and that don't always produce an Apple `.ips` file. Persists a JSON
+/// record of every launch under `~/Library/Caches/<bundle-id>/sessions/` and
+/// archives the previous launch's marker as `unclean-exit-<ts>.json` if
+/// `applicationWillTerminate` did not run. Runs regardless of telemetry consent
+/// because the file never leaves the machine.
+enum LaunchSentinel {
+    static func recordLaunchAndArchivePrevious() {
+        let fm = FileManager.default
+        let dir = sessionsDirectory()
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let active = dir.appendingPathComponent("active.json")
+        if fm.fileExists(atPath: active.path) {
+            let archive = dir.appendingPathComponent("unclean-exit-\(filenameSafeISO(Date())).json")
+            try? fm.moveItem(at: active, to: archive)
+        }
+
+        let info = Bundle.main.infoDictionary ?? [:]
+        let payload: [String: Any] = [
+            "pid": ProcessInfo.processInfo.processIdentifier,
+            "bundle_id": Bundle.main.bundleIdentifier ?? "",
+            "version": info["CFBundleShortVersionString"] as? String ?? "",
+            "build": info["CFBundleVersion"] as? String ?? "",
+            "commit": info["C11Commit"] as? String ?? "",
+            "launched_at": isoNow(),
+        ]
+        if let data = try? JSONSerialization.data(
+            withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]
+        ) {
+            try? data.write(to: active, options: .atomic)
+        }
+    }
+
+    static func clearActive() {
+        let active = sessionsDirectory().appendingPathComponent("active.json")
+        try? FileManager.default.removeItem(at: active)
+    }
+
+    private static func sessionsDirectory() -> URL {
+        let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.stage11.c11"
+        return cache
+            .appendingPathComponent(bundleID, isDirectory: true)
+            .appendingPathComponent("sessions", isDirectory: true)
+    }
+
+    private static func isoFormatter() -> ISO8601DateFormatter {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }
+
+    private static func isoNow() -> String { isoFormatter().string(from: Date()) }
+
+    private static func filenameSafeISO(_ date: Date) -> String {
+        isoFormatter().string(from: date).replacingOccurrences(of: ":", with: "-")
+    }
+}
