@@ -1658,7 +1658,9 @@ class TerminalController {
         let params: [String: Any]
     }
 
-    private nonisolated static let socketWorkerV2Methods: Set<String> = []
+    private nonisolated static let socketWorkerV2Methods: Set<String> = [
+        "surface.send_text",
+    ]
 
     private nonisolated static func executionPolicy(forV2Method method: String) -> SocketCommandExecutionPolicy {
         if socketWorkerV2Methods.contains(method) {
@@ -1699,6 +1701,8 @@ class TerminalController {
 
     private nonisolated func socketWorkerV2Response(_ request: V2SocketRequest) -> String {
         switch request.method {
+        case "surface.send_text":
+            return v2Result(id: request.id, v2SurfaceSendText(params: request.params))
         default:
             return v2Error(id: request.id, code: "method_not_found", message: "Unknown method")
         }
@@ -2279,8 +2283,10 @@ class TerminalController {
         case "debug.session.save_and_load":
             return v2Result(id: id, self.v2DebugSessionSaveAndLoad(params: params))
 #endif
-        case "surface.send_text":
-            return v2Result(id: id, self.v2SurfaceSendText(params: params))
+        // surface.send_text is on the socketWorker execution policy and is dispatched
+        // by socketWorkerV2Response. Reaching this switch for it would mean the
+        // routing layer mis-targeted the request; the invalid_dispatch guard above
+        // catches that and returns an error.
         case "surface.send_key":
             return v2Result(id: id, self.v2SurfaceSendKey(params: params))
         case "surface.clear_history":
@@ -6554,57 +6560,182 @@ class TerminalController {
         return .ok(payload)
     }
 
-    private func v2SurfaceSendText(params: [String: Any]) -> V2CallResult {
+    // C11-26: shared scaffolding for the socket-worker-policy surface.* handlers.
+    // The handlers run nonisolated; they capture the references they need on
+    // @MainActor (Phase A) so the worker-side flow can read them without further
+    // hops, and so result envelope strings produced by v2Ref are computed while
+    // we are still safely on the main actor.
+
+    private struct SurfaceSendPhaseAResolved {
+        let terminalPanel: TerminalPanel
+        let initialSurface: ghostty_surface_t?
+        let workspaceIdString: String
+        let surfaceIdString: String
+        let responseEnvelope: [String: Any]
+    }
+
+    private enum SurfaceSendPhaseAOutcome {
+        case ok(SurfaceSendPhaseAResolved)
+        case err(V2CallResult)
+    }
+
+    @MainActor
+    private func resolveSurfaceSendTargets(params: [String: Any], errMessageOnInternalError: String) -> SurfaceSendPhaseAOutcome {
         guard let tabManager = v2ResolveTabManager(params: params) else {
-            return .err(code: "unavailable", message: "TabManager not available", data: nil)
+            return .err(.err(code: "unavailable", message: "TabManager not available", data: nil))
         }
+        guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
+            return .err(.err(code: "not_found", message: "Workspace not found", data: nil))
+        }
+        let resolvedSurfaceId = v2UUID(params, "surface_id") ?? ws.focusedPanelId
+        guard let surfaceId = resolvedSurfaceId else {
+            return .err(.err(code: "not_found", message: "No focused surface", data: nil))
+        }
+        guard let terminalPanel = ws.terminalPanel(for: surfaceId) else {
+            return .err(.err(code: "invalid_params", message: "Surface is not a terminal", data: ["surface_id": surfaceId.uuidString]))
+        }
+        let windowId = v2ResolveWindowId(tabManager: tabManager)
+        let envelope: [String: Any] = [
+            "workspace_id": ws.id.uuidString,
+            "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id),
+            "surface_id": surfaceId.uuidString,
+            "surface_ref": v2Ref(kind: .surface, uuid: surfaceId),
+            "window_id": v2OrNull(windowId?.uuidString),
+            "window_ref": v2Ref(kind: .window, uuid: windowId)
+        ]
+        return .ok(SurfaceSendPhaseAResolved(
+            terminalPanel: terminalPanel,
+            initialSurface: terminalPanel.surface.surface,
+            workspaceIdString: ws.id.uuidString,
+            surfaceIdString: surfaceId.uuidString,
+            responseEnvelope: envelope
+        ))
+    }
+
+    // Off-main variant of waitForTerminalSurface: the worker thread blocks on a
+    // semaphore while NotificationCenter observers (registered with queue: .main)
+    // fire on the still-free main queue. The legacy waitForTerminalSurface goes
+    // through v2AwaitCallback whose main-thread branch nests CFRunLoopRun inside
+    // an outer DispatchQueue.main.sync block — that is the C11-26 deadlock; this
+    // off-main variant avoids the nested run loop entirely.
+    private nonisolated func waitForTerminalSurfaceOffMain(_ terminalPanel: TerminalPanel, waitUpTo timeout: TimeInterval) -> ghostty_surface_t? {
+        if let surface = terminalPanel.surface.surface { return surface }
+        let terminalSurface = terminalPanel.surface
+        terminalSurface.requestBackgroundSurfaceStartIfNeeded()
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let lock = NSLock()
+        nonisolated(unsafe) var done = false
+        let signalOnce: () -> Void = {
+            lock.lock()
+            let alreadyDone = done
+            done = true
+            lock.unlock()
+            if !alreadyDone { semaphore.signal() }
+        }
+
+        let readyObserver = NotificationCenter.default.addObserver(
+            forName: .terminalSurfaceDidBecomeReady,
+            object: terminalSurface,
+            queue: .main
+        ) { _ in
+            signalOnce()
+        }
+        let hostedViewObserver = NotificationCenter.default.addObserver(
+            forName: .terminalSurfaceHostedViewDidMoveToWindow,
+            object: terminalSurface,
+            queue: .main
+        ) { _ in
+            if terminalSurface.surface != nil {
+                signalOnce()
+            }
+        }
+
+        if terminalSurface.surface != nil {
+            signalOnce()
+        }
+
+        _ = semaphore.wait(timeout: .now() + timeout)
+        NotificationCenter.default.removeObserver(readyObserver)
+        NotificationCenter.default.removeObserver(hostedViewObserver)
+        return terminalPanel.surface.surface
+    }
+
+    // C11-26: surface.send_text runs on the socket worker thread (per
+    // SocketCommandExecutionPolicy.socketWorker) so it cannot deadlock the main
+    // queue when the surface is not yet attached. Phase A resolves refs on
+    // @MainActor (no notification waits inside, so it cannot deadlock). Phase B
+    // either sends immediately on @MainActor when the surface was already
+    // attached, or waits for it on the worker thread (so v2AwaitCallback's
+    // semaphore branch runs while the main queue is free to drain observers)
+    // and then re-hops to @MainActor for the actual send.
+    private nonisolated func v2SurfaceSendText(params: [String: Any]) -> V2CallResult {
+        #if DEBUG
+        dlog("v2.surface.send_text isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
+        #endif
+
         guard let text = params["text"] as? String else {
             return .err(code: "invalid_params", message: "Missing text", data: nil)
         }
 
-        var result: V2CallResult = .err(code: "internal_error", message: "Failed to send text", data: nil)
-        v2MainSync {
-            guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
-                result = .err(code: "not_found", message: "Workspace not found", data: nil)
-                return
-            }
-            let surfaceId = v2UUID(params, "surface_id") ?? ws.focusedPanelId
-            guard let surfaceId else {
-                result = .err(code: "not_found", message: "No focused surface", data: nil)
-                return
-            }
-            guard let terminalPanel = ws.terminalPanel(for: surfaceId) else {
-                result = .err(code: "invalid_params", message: "Surface is not a terminal", data: ["surface_id": surfaceId.uuidString])
-                return
-            }
-            #if DEBUG
-            let sendStart = ProcessInfo.processInfo.systemUptime
-            #endif
-            let queued: Bool
-            let surface = terminalPanel.surface.surface
-                ?? waitForTerminalSurface(terminalPanel, waitUpTo: 2.0)
-            if let surface {
-                sendSocketText(text, surface: surface)
-                // Ensure we present a new frame after injecting input so snapshot-based tests (and
-                // socket-driven agents) can observe the updated terminal without requiring a focus
-                // change to trigger a draw.
-                terminalPanel.surface.forceRefresh(reason: "terminalController.v2SurfaceSendText")
-                queued = false
-            } else {
-                // Surface not available within 2s (e.g., terminal not yet attached to any window).
-                // Fall back to the pending queue as a last resort.
-                terminalPanel.sendText(text)
-                queued = true
-            }
-#if DEBUG
-            let sendMs = (ProcessInfo.processInfo.systemUptime - sendStart) * 1000.0
-            dlog(
-                "socket.surface.send_text workspace=\(ws.id.uuidString.prefix(8)) surface=\(surfaceId.uuidString.prefix(8)) queued=\(queued ? 1 : 0) chars=\(text.count) ms=\(String(format: "%.2f", sendMs))"
-            )
-#endif
-            result = .ok(["workspace_id": ws.id.uuidString, "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id), "surface_id": surfaceId.uuidString, "surface_ref": v2Ref(kind: .surface, uuid: surfaceId), "window_id": v2OrNull(v2ResolveWindowId(tabManager: tabManager)?.uuidString), "window_ref": v2Ref(kind: .window, uuid: v2ResolveWindowId(tabManager: tabManager))])
+        let phaseASema = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var phaseAOutcome: SurfaceSendPhaseAOutcome = .err(.err(code: "internal_error", message: "Failed to send text", data: nil))
+        Task { @MainActor in
+            defer { phaseASema.signal() }
+            phaseAOutcome = resolveSurfaceSendTargets(params: params, errMessageOnInternalError: "Failed to send text")
         }
-        return result
+        phaseASema.wait()
+
+        let resolved: SurfaceSendPhaseAResolved
+        switch phaseAOutcome {
+        case .err(let err):
+            return err
+        case .ok(let r):
+            resolved = r
+        }
+
+        #if DEBUG
+        let sendStart = ProcessInfo.processInfo.systemUptime
+        #endif
+
+        let resolvedSurface: ghostty_surface_t?
+        if let initialSurface = resolved.initialSurface {
+            resolvedSurface = initialSurface
+        } else {
+            resolvedSurface = waitForTerminalSurfaceOffMain(resolved.terminalPanel, waitUpTo: 2.0)
+        }
+
+        let queued: Bool
+        let phaseBSema = DispatchSemaphore(value: 0)
+        if let surface = resolvedSurface {
+            Task { @MainActor in
+                sendSocketText(text, surface: surface)
+                // Ensure we present a new frame after injecting input so snapshot-based tests
+                // (and socket-driven agents) can observe the updated terminal without requiring
+                // a focus change to trigger a draw.
+                resolved.terminalPanel.surface.forceRefresh(reason: "terminalController.v2SurfaceSendText")
+                phaseBSema.signal()
+            }
+            queued = false
+        } else {
+            // Surface not available within 2s (e.g., terminal not yet attached to any window).
+            // Fall back to the pending queue as a last resort.
+            Task { @MainActor in
+                resolved.terminalPanel.sendText(text)
+                phaseBSema.signal()
+            }
+            queued = true
+        }
+        phaseBSema.wait()
+
+        #if DEBUG
+        let sendMs = (ProcessInfo.processInfo.systemUptime - sendStart) * 1000.0
+        dlog(
+            "socket.surface.send_text workspace=\(resolved.workspaceIdString.prefix(8)) surface=\(resolved.surfaceIdString.prefix(8)) queued=\(queued ? 1 : 0) chars=\(text.count) ms=\(String(format: "%.2f", sendMs))"
+        )
+        #endif
+
+        return .ok(resolved.responseEnvelope)
     }
 
     private func v2SurfaceSendKey(params: [String: Any]) -> V2CallResult {
