@@ -2118,8 +2118,12 @@ class TerminalController {
             return v2Result(id: id, self.v2SnapshotCreate(params: params))
         case "snapshot.restore":
             return v2Result(id: id, self.v2SnapshotRestore(params: params))
+        case "snapshot.restore_set":
+            return v2Result(id: id, self.v2SnapshotRestoreSet(params: params))
         case "snapshot.list":
             return v2Result(id: id, self.v2SnapshotList(params: params))
+        case "snapshot.list_sets":
+            return v2Result(id: id, self.v2SnapshotListSets(params: params))
 
         // Themes (CMUX-35)
         case "theme.list":
@@ -4730,41 +4734,89 @@ class TerminalController {
         let origin: WorkspaceSnapshotFile.Origin =
             (originRaw == "auto-restart") ? .autoRestart : .manual
 
-        // --all: capture every open workspace and return {snapshots: [...]}.
+        // --all: capture every open workspace, write per-workspace files
+        // AND a manifest under `~/.c11-snapshots/sets/<set_id>.json` that
+        // points at the inner ids. The manifest is the discoverable handle
+        // for `c11 restore <set_id>` — it carries no plan data of its own,
+        // so each inner snapshot stays independently restorable.
         let captureAll = (params["all"] as? Bool) == true
         if captureAll {
-            var snapshots: [(envelope: WorkspaceSnapshotFile, ref: String)] = []
+            var snapshots: [(envelope: WorkspaceSnapshotFile, ref: String, isSelected: Bool)] = []
             v2MainSync {
                 let source = LiveWorkspaceSnapshotSource(tabManager: tabManager)
+                let selectedId = tabManager.selectedWorkspace?.id
                 for ws in tabManager.tabs {
                     if let envelope = source.capture(
                         workspaceId: ws.id, origin: origin, clock: { Date() }
                     ) {
                         let ref = self.v2EnsureHandleRef(kind: .workspace, uuid: ws.id)
-                        snapshots.append((envelope, ref))
+                        snapshots.append((envelope, ref, ws.id == selectedId))
                     }
                 }
             }
             let store = WorkspaceSnapshotStore()
             var results: [[String: Any]] = []
-            for (envelope, ref) in snapshots {
+            var entries: [WorkspaceSnapshotSetFile.Entry] = []
+            var selectedIndex: Int?
+            var anyWriteFailed = false
+            for (offset, item) in snapshots.enumerated() {
+                let (envelope, ref, isSelected) = item
                 do {
                     let path = try store.writeToDefaultDirectory(envelope)
-                    results.append([
+                    var row: [String: Any] = [
                         "snapshot_id": envelope.snapshotId,
                         "path": path.path,
                         "surface_count": envelope.plan.surfaces.count,
                         "workspace_ref": ref
-                    ])
+                    ]
+                    if isSelected { row["selected"] = true }
+                    results.append(row)
+                    entries.append(WorkspaceSnapshotSetFile.Entry(
+                        workspaceRef: ref,
+                        snapshotId: envelope.snapshotId,
+                        order: offset,
+                        selected: isSelected
+                    ))
+                    if isSelected { selectedIndex = entries.count - 1 }
                 } catch {
                     results.append([
                         "snapshot_id": envelope.snapshotId,
                         "error": "\(error)",
                         "workspace_ref": ref
                     ])
+                    anyWriteFailed = true
                 }
             }
-            return .ok(["snapshots": results])
+            // Build the manifest only when at least one inner snapshot
+            // wrote successfully — an all-failed run has nothing to point
+            // at. When some inner writes failed but others succeeded the
+            // manifest still ships, listing only the successful entries
+            // (the failed entries are visible via the per-snapshot result
+            // rows).
+            var payload: [String: Any] = ["snapshots": results]
+            if !entries.isEmpty {
+                let setId = WorkspaceSnapshotID.generate()
+                let manifest = WorkspaceSnapshotSetFile(
+                    version: 1,
+                    setId: setId,
+                    createdAt: Date(),
+                    c11Version: LiveWorkspaceSnapshotSource.defaultVersionString(),
+                    selectedWorkspaceIndex: selectedIndex,
+                    snapshots: entries
+                )
+                do {
+                    let setPath = try store.writeSet(manifest)
+                    payload["set_id"] = setId
+                    payload["set_path"] = setPath.path
+                } catch {
+                    // Surface the manifest-write failure but keep the
+                    // per-workspace data the caller already has.
+                    payload["set_error"] = "\(error)"
+                }
+            } else if anyWriteFailed {
+                payload["set_error"] = "no inner snapshots wrote successfully"
+            }
+            return .ok(payload)
         }
 
         var snapshot: WorkspaceSnapshotFile?
@@ -4965,6 +5017,221 @@ class TerminalController {
             return .ok(asAny)
         } catch {
             return .err(code: "internal_error", message: "Failed to encode ApplyResult: \(error)", data: nil)
+        }
+    }
+
+    /// `snapshot.restore_set`: rehydrate every per-workspace snapshot
+    /// referenced by a `WorkspaceSnapshotSetFile` manifest. Required
+    /// param: `set_id` (resolved against
+    /// `~/.c11-snapshots/sets/<set_id>.json` only — never a
+    /// caller-supplied path). Optional: `restart_registry` (passes
+    /// through to each inner restore), `select` (best-effort focus on
+    /// the entry the manifest marked as selected, subject to the same
+    /// focus policy `snapshot.restore` honors).
+    ///
+    /// `in_place` is rejected here: a set restore creates several fresh
+    /// workspaces, and there is no single target workspace to replace.
+    /// The CLI catches this earlier; the v2 method validates again so
+    /// programmatic callers cannot trip the executor.
+    private func v2SnapshotRestoreSet(params: [String: Any]) -> V2CallResult {
+        if let rawPath = params["path"] as? String,
+           !rawPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return .err(
+                code: "invalid_params",
+                message: "socket-initiated snapshot.restore_set does not accept 'path'; "
+                    + "use 'set_id' instead",
+                data: nil
+            )
+        }
+        if (params["in_place"] as? Bool) == true {
+            return .err(
+                code: "invalid_params",
+                message: "snapshot.restore_set does not support in_place; a set restore creates fresh workspaces",
+                data: nil
+            )
+        }
+        guard let rawId = (params["set_id"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawId.isEmpty else {
+            return .err(
+                code: "invalid_params",
+                message: "snapshot.restore_set requires 'set_id'",
+                data: nil
+            )
+        }
+        let store = WorkspaceSnapshotStore()
+        let manifest: WorkspaceSnapshotSetFile
+        do {
+            manifest = try store.readSet(byId: rawId)
+        } catch let err as WorkspaceSnapshotStore.StoreError {
+            return .err(code: err.code, message: "\(err)", data: nil)
+        } catch {
+            return .err(code: "snapshot_set_read_failed", message: "\(error)", data: nil)
+        }
+
+        guard let tabManager = v2ResolveTabManager(params: params) else {
+            return .err(code: "unavailable", message: "TabManager not available", data: nil)
+        }
+
+        // Resolve restart registry once for the whole set; missing names
+        // degrade to no-op with a per-set warning (matches snapshot.restore).
+        var preApplyWarnings: [String] = []
+        var optionsTemplate = ApplyOptions()
+        optionsTemplate.select = false  // each apply runs unselect; we re-establish at the end
+        if let registryName = params["restart_registry"] as? String {
+            let resolved = AgentRestartRegistry.named(registryName)
+            optionsTemplate.restartRegistry = resolved
+            if resolved == nil {
+                preApplyWarnings.append(
+                    "unknown restart_registry '\(registryName)': falling back to no-op (no cc --resume synthesis)"
+                )
+            }
+        }
+
+        let allowFocus = v2FocusAllowed(requested: (params["select"] as? Bool) ?? true)
+
+        var workspaceResults: [[String: Any]] = []
+        var selectedWorkspaceRef: String?
+
+        // Apply each inner snapshot sequentially. Order is taken from the
+        // manifest's `order` field as written; we sort defensively here so
+        // a future hand-edited manifest with shuffled keys still applies
+        // in capture-time order.
+        let sortedEntries = manifest.snapshots.sorted { $0.order < $1.order }
+        for entry in sortedEntries {
+            let envelope: WorkspaceSnapshotFile
+            do {
+                envelope = try store.read(byId: entry.snapshotId)
+            } catch let err as WorkspaceSnapshotStore.StoreError {
+                workspaceResults.append([
+                    "snapshot_id": entry.snapshotId,
+                    "workspace_ref": entry.workspaceRef,
+                    "error": "\(err)",
+                    "code": err.code
+                ])
+                continue
+            } catch {
+                workspaceResults.append([
+                    "snapshot_id": entry.snapshotId,
+                    "workspace_ref": entry.workspaceRef,
+                    "error": "\(error)"
+                ])
+                continue
+            }
+            let planResult = WorkspaceSnapshotConverter.applyPlan(from: envelope)
+            let plan: WorkspaceApplyPlan
+            switch planResult {
+            case .success(let p): plan = p
+            case .failure(let err):
+                workspaceResults.append([
+                    "snapshot_id": entry.snapshotId,
+                    "workspace_ref": entry.workspaceRef,
+                    "error": err.message,
+                    "code": err.code
+                ])
+                continue
+            }
+            if let validationFailure = WorkspaceLayoutExecutor.validate(plan: plan) {
+                workspaceResults.append([
+                    "snapshot_id": entry.snapshotId,
+                    "workspace_ref": entry.workspaceRef,
+                    "error": validationFailure.message,
+                    "code": validationFailure.code
+                ])
+                continue
+            }
+
+            var result: ApplyResult?
+            v2MainSync {
+                let deps = WorkspaceLayoutExecutorDependencies(
+                    tabManager: tabManager,
+                    workspaceRefMinter: { [weak self] uuid in
+                        self?.v2EnsureHandleRef(kind: .workspace, uuid: uuid) ?? "workspace:\(uuid.uuidString)"
+                    },
+                    surfaceRefMinter: { [weak self] uuid in
+                        self?.v2EnsureHandleRef(kind: .surface, uuid: uuid) ?? "surface:\(uuid.uuidString)"
+                    },
+                    paneRefMinter: { [weak self] uuid in
+                        self?.v2EnsureHandleRef(kind: .pane, uuid: uuid) ?? "pane:\(uuid.uuidString)"
+                    }
+                )
+                result = WorkspaceLayoutExecutor.apply(plan, options: optionsTemplate, dependencies: deps)
+            }
+            guard let applyResult = result else {
+                workspaceResults.append([
+                    "snapshot_id": entry.snapshotId,
+                    "workspace_ref": entry.workspaceRef,
+                    "error": "executor returned no result"
+                ])
+                continue
+            }
+            do {
+                let encoded = try JSONEncoder().encode(applyResult)
+                if let asAny = try JSONSerialization.jsonObject(with: encoded, options: []) as? [String: Any] {
+                    var row = asAny
+                    row["snapshot_id"] = entry.snapshotId
+                    row["original_workspace_ref"] = entry.workspaceRef
+                    if entry.selected { row["selected"] = true }
+                    workspaceResults.append(row)
+                    if entry.selected, !applyResult.workspaceRef.isEmpty {
+                        selectedWorkspaceRef = applyResult.workspaceRef
+                    }
+                }
+            } catch {
+                workspaceResults.append([
+                    "snapshot_id": entry.snapshotId,
+                    "workspace_ref": entry.workspaceRef,
+                    "error": "encode failed: \(error)"
+                ])
+            }
+        }
+
+        // Re-establish selection on a best-effort basis, subject to the
+        // socket focus policy. Convert the ref back to a UUID via the
+        // existing handle table, then look up the live workspace.
+        if allowFocus, let targetRef = selectedWorkspaceRef,
+           let uuid = self.v2ResolveHandleRef(targetRef) {
+            v2MainSync {
+                if let ws = tabManager.tabs.first(where: { $0.id == uuid }) {
+                    tabManager.selectWorkspace(ws)
+                }
+            }
+        }
+
+        var payload: [String: Any] = [
+            "set_id": manifest.setId,
+            "workspaces": workspaceResults,
+            "warnings": preApplyWarnings
+        ]
+        if let ref = selectedWorkspaceRef {
+            payload["selected_workspace_ref"] = ref
+        }
+        return .ok(payload)
+    }
+
+    /// `snapshot.list_sets`: enumerate manifests under
+    /// `~/.c11-snapshots/sets/`. Returns rows sorted newest-first.
+    private func v2SnapshotListSets(params: [String: Any]) -> V2CallResult {
+        let store = WorkspaceSnapshotStore()
+        let entries: [WorkspaceSnapshotSetIndex]
+        do {
+            entries = try store.listSets()
+        } catch let err as WorkspaceSnapshotStore.StoreError {
+            return .err(code: err.code, message: "\(err)", data: nil)
+        } catch {
+            return .err(code: "snapshot_list_sets_failed", message: "\(error)", data: nil)
+        }
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .custom { date, encoder in
+                var container = encoder.singleValueContainer()
+                try container.encode(workspaceSnapshotDateFormatter.string(from: date))
+            }
+            let encoded = try encoder.encode(entries)
+            let asAny = try JSONSerialization.jsonObject(with: encoded, options: [])
+            return .ok(["sets": asAny])
+        } catch {
+            return .err(code: "internal_error", message: "\(error)", data: nil)
         }
     }
 

@@ -3301,11 +3301,19 @@ struct CMUXCLI {
                     let id = (snap["snapshot_id"] as? String) ?? "?"
                     let path = (snap["path"] as? String) ?? "?"
                     let count = (snap["surface_count"] as? Int) ?? 0
-                    print("OK snapshot=\(id) surfaces=\(count) workspace=\(wsRef) path=\(path)")
+                    let selected = (snap["selected"] as? Bool) == true ? " (selected)" : ""
+                    print("OK snapshot=\(id) surfaces=\(count) workspace=\(wsRef) path=\(path)\(selected)")
                 }
             }
+            if let setId = payload["set_id"] as? String,
+               let setPath = payload["set_path"] as? String {
+                print("OK set=\(setId) path=\(setPath)")
+            } else if let setErr = payload["set_error"] as? String {
+                print("ERROR manifest reason=\(setErr)")
+                anyFailure = true
+            }
             if anyFailure {
-                throw CLIError(message: "snapshot --all: one or more workspaces failed to write")
+                throw CLIError(message: "snapshot --all: one or more writes failed")
             }
             return
         }
@@ -3400,6 +3408,7 @@ struct CMUXCLI {
             throw CLIError(message: "restore: unexpected trailing argument '\(positional[1])'")
         }
         var params: [String: Any] = [:]
+        var isSetRestore = false
         // Path-like targets (absolute / `~` / extension `.json`) get
         // resolved in the CLI. Everything else is treated as a snapshot
         // id and submitted as-is; the handler's traversal guard catches
@@ -3409,16 +3418,34 @@ struct CMUXCLI {
             || target.hasPrefix("~")
             || target.contains("/") {
             let resolvedPath = resolvePath(target)
-            let snapshotId = try importSnapshotFileForRestore(pathOnDisk: resolvedPath)
-            params["snapshot_id"] = snapshotId
+            let (id, kind) = try importSnapshotOrSetFileForRestore(pathOnDisk: resolvedPath)
+            switch kind {
+            case .single:
+                params["snapshot_id"] = id
+            case .set:
+                isSetRestore = true
+                params["set_id"] = id
+            }
         } else {
-            params["snapshot_id"] = target
+            // Bare-id form: probe `~/.c11-snapshots/sets/<id>.json` first
+            // (the manifest path) and only fall through to single-snapshot
+            // restore if no manifest exists. Both ids share the ULID
+            // grammar so we cannot disambiguate by shape alone.
+            if isLocalSnapshotSetId(target) {
+                isSetRestore = true
+                params["set_id"] = target
+            } else {
+                params["snapshot_id"] = target
+            }
         }
         // Env gate: mirrored by `mirrorC11CmuxEnv()` so either variable works.
         let env = ProcessInfo.processInfo.environment
         let raw = env["C11_SESSION_RESUME"] ?? env["CMUX_SESSION_RESUME"]
         if let raw, isTruthyFlag(raw) {
             params["restart_registry"] = "phase1"
+        }
+        if isSetRestore && inPlace {
+            throw CLIError(message: "restore: --in-place is not supported for snapshot sets (a set creates several fresh workspaces)")
         }
         if inPlace {
             params["in_place"] = true
@@ -3448,9 +3475,35 @@ struct CMUXCLI {
                 }
             }
         }
-        let payload = try client.sendV2(method: "snapshot.restore", params: params)
+        let method = isSetRestore ? "snapshot.restore_set" : "snapshot.restore"
+        let payload = try client.sendV2(method: method, params: params)
         if jsonOutput {
             print(jsonString(formatIDs(payload, mode: idFormat)))
+            return
+        }
+        if isSetRestore {
+            let setId = (payload["set_id"] as? String) ?? "?"
+            let workspaces = payload["workspaces"] as? [[String: Any]] ?? []
+            let selected = (payload["selected_workspace_ref"] as? String) ?? ""
+            print("OK set=\(setId) workspaces=\(workspaces.count)\(selected.isEmpty ? "" : " selected=\(selected)")")
+            for entry in workspaces {
+                if let err = entry["error"] as? String {
+                    let snap = (entry["snapshot_id"] as? String) ?? "?"
+                    let wsRef = (entry["original_workspace_ref"] as? String) ?? (entry["workspace_ref"] as? String) ?? "?"
+                    print("  ERROR snapshot=\(snap) original=\(wsRef) reason=\(err)")
+                    continue
+                }
+                let snap = (entry["snapshot_id"] as? String) ?? "?"
+                let ref = (entry["workspaceRef"] as? String) ?? "?"
+                let surfaceRefs = entry["surfaceRefs"] as? [String: String] ?? [:]
+                let isSel = (entry["selected"] as? Bool) == true ? " (selected)" : ""
+                print("  OK snapshot=\(snap) workspace=\(ref) surfaces=\(surfaceRefs.count)\(isSel)")
+            }
+            let warnings = payload["warnings"] as? [String] ?? []
+            if !warnings.isEmpty {
+                print("warnings: \(warnings.count)")
+                for w in warnings { print("  - \(w)") }
+            }
             return
         }
         let ref = (payload["workspaceRef"] as? String) ?? "?"
@@ -3486,6 +3539,21 @@ struct CMUXCLI {
         }
     }
 
+    /// Whether `~/.c11-snapshots/sets/<id>.json` exists. Used by the
+    /// polymorphic `c11 restore <id>` dispatch.
+    private func isLocalSnapshotSetId(_ id: String) -> Bool {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
+            return false
+        }
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let url = home
+            .appendingPathComponent(".c11-snapshots/sets")
+            .appendingPathComponent("\(trimmed).json")
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
     /// Read a snapshot file at `pathOnDisk`, extract `snapshot_id`, and
     /// ensure a copy exists under `~/.c11-snapshots/<snapshot_id>.json` so
     /// the v2 handler's id-based lookup can find it. Returns the
@@ -3495,6 +3563,24 @@ struct CMUXCLI {
     /// CLI holds the user's real FS permissions, so reading and copying
     /// the file here is safe in a way reading via the socket is not.
     private func importSnapshotFileForRestore(pathOnDisk: String) throws -> String {
+        let (id, kind) = try importSnapshotOrSetFileForRestore(pathOnDisk: pathOnDisk)
+        guard kind == .single else {
+            throw CLIError(message: "restore: '\(pathOnDisk)' is a set manifest; use `c11 restore <set-id>` directly")
+        }
+        return id
+    }
+
+    private enum SnapshotImportKind { case single, set }
+
+    /// Read a snapshot or snapshot-set file on disk (with the user's real
+    /// FS permissions), classify it, and stage it under the canonical
+    /// `~/.c11-snapshots/` location so the v2 id-based handlers can find
+    /// it. Returns the id and which kind of artifact it was.
+    ///
+    /// Classification: a single snapshot envelope carries a top-level
+    /// `snapshot_id` and `plan` key; a set manifest carries `set_id` and
+    /// `snapshots` (list). Anything else is rejected.
+    private func importSnapshotOrSetFileForRestore(pathOnDisk: String) throws -> (id: String, kind: SnapshotImportKind) {
         let srcURL = URL(fileURLWithPath: pathOnDisk)
         let data: Data
         do {
@@ -3502,41 +3588,55 @@ struct CMUXCLI {
         } catch {
             throw CLIError(message: "restore: failed to read '\(pathOnDisk)': \(error)")
         }
-        let snapshotId: String
+        let dict: [String: Any]
         do {
             let obj = try JSONSerialization.jsonObject(with: data, options: [])
-            guard let dict = obj as? [String: Any],
-                  let id = dict["snapshot_id"] as? String,
-                  !id.isEmpty else {
-                throw CLIError(message: "restore: file '\(pathOnDisk)' is not a valid snapshot envelope (missing snapshot_id)")
+            guard let asDict = obj as? [String: Any] else {
+                throw CLIError(message: "restore: '\(pathOnDisk)' is not a JSON object")
             }
-            snapshotId = id
+            dict = asDict
         } catch let err as CLIError {
             throw err
         } catch {
             throw CLIError(message: "restore: file '\(pathOnDisk)' is not valid JSON: \(error)")
         }
+
+        let id: String
+        let kind: SnapshotImportKind
+        let stagingSubdir: String
+        if let setId = dict["set_id"] as? String, !setId.isEmpty,
+           dict["snapshots"] is [Any] {
+            id = setId
+            kind = .set
+            stagingSubdir = ".c11-snapshots/sets"
+        } else if let snapId = dict["snapshot_id"] as? String, !snapId.isEmpty,
+                  dict["plan"] != nil {
+            id = snapId
+            kind = .single
+            stagingSubdir = ".c11-snapshots"
+        } else {
+            throw CLIError(message: "restore: '\(pathOnDisk)' is not a recognised snapshot envelope (missing snapshot_id+plan or set_id+snapshots)")
+        }
+
         // Reject traversal-shaped ids before we touch disk — matches the
         // grammar the v2 handler enforces on the other side.
-        let idRange = NSRange(location: 0, length: (snapshotId as NSString).length)
+        let idRange = NSRange(location: 0, length: (id as NSString).length)
         let safePattern = try NSRegularExpression(
             pattern: "^[A-Za-z0-9_-]{1,128}$",
             options: []
         )
-        if safePattern.firstMatch(in: snapshotId, options: [], range: idRange) == nil {
-            throw CLIError(message: "restore: snapshot_id '\(snapshotId)' is not a safe filename stem")
+        if safePattern.firstMatch(in: id, options: [], range: idRange) == nil {
+            throw CLIError(message: "restore: id '\(id)' is not a safe filename stem")
         }
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let defaultDir = home.appendingPathComponent(".c11-snapshots", isDirectory: true)
-        let destURL = defaultDir.appendingPathComponent("\(snapshotId).json")
-        // If the user passed in a path that already is the default
-        // location, there's nothing to copy.
+        let stagingDir = home.appendingPathComponent(stagingSubdir, isDirectory: true)
+        let destURL = stagingDir.appendingPathComponent("\(id).json")
         if destURL.standardizedFileURL.path == srcURL.standardizedFileURL.path {
-            return snapshotId
+            return (id, kind)
         }
         do {
             try FileManager.default.createDirectory(
-                at: defaultDir,
+                at: stagingDir,
                 withIntermediateDirectories: true
             )
             if FileManager.default.fileExists(atPath: destURL.path) {
@@ -3544,37 +3644,101 @@ struct CMUXCLI {
             }
             try FileManager.default.copyItem(at: srcURL, to: destURL)
         } catch {
-            throw CLIError(message: "restore: failed to stage '\(pathOnDisk)' into ~/.c11-snapshots/: \(error)")
+            throw CLIError(message: "restore: failed to stage '\(pathOnDisk)' into ~/\(stagingSubdir)/: \(error)")
         }
-        return snapshotId
+        return (id, kind)
     }
 
-    /// `c11 list-snapshots [--json]`. Columns:
+    /// `c11 list-snapshots [--json] [--sets] [--all]`. Columns by default:
     /// SNAPSHOT_ID, CREATED_AT, WORKSPACE_TITLE, SURFACES, ORIGIN, SOURCE.
     ///
-    /// `--json` is accepted both as a global pre-subcommand flag (handled
-    /// by the main parser and threaded in via `jsonOutput`) and as a
-    /// subcommand-local flag. The help text advertises
-    /// `c11 list-snapshots --json`; callers writing that literally should
-    /// not have to know about the global/local distinction.
+    /// `--sets` switches to the manifest table
+    /// (SET_ID, CREATED_AT, COUNT, C11_VERSION). `--all` prints both
+    /// tables back-to-back. `--json` is accepted both as a global
+    /// pre-subcommand flag (handled by the main parser and threaded in
+    /// via `jsonOutput`) and as a subcommand-local flag.
     private func runListSnapshots(
         _ args: [String],
         client: SocketClient,
         jsonOutput: Bool
     ) throws {
         var localJson = false
+        var listSets = false
+        var listAll = false
         for arg in args {
             switch arg {
             case "--json":
                 localJson = true
+            case "--sets":
+                listSets = true
+            case "--all":
+                listAll = true
             default:
                 if arg.hasPrefix("--") {
-                    throw CLIError(message: "list-snapshots: unknown flag '\(arg)'. Known flags: --json")
+                    throw CLIError(message: "list-snapshots: unknown flag '\(arg)'. Known flags: --json, --sets, --all")
                 }
                 throw CLIError(message: "list-snapshots: unexpected argument '\(arg)'")
             }
         }
         let wantJson = jsonOutput || localJson
+        if listSets && listAll {
+            throw CLIError(message: "list-snapshots: --sets and --all are mutually exclusive")
+        }
+        // --sets: only the manifest table.
+        if listSets {
+            try printSnapshotSetsTable(client: client, wantJson: wantJson)
+            return
+        }
+        // --all: per-snapshot table, blank line, then the manifest table.
+        if listAll {
+            try printSnapshotsTable(client: client, wantJson: wantJson)
+            if !wantJson { print("") }
+            try printSnapshotSetsTable(client: client, wantJson: wantJson)
+            return
+        }
+        try printSnapshotsTable(client: client, wantJson: wantJson)
+    }
+
+    /// `c11 list-snapshots --sets`: enumerate set manifests under
+    /// `~/.c11-snapshots/sets/`. Columns: SET_ID, CREATED_AT, COUNT,
+    /// C11_VERSION.
+    private func printSnapshotSetsTable(client: SocketClient, wantJson: Bool) throws {
+        let payload = try client.sendV2(method: "snapshot.list_sets", params: [:])
+        if wantJson {
+            print(jsonString(payload))
+            return
+        }
+        let sets = payload["sets"] as? [[String: Any]] ?? []
+        if sets.isEmpty {
+            print("no snapshot sets")
+            return
+        }
+        func pad(_ s: String, _ width: Int) -> String {
+            if s.count >= width { return s }
+            return s + String(repeating: " ", count: width - s.count)
+        }
+        print(
+            pad("SET_ID", 26) + "  "
+            + pad("CREATED_AT", 24) + "  "
+            + pad("COUNT", 6) + "  "
+            + pad("C11_VERSION", 18)
+        )
+        for entry in sets {
+            let id = (entry["set_id"] as? String) ?? "?"
+            let created = (entry["created_at"] as? String) ?? "?"
+            let count = (entry["snapshot_count"] as? Int).map(String.init) ?? "?"
+            let version = (entry["c11_version"] as? String) ?? ""
+            print(
+                pad(id, 26) + "  "
+                + pad(created, 24) + "  "
+                + pad(count, 6) + "  "
+                + pad(version, 18)
+            )
+        }
+    }
+
+    /// `c11 list-snapshots`: enumerate per-workspace snapshots.
+    private func printSnapshotsTable(client: SocketClient, wantJson: Bool) throws {
         let payload = try client.sendV2(method: "snapshot.list", params: [:])
         guard let snapshotsAny = payload["snapshots"] as? [[String: Any]] else {
             if wantJson {
@@ -8940,7 +9104,12 @@ struct CMUXCLI {
             Flags:
               --workspace <ref>   Workspace to capture (ref or UUID)
               --out <path>        Override the default output path
-              --all               Capture every open workspace in one pass
+              --all               Capture every open workspace in one pass.
+                                  Writes one per-workspace file AND a
+                                  manifest at
+                                  `~/.c11-snapshots/sets/<set-ulid>.json`
+                                  that lists them. Pass the set ulid back
+                                  to `c11 restore` to rehydrate them all.
               --json              Emit raw snapshot.create result as JSON
 
             Note: --all and --workspace / --out are mutually exclusive.
@@ -8962,12 +9131,15 @@ struct CMUXCLI {
                     "Running `c11 restore <id>` twice creates two workspaces unless --in-place is passed."
             )
             return """
-            Usage: c11 restore <snapshot-id-or-path> [--in-place] [--json]
+            Usage: c11 restore <snapshot-or-set-id-or-path> [--in-place] [--json]
 
             Restore a workspace layout from a snapshot written by `c11 snapshot`.
-            The argument is either a ULID (resolved under `~/.c11-snapshots/` or
-            the legacy `~/.cmux-snapshots/`) or an absolute path to a `.json`
-            snapshot file.
+            The argument is either a ULID (resolved under `~/.c11-snapshots/`,
+            the legacy `~/.cmux-snapshots/`, or — for set manifests written by
+            `c11 snapshot --all` — `~/.c11-snapshots/sets/`), or an absolute
+            path to a `.json` snapshot or set-manifest file. Set manifests
+            rehydrate every workspace they reference; `--in-place` is rejected
+            for sets.
 
             \(inPlaceNote)
 
@@ -8991,7 +9163,7 @@ struct CMUXCLI {
             """
         case "list-snapshots":
             return """
-            Usage: c11 list-snapshots [--json]
+            Usage: c11 list-snapshots [--json] [--sets|--all]
 
             List snapshots under `~/.c11-snapshots/` merged with the legacy
             `~/.cmux-snapshots/` path. Newest first.
@@ -8999,9 +9171,18 @@ struct CMUXCLI {
             Columns: SNAPSHOT_ID, CREATED_AT, WORKSPACE_TITLE, SURFACES, ORIGIN, SOURCE.
             SOURCE is `current` for `~/.c11-snapshots/`, `legacy` for the fallback.
 
+            Flags:
+              --json    Emit raw snapshot.list result as JSON.
+              --sets    List snapshot-set manifests under `~/.c11-snapshots/sets/`
+                        (written by `c11 snapshot --all`) instead of per-workspace
+                        snapshots. Columns: SET_ID, CREATED_AT, COUNT, C11_VERSION.
+              --all     Print both tables back-to-back (per-workspace, then sets).
+
             Examples:
               c11 list-snapshots
               c11 list-snapshots --json
+              c11 list-snapshots --sets
+              c11 list-snapshots --all
             """
         case "workspace":
             // CMUX-37: two-level dispatch. Without a subcommand, list the
