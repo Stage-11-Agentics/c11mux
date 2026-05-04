@@ -204,7 +204,7 @@ final class WorkspaceBlueprintStoreTests: XCTestCase {
         let overrideDir = tmpRoot.appendingPathComponent("md-test", isDirectory: true)
         try FileManager.default.createDirectory(at: overrideDir, withIntermediateDirectories: true)
 
-        // Write valid blueprint JSON with a .md extension.
+        // Write a real markdown blueprint via the store's .md write path.
         let blueprint = sampleBlueprint(name: "Markdown Extension")
         let mdStore = WorkspaceBlueprintStore(directoryOverride: overrideDir)
         let mdURL = overrideDir.appendingPathComponent("blueprint.md")
@@ -214,11 +214,36 @@ final class WorkspaceBlueprintStoreTests: XCTestCase {
         XCTAssertEqual(found.count, 1)
         XCTAssertEqual(found.first?.pathExtension, "md")
 
-        // The .md file should also appear in merged() with source .user.
+        // The .md file should appear in merged() with source .user. The name
+        // now comes from the frontmatter `title:` populated on serialise.
         let merged = mdStore.merged(cwd: nil)
         XCTAssertEqual(merged.count, 1)
-        // For .md files the store uses the filename stem as the name.
-        XCTAssertEqual(merged.first?.name, "blueprint")
+        XCTAssertEqual(merged.first?.name, "Markdown Extension")
         XCTAssertEqual(merged.first?.source, .user)
     }
+
+    func testMDExtensionRoundTripsThroughStoreReadWrite() throws {
+        let store = makeStore()
+        let blueprint = WorkspaceBlueprintFile(
+            name: "MD Round Trip",
+            description: "End-to-end through the store",
+            plan: WorkspaceApplyPlan(
+                version: 1,
+                workspace: WorkspaceSpec(title: "MD Round Trip", customColor: "#9D8048"),
+                layout: .pane(.init(surfaceIds: ["a"])),
+                surfaces: [SurfaceSpec(id: "a", kind: .terminal, title: "shell")]
+            )
+        )
+        let url = tmpRoot.appendingPathComponent("md-roundtrip.md")
+        try store.write(blueprint, to: url)
+        let readBack = try store.read(url: url)
+        XCTAssertEqual(readBack.name, blueprint.name)
+        XCTAssertEqual(readBack.description, blueprint.description)
+        XCTAssertEqual(readBack.plan.workspace.title, blueprint.plan.workspace.title)
+        XCTAssertEqual(readBack.plan.workspace.customColor, blueprint.plan.workspace.customColor)
+        XCTAssertEqual(readBack.plan.surfaces.count, 1)
+        XCTAssertEqual(readBack.plan.surfaces.first?.kind, .terminal)
+        XCTAssertEqual(readBack.plan.surfaces.first?.title, "shell")
+    }
+
 }
