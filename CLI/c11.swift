@@ -164,7 +164,7 @@ private final class CLISocketSentryTelemetry {
         self.command = command.lowercased()
         self.subcommand = commandArgs.first?.lowercased() ?? "help"
         self.socketPath = socketPath
-        self.envSocketPath = processEnv["CMUX_SOCKET_PATH"] ?? processEnv["CMUX_SOCKET"]
+        self.envSocketPath = processEnv["C11_SOCKET"] ?? processEnv["CMUX_SOCKET_PATH"] ?? processEnv["CMUX_SOCKET"]
         self.workspaceId = processEnv["CMUX_WORKSPACE_ID"]
         self.surfaceId = processEnv["CMUX_SURFACE_ID"]
         self.disabledByEnv =
@@ -259,7 +259,7 @@ private final class CLISocketSentryTelemetry {
         if CLISocketPathResolver.isImplicitDefaultPath(socketPath),
            (envSocketPath?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
            !taggedSockets.isEmpty {
-            context["possible_root_cause"] = "CMUX_SOCKET_PATH/CMUX_SOCKET missing while tagged sockets exist"
+            context["possible_root_cause"] = "C11_SOCKET/CMUX_SOCKET_PATH/CMUX_SOCKET missing while tagged sockets exist"
         }
 
         return context
@@ -757,6 +757,10 @@ private enum CLISocketPathResolver {
     }
 
     private static func readLastSocketPath() -> String? {
+        return readLastSocketPathWithSource()?.value
+    }
+
+    private static func readLastSocketPathWithSource() -> (value: String, source: String)? {
         let primaryCandidate: String? = stableSocketDirectoryURL()?
             .appendingPathComponent(lastSocketPathFileName, isDirectory: false)
             .path
@@ -767,7 +771,29 @@ private enum CLISocketPathResolver {
                 continue
             }
             if let value = normalized(data) {
-                return value
+                return (value: value, source: candidate)
+            }
+        }
+        return nil
+    }
+
+    /// Best-effort attribution for an auto-discovered socket path.
+    ///
+    /// Returns a human-readable hint identifying *where* `resolvedPath` came
+    /// from — the pointer file path when the resolver matched the
+    /// `last-socket-path` breadcrumb, or a short `CMUX_TAG=...` tag when the
+    /// path matches a tag-derived candidate. Returns `nil` when the source is
+    /// unclear (default fallback, /tmp scan, etc.) so callers can fall back
+    /// to a generic "(auto-discovered)" message.
+    static func discoverySourceHint(resolvedPath: String, environment: [String: String]) -> String? {
+        if let last = readLastSocketPathWithSource(), last.value == resolvedPath {
+            return last.source
+        }
+        if let tag = normalized(environment["CMUX_TAG"]) {
+            let slug = sanitizeTagSlug(tag)
+            if resolvedPath == "/tmp/cmux-debug-\(slug).sock"
+                || resolvedPath == "/tmp/cmux-\(slug).sock" {
+                return "CMUX_TAG=\(tag)"
             }
         }
         return nil
@@ -1421,8 +1447,10 @@ struct CMUXCLI {
     }
 
     private static func defaultSocketPath(environment: [String: String]) -> String {
-        if let explicit = normalizedEnvValue(environment["CMUX_SOCKET_PATH"]) {
-            return explicit
+        for key in ["C11_SOCKET", "CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
+            if let explicit = normalizedEnvValue(environment[key]) {
+                return explicit
+            }
         }
 #if DEBUG
         if let hinted = debugSocketPathFromHintFile() {
@@ -1434,10 +1462,42 @@ struct CMUXCLI {
 #endif
     }
 
+    /// Print one stderr line attributing an auto-discovered socket so the
+    /// operator can see they are not on the implicit default. Suppressed by
+    /// `C11_QUIET_DISCOVERY=1` (any non-empty, non-"0" value). The value
+    /// names both the picked socket and, when known, the source it came from
+    /// (the `last-socket-path` pointer file or a `CMUX_TAG=` env var).
+    private func emitAutoDiscoveryNotice(
+        resolvedPath: String,
+        environment: [String: String]
+    ) {
+        if let suppress = environment["C11_QUIET_DISCOVERY"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !suppress.isEmpty, suppress != "0" {
+            return
+        }
+        let line: String
+        if let source = CLISocketPathResolver.discoverySourceHint(
+            resolvedPath: resolvedPath,
+            environment: environment
+        ) {
+            line = String(
+                localized: "cli.socket.autoDiscoveredWithSource",
+                defaultValue: "c11: using socket \(resolvedPath) (auto-discovered from \(source))"
+            )
+        } else {
+            line = String(
+                localized: "cli.socket.autoDiscovered",
+                defaultValue: "c11: using socket \(resolvedPath) (auto-discovered)"
+            )
+        }
+        FileHandle.standardError.write(Data((line + "\n").utf8))
+    }
+
     func run() throws {
         let processEnv = ProcessInfo.processInfo.environment
         let envSocketPath: String? = {
-            for key in ["CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
+            for key in ["C11_SOCKET", "CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
                 guard let raw = processEnv[key] else { continue }
                 let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
@@ -1625,6 +1685,10 @@ struct CMUXCLI {
                     "requested_path": socketPath,
                     "resolved_path": resolvedSocketPath
                 ]
+            )
+            emitAutoDiscoveryNotice(
+                resolvedPath: resolvedSocketPath,
+                environment: processEnv
             )
         }
         cliTelemetry.breadcrumb(
@@ -12362,7 +12426,7 @@ struct CMUXCLI {
 
     private func claudeTeamsResolvedSocketPath(processEnvironment: [String: String]) -> String {
         let envSocketPath: String? = {
-            for key in ["CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
+            for key in ["C11_SOCKET", "CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
                 guard let raw = processEnvironment[key] else { continue }
                 let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
@@ -14448,6 +14512,11 @@ struct CMUXCLI {
           `tab-action` also accepts `tab:<n>` in addition to `surface:<n>`.
           Output defaults to refs; pass --id-format uuids or --id-format both to include UUIDs.
 
+        Socket Path:
+          Resolution precedence: --socket flag → C11_SOCKET → CMUX_SOCKET_PATH → CMUX_SOCKET → auto-discovery.
+          When auto-discovery picks a non-default socket, c11 prints one stderr line attributing the source.
+          Suppress that line with C11_QUIET_DISCOVERY=1.
+
         Socket Auth:
           --password takes precedence, then CMUX_SOCKET_PASSWORD env var, then password saved in Settings.
 
@@ -14590,8 +14659,11 @@ struct CMUXCLI {
                               ALL commands (send, list-panels, new-split, notify, etc.).
           CMUX_TAB_ID         Optional alias used by `tab-action`/`rename-tab` as default --tab.
           CMUX_SURFACE_ID     Auto-set in c11 terminals. Used as default --surface.
-          CMUX_SOCKET_PATH    Override the Unix socket path. Without this, the CLI defaults
-                              to ~/Library/Application Support/cmux/cmux.sock and auto-discovers tagged/debug sockets.
+          C11_SOCKET          Override the Unix socket path (preferred). Takes precedence over
+                              CMUX_SOCKET_PATH and CMUX_SOCKET.
+          CMUX_SOCKET_PATH    Legacy alias for C11_SOCKET. Still accepted; loses to C11_SOCKET when both set.
+          CMUX_SOCKET         Older alias for the same. Loses to both above.
+          C11_QUIET_DISCOVERY Set to 1 to suppress the stderr line c11 prints when auto-discovering a non-default socket.
         """
     }
 
