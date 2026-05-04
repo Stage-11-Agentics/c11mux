@@ -222,6 +222,40 @@ final class WorkspaceBlueprintStoreTests: XCTestCase {
         XCTAssertEqual(merged.first?.source, .user)
     }
 
+    // MARK: - Per-repo dual-path discovery
+
+    func testPerRepoBlueprintURLsCollectsBothC11AndCmuxDirsAtSameAncestor() throws {
+        let projectRoot = tmpRoot.appendingPathComponent("project", isDirectory: true)
+        let c11Dir = projectRoot.appendingPathComponent(".c11/blueprints", isDirectory: true)
+        let cmuxDir = projectRoot.appendingPathComponent(".cmux/blueprints", isDirectory: true)
+        try FileManager.default.createDirectory(at: c11Dir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: cmuxDir, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: c11Dir.appendingPathComponent("modern.json"))
+        try Data("{}".utf8).write(to: cmuxDir.appendingPathComponent("legacy.json"))
+
+        let store = makeStore()
+        let found = store.perRepoBlueprintURLs(cwd: projectRoot)
+
+        XCTAssertEqual(found.count, 2)
+        // .c11 entries must lead the list (so the picker prefers the
+        // canonically-named directory when both exist).
+        XCTAssertEqual(found.first?.lastPathComponent, "modern.json")
+        XCTAssertTrue(found.contains(where: { $0.lastPathComponent == "legacy.json" }))
+    }
+
+    func testPerRepoBlueprintURLsFindsC11OnlyWhenCmuxAbsent() throws {
+        let projectRoot = tmpRoot.appendingPathComponent("project", isDirectory: true)
+        let c11Dir = projectRoot.appendingPathComponent(".c11/blueprints", isDirectory: true)
+        try FileManager.default.createDirectory(at: c11Dir, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: c11Dir.appendingPathComponent("only.json"))
+
+        let store = makeStore()
+        let found = store.perRepoBlueprintURLs(cwd: projectRoot)
+
+        XCTAssertEqual(found.count, 1)
+        XCTAssertEqual(found.first?.lastPathComponent, "only.json")
+    }
+
     func testMDExtensionRoundTripsThroughStoreReadWrite() throws {
         let store = makeStore()
         let blueprint = WorkspaceBlueprintFile(

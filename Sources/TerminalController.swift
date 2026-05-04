@@ -2110,6 +2110,8 @@ class TerminalController {
             return v2Result(id: id, self.v2WorkspaceListBlueprints(params: params))
         case "workspace.export_blueprint":
             return v2Result(id: id, self.v2WorkspaceExportBlueprint(params: params))
+        case "workspace.parse_blueprint":
+            return v2Result(id: id, self.v2WorkspaceParseBlueprint(params: params))
 
         // Snapshots (CMUX-37 Phase 1)
         case "snapshot.create":
@@ -4571,15 +4573,29 @@ class TerminalController {
 
     /// `workspace.export_blueprint`: captures the live workspace as a
     /// `WorkspaceBlueprintFile` and writes it to the user blueprint directory
-    /// (`~/.config/cmux/blueprints/<sanitized-name>.json`). Required param:
-    /// `name`. Optional: `workspace_id`, `description`, `force` (bool).
-    /// Returns `{path: "...", name: "..."}`.
+    /// under `~/.config/c11/blueprints/<sanitized-name>.<ext>` (default
+    /// extension `.md`; `.json` selectable via the `format` param).
+    /// Required param: `name`. Optional: `workspace_id`, `description`,
+    /// `force` (bool), `format` (`"md"` default | `"json"`).
+    /// Returns `{path: "...", name: "...", format: "md|json"}`.
     private func v2WorkspaceExportBlueprint(params: [String: Any]) -> V2CallResult {
         guard let name = params["name"] as? String, !name.isEmpty else {
             return .err(code: "invalid_params", message: "Missing or empty 'name'", data: nil)
         }
         let description = params["description"] as? String
         let force = params["force"] as? Bool ?? false
+        let formatRaw = (params["format"] as? String)?.lowercased() ?? "md"
+        let formatExt: String
+        switch formatRaw {
+        case "md", "markdown": formatExt = "md"
+        case "json":           formatExt = "json"
+        default:
+            return .err(
+                code: "invalid_params",
+                message: "Unsupported format '\(formatRaw)'. Expected 'md' or 'json'.",
+                data: nil
+            )
+        }
 
         guard let tabManager = v2ResolveTabManager(params: params) else {
             return .err(code: "unavailable", message: "TabManager not available", data: nil)
@@ -4604,8 +4620,8 @@ class TerminalController {
 
         let fm = FileManager.default
         let dir = fm.homeDirectoryForCurrentUser
-            .appendingPathComponent(".config/cmux/blueprints")
-        let url = dir.appendingPathComponent("\(filename).json")
+            .appendingPathComponent(".config/c11/blueprints")
+        let url = dir.appendingPathComponent("\(filename).\(formatExt)")
 
         if !force && fm.fileExists(atPath: url.path) {
             return .err(
@@ -4624,7 +4640,63 @@ class TerminalController {
             return .err(code: "export_failed", message: "\(error)", data: nil)
         }
 
-        return .ok(["path": url.path, "name": name])
+        return .ok(["path": url.path, "name": name, "format": formatExt])
+    }
+
+    /// `workspace.parse_blueprint`: pure parser for a markdown or JSON
+    /// blueprint envelope passed by content. Required params: `content`
+    /// (string), `format` (`"md"` or `"json"`). Returns the decoded
+    /// envelope as `{name, description, plan}` so the CLI can forward
+    /// `plan` to `workspace.apply` without bringing the parser into the
+    /// CLI binary's link surface.
+    ///
+    /// File reads happen in the CLI process (caller's real FS
+    /// permissions); the socket only sees content already in memory. No
+    /// disk access here, no path resolution — keeps this immune to the
+    /// arbitrary-file-read class of attacks `snapshot.restore` already
+    /// guards against.
+    private func v2WorkspaceParseBlueprint(params: [String: Any]) -> V2CallResult {
+        guard let content = params["content"] as? String else {
+            return .err(code: "invalid_params", message: "Missing 'content'", data: nil)
+        }
+        let formatRaw = ((params["format"] as? String) ?? "md").lowercased()
+        guard let data = content.data(using: .utf8) else {
+            return .err(code: "invalid_params", message: "Content is not valid UTF-8", data: nil)
+        }
+        let file: WorkspaceBlueprintFile
+        do {
+            switch formatRaw {
+            case "md", "markdown":
+                file = try WorkspaceBlueprintMarkdown.parse(data)
+            case "json":
+                file = try JSONDecoder().decode(WorkspaceBlueprintFile.self, from: data)
+            default:
+                return .err(
+                    code: "invalid_params",
+                    message: "Unsupported format '\(formatRaw)'. Expected 'md' or 'json'.",
+                    data: nil
+                )
+            }
+        } catch {
+            return .err(code: "blueprint_decode_failed", message: "\(error)", data: nil)
+        }
+        do {
+            let encoded = try JSONEncoder().encode(file)
+            guard let asAny = try JSONSerialization.jsonObject(with: encoded, options: []) as? [String: Any],
+                  let plan = asAny["plan"] else {
+                return .err(code: "internal_error", message: "Failed to materialize parsed blueprint", data: nil)
+            }
+            var payload: [String: Any] = [
+                "plan": plan,
+                "name": file.name
+            ]
+            if let desc = file.description {
+                payload["description"] = desc
+            }
+            return .ok(payload)
+        } catch {
+            return .err(code: "internal_error", message: "Failed to encode parsed blueprint: \(error)", data: nil)
+        }
     }
 
     // MARK: - V2 Snapshot Methods (CMUX-37 Phase 1)

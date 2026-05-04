@@ -2885,13 +2885,7 @@ struct CMUXCLI {
             guard let data = FileManager.default.contents(atPath: resolved) else {
                 throw CLIError(message: "workspace new: could not read '\(resolved)'")
             }
-            guard
-                let file = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let plan = file["plan"]
-            else {
-                throw CLIError(message: "workspace new: '\(resolved)' is not a valid blueprint file (missing 'plan' key)")
-            }
-            planObject = plan
+            planObject = try blueprintPlanFromFile(at: resolved, data: data, client: client)
         } else {
             planObject = try workspaceBlueprintPicker(client: client, jsonOutput: jsonOutput)
         }
@@ -2973,11 +2967,35 @@ struct CMUXCLI {
         guard let data = FileManager.default.contents(atPath: resolved) else {
             throw CLIError(message: "workspace new: could not read blueprint at '\(resolved)'")
         }
+        return try blueprintPlanFromFile(at: resolved, data: data, client: client)
+    }
+
+    /// Resolve a blueprint file's bytes to a layout plan dict suitable for
+    /// `workspace.apply`. Dispatches on extension: `.md` files are routed
+    /// through the `workspace.parse_blueprint` v2 method (so the markdown
+    /// parser stays out of the CLI binary's link surface); `.json` and
+    /// other extensions are decoded as `WorkspaceBlueprintFile` JSON
+    /// envelopes.
+    private func blueprintPlanFromFile(at path: String, data: Data, client: SocketClient) throws -> Any {
+        let ext = (path as NSString).pathExtension.lowercased()
+        if ext == "md" {
+            guard let content = String(data: data, encoding: .utf8) else {
+                throw CLIError(message: "workspace new: '\(path)' is not valid UTF-8")
+            }
+            let parsed = try client.sendV2(
+                method: "workspace.parse_blueprint",
+                params: ["format": "md", "content": content]
+            )
+            guard let plan = parsed["plan"] else {
+                throw CLIError(message: "workspace new: '\(path)' parse returned no plan")
+            }
+            return plan
+        }
         guard
             let file = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let plan = file["plan"]
         else {
-            throw CLIError(message: "workspace new: '\(resolved)' is not a valid blueprint file (missing 'plan' key)")
+            throw CLIError(message: "workspace new: '\(path)' is not a valid blueprint file (missing 'plan' key)")
         }
         return plan
     }
@@ -3014,10 +3032,13 @@ struct CMUXCLI {
     }
 
     /// `c11 workspace export-blueprint --name <name> [--workspace <ref>]
-    /// [--description <text>] [--out <path>] [--force]`. Captures the current
-    /// (or named) workspace as a `WorkspaceBlueprintFile` JSON and writes it.
-    /// Without `--out`, prints the default path written by the socket handler.
-    /// `--force` allows overwriting an existing blueprint with the same name.
+    /// [--description <text>] [--format md|json] [--out <path>] [--force]`.
+    /// Captures the current (or named) workspace as a
+    /// `WorkspaceBlueprintFile` and writes it. Default format is `md`
+    /// (Obsidian-friendly markdown under `~/.config/c11/blueprints/`); pass
+    /// `--format json` for the legacy JSON envelope. Without `--out`,
+    /// prints the default path written by the socket handler. `--force`
+    /// allows overwriting an existing blueprint with the same name.
     private func runWorkspaceExportBlueprint(
         _ args: [String],
         client: SocketClient,
@@ -3026,17 +3047,25 @@ struct CMUXCLI {
         let (workspaceOpt, a1) = parseOption(args, name: "--workspace")
         let (nameOpt, a2) = parseOption(a1, name: "--name")
         let (descOpt, a3) = parseOption(a2, name: "--description")
-        let (outOpt, a4) = parseOption(a3, name: "--out")
-        let forceFlag = a4.contains("--force")
-        let a5 = a4.filter { $0 != "--force" }
-        if let unknown = a5.first(where: { $0.hasPrefix("--") }) {
-            throw CLIError(message: "workspace export-blueprint: unknown flag '\(unknown)'. Known flags: --workspace <ref>, --name <name>, --description <text>, --out <path>, --force")
+        let (formatOpt, a4) = parseOption(a3, name: "--format")
+        let (outOpt, a5) = parseOption(a4, name: "--out")
+        let forceFlag = a5.contains("--force")
+        let a6 = a5.filter { $0 != "--force" }
+        if let unknown = a6.first(where: { $0.hasPrefix("--") }) {
+            throw CLIError(message: "workspace export-blueprint: unknown flag '\(unknown)'. Known flags: --workspace <ref>, --name <name>, --description <text>, --format md|json, --out <path>, --force")
         }
         guard let name = nameOpt else {
             throw CLIError(message: "workspace export-blueprint: --name <name> is required")
         }
+        let format: String = {
+            guard let raw = formatOpt?.lowercased(), !raw.isEmpty else { return "md" }
+            return (raw == "markdown") ? "md" : raw
+        }()
+        if format != "md" && format != "json" {
+            throw CLIError(message: "workspace export-blueprint: --format must be md or json (got '\(format)')")
+        }
 
-        var params: [String: Any] = ["name": name]
+        var params: [String: Any] = ["name": name, "format": format]
         if let wsRaw = workspaceOpt {
             params["workspace_id"] = try resolveWorkspaceId(wsRaw, client: client)
         }
@@ -3073,7 +3102,7 @@ struct CMUXCLI {
             mutable["path"] = resolvedPath
             print(jsonString(mutable))
         } else {
-            print("OK blueprint=\(name) path=\(resolvedPath)")
+            print("OK blueprint=\(name) format=\(format) path=\(resolvedPath)")
         }
     }
 
@@ -8843,7 +8872,9 @@ struct CMUXCLI {
                 Create a new workspace from a blueprint. Without `--blueprint`,
                 drops into an interactive picker that lists the built-in
                 blueprints plus any discovered under
-                `~/.config/cmux/blueprints/` and `<repo>/.cmux/blueprints/`.
+                `~/.config/c11/blueprints/`, `<repo>/.c11/blueprints/`, and
+                their legacy `cmux` siblings. Both `.md` (operator-edited
+                markdown) and `.json` blueprint files are accepted.
 
                 Flags:
                   --blueprint <path>   Apply the blueprint at the given path
@@ -8851,30 +8882,33 @@ struct CMUXCLI {
 
                 Examples:
                   c11 workspace new
-                  c11 workspace new --blueprint ~/.config/cmux/blueprints/agent-room.json
+                  c11 workspace new --blueprint ~/.config/c11/blueprints/agent-room.md
                 """
             case "export-blueprint":
                 return """
                 Usage: c11 workspace export-blueprint --name <name>
                                                       [--workspace <id|ref|index>]
                                                       [--description <text>]
+                                                      [--format md|json]
                                                       [--out <path>]
                                                       [--force]
 
                 Capture the current (or named) workspace as a
                 `WorkspaceBlueprintFile` and write it to disk. Default
-                destination is `~/.config/cmux/blueprints/<name>.json`.
+                destination is `~/.config/c11/blueprints/<name>.md`. Pass
+                `--format json` for the legacy JSON envelope.
 
                 Flags:
                   --name <name>            Required. Blueprint name (also the file stem).
                   --workspace <ref>        Source workspace. Defaults to the caller's workspace.
                   --description <text>     Optional description embedded in the blueprint envelope.
+                  --format md|json         Output format. Default: md.
                   --out <path>             Move the written file to this path.
                   --force                  Overwrite an existing blueprint with the same name.
 
                 Examples:
                   c11 workspace export-blueprint --name agent-room
-                  c11 workspace export-blueprint --name agent-room --workspace workspace:1 --force
+                  c11 workspace export-blueprint --name agent-room --format json --workspace workspace:1 --force
                 """
             case nil:
                 return """

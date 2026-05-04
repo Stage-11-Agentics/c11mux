@@ -2,10 +2,12 @@ import Foundation
 
 /// Filesystem I/O for blueprint envelopes.
 ///
-/// Three sources in priority order: per-repo (`.cmux/blueprints/` walked up
-/// from a working directory), per-user (`~/.config/cmux/blueprints/`), and
-/// built-in (app bundle `Blueprints/` subdirectory). `merged(cwd:)` combines
-/// all three, per-repo first, sorted by modifiedAt desc within each group.
+/// Three sources in priority order: per-repo (walks up from a working
+/// directory checking `.c11/blueprints/` then `.cmux/blueprints/`),
+/// per-user (`~/.config/c11/blueprints/` plus the legacy
+/// `~/.config/cmux/blueprints/`), and built-in (app bundle `Blueprints/`
+/// subdirectory). `merged(cwd:)` combines all three, per-repo first,
+/// sorted by modifiedAt desc within each group.
 ///
 /// Files may be either JSON (`.json`) or Markdown (`.md`). Read/write
 /// dispatch happens on the URL's extension; the parser for the markdown
@@ -61,17 +63,24 @@ struct WorkspaceBlueprintStore: Sendable {
 
     // MARK: - Source discovery
 
-    /// Scan `.cmux/blueprints/*.{json,md}` walking UP from `cwd` (git-discovery
-    /// style) until the filesystem root or the user's home directory.
+    /// Walk UP from `cwd` (git-discovery style) and at the first ancestor
+    /// that has either `.c11/blueprints/` or `.cmux/blueprints/` collect
+    /// blueprints from both. `.c11/` entries appear first in the returned
+    /// list so the picker shows the c11-canonical directory above the
+    /// legacy one when both exist at the same ancestor.
     func perRepoBlueprintURLs(cwd: URL) -> [URL] {
         let home = fileManager.homeDirectoryForCurrentUser.standardized
         var candidate = cwd.standardized
-        // Walk up, but never above home — stop on first hit rather than
-        // accumulating from every ancestor to avoid shadowing surprises.
         while true {
-            let dir = candidate.appendingPathComponent(".cmux/blueprints", isDirectory: true)
-            if fileManager.fileExists(atPath: dir.path) {
-                return blueprintURLs(in: dir)
+            let c11Dir = candidate.appendingPathComponent(".c11/blueprints", isDirectory: true)
+            let cmuxDir = candidate.appendingPathComponent(".cmux/blueprints", isDirectory: true)
+            let c11Exists = fileManager.fileExists(atPath: c11Dir.path)
+            let cmuxExists = fileManager.fileExists(atPath: cmuxDir.path)
+            if c11Exists || cmuxExists {
+                var out: [URL] = []
+                if c11Exists { out.append(contentsOf: blueprintURLs(in: c11Dir)) }
+                if cmuxExists { out.append(contentsOf: blueprintURLs(in: cmuxDir)) }
+                return out
             }
             // Stop at home or root.
             if candidate == home || candidate.path == "/" {
@@ -87,16 +96,18 @@ struct WorkspaceBlueprintStore: Sendable {
         return []
     }
 
-    /// Scan `~/.config/cmux/blueprints/*.{json,md}`, or the override when set.
+    /// Scan `~/.config/c11/blueprints/*.{json,md}` and the legacy
+    /// `~/.config/cmux/blueprints/` path. The c11 directory ships first so
+    /// the picker prefers canonically-named files when both exist. The
+    /// `directoryOverride:` test seam returns just that directory unchanged.
     func perUserBlueprintURLs() -> [URL] {
-        let dir: URL
         if let override = directoryOverride {
-            dir = override
-        } else {
-            let home = fileManager.homeDirectoryForCurrentUser
-            dir = home.appendingPathComponent(".config/cmux/blueprints", isDirectory: true)
+            return blueprintURLs(in: override)
         }
-        return blueprintURLs(in: dir)
+        let home = fileManager.homeDirectoryForCurrentUser
+        let primary = home.appendingPathComponent(".config/c11/blueprints", isDirectory: true)
+        let legacy = home.appendingPathComponent(".config/cmux/blueprints", isDirectory: true)
+        return blueprintURLs(in: primary) + blueprintURLs(in: legacy)
     }
 
     /// Scan the app bundle's `Blueprints/` subdirectory, or the override's
