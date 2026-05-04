@@ -1660,6 +1660,7 @@ class TerminalController {
 
     private nonisolated static let socketWorkerV2Methods: Set<String> = [
         "surface.send_text",
+        "surface.send_key",
     ]
 
     private nonisolated static func executionPolicy(forV2Method method: String) -> SocketCommandExecutionPolicy {
@@ -1703,6 +1704,8 @@ class TerminalController {
         switch request.method {
         case "surface.send_text":
             return v2Result(id: request.id, v2SurfaceSendText(params: request.params))
+        case "surface.send_key":
+            return v2Result(id: request.id, v2SurfaceSendKey(params: request.params))
         default:
             return v2Error(id: request.id, code: "method_not_found", message: "Unknown method")
         }
@@ -2287,8 +2290,9 @@ class TerminalController {
         // by socketWorkerV2Response. Reaching this switch for it would mean the
         // routing layer mis-targeted the request; the invalid_dispatch guard above
         // catches that and returns an error.
-        case "surface.send_key":
-            return v2Result(id: id, self.v2SurfaceSendKey(params: params))
+        // surface.send_key is on the socketWorker execution policy and is dispatched
+        // by socketWorkerV2Response. The invalid_dispatch guard above catches any
+        // mis-routed request before it reaches this switch.
         case "surface.clear_history":
             return v2Result(id: id, self.v2SurfaceClearHistory(params: params))
         case "surface.trigger_flash":
@@ -3479,7 +3483,7 @@ class TerminalController {
 
     // MARK: - V2 Param Parsing
 
-    private func v2String(_ params: [String: Any], _ key: String) -> String? {
+    private nonisolated func v2String(_ params: [String: Any], _ key: String) -> String? {
         guard let raw = params[key] as? String else { return nil }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
@@ -6738,41 +6742,68 @@ class TerminalController {
         return .ok(resolved.responseEnvelope)
     }
 
-    private func v2SurfaceSendKey(params: [String: Any]) -> V2CallResult {
-        guard let tabManager = v2ResolveTabManager(params: params) else {
-            return .err(code: "unavailable", message: "TabManager not available", data: nil)
-        }
+    // C11-26: surface.send_key matches surface.send_text's deadlock shape
+    // (v2MainSync wrap → waitForTerminalSurface → v2AwaitCallback nesting
+    // CFRunLoopRun on a held main queue). Migrate it to the same Phase A /
+    // Phase B pattern. See `v2SurfaceSendText` for the full rationale.
+    private nonisolated func v2SurfaceSendKey(params: [String: Any]) -> V2CallResult {
+        #if DEBUG
+        dlog("v2.surface.send_key isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
+        #endif
+
         guard let key = v2String(params, "key") else {
             return .err(code: "invalid_params", message: "Missing key", data: nil)
         }
 
-        var result: V2CallResult = .err(code: "internal_error", message: "Failed to send key", data: nil)
-        v2MainSync {
-            guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
-                result = .err(code: "not_found", message: "Workspace not found", data: nil)
-                return
-            }
-            let surfaceId = v2UUID(params, "surface_id") ?? ws.focusedPanelId
-            guard let surfaceId else {
-                result = .err(code: "not_found", message: "No focused surface", data: nil)
-                return
-            }
-            guard let terminalPanel = ws.terminalPanel(for: surfaceId) else {
-                result = .err(code: "invalid_params", message: "Surface is not a terminal", data: ["surface_id": surfaceId.uuidString])
-                return
-            }
-            guard let surface = waitForTerminalSurface(terminalPanel, waitUpTo: 2.0) else {
-                result = .err(code: "internal_error", message: "Surface not ready", data: ["surface_id": surfaceId.uuidString])
-                return
-            }
-            guard sendNamedKey(surface, keyName: key) else {
-                result = .err(code: "invalid_params", message: "Unknown key", data: ["key": key])
-                return
-            }
-            terminalPanel.surface.forceRefresh(reason: "terminalController.v2SurfaceSendKey")
-            result = .ok(["workspace_id": ws.id.uuidString, "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id), "surface_id": surfaceId.uuidString, "surface_ref": v2Ref(kind: .surface, uuid: surfaceId), "window_id": v2OrNull(v2ResolveWindowId(tabManager: tabManager)?.uuidString), "window_ref": v2Ref(kind: .window, uuid: v2ResolveWindowId(tabManager: tabManager))])
+        let phaseASema = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var phaseAOutcome: SurfaceSendPhaseAOutcome = .err(.err(code: "internal_error", message: "Failed to send key", data: nil))
+        Task { @MainActor in
+            defer { phaseASema.signal() }
+            phaseAOutcome = resolveSurfaceSendTargets(params: params, errMessageOnInternalError: "Failed to send key")
         }
-        return result
+        phaseASema.wait()
+
+        let resolved: SurfaceSendPhaseAResolved
+        switch phaseAOutcome {
+        case .err(let err):
+            return err
+        case .ok(let r):
+            resolved = r
+        }
+
+        let resolvedSurface: ghostty_surface_t?
+        if let initialSurface = resolved.initialSurface {
+            resolvedSurface = initialSurface
+        } else {
+            resolvedSurface = waitForTerminalSurfaceOffMain(resolved.terminalPanel, waitUpTo: 2.0)
+        }
+        guard let surface = resolvedSurface else {
+            return .err(code: "internal_error", message: "Surface not ready", data: ["surface_id": resolved.surfaceIdString])
+        }
+
+        enum PhaseBOutcome {
+            case ok
+            case unknownKey
+        }
+        let phaseBSema = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var phaseBOutcome: PhaseBOutcome = .unknownKey
+        Task { @MainActor in
+            if sendNamedKey(surface, keyName: key) {
+                resolved.terminalPanel.surface.forceRefresh(reason: "terminalController.v2SurfaceSendKey")
+                phaseBOutcome = .ok
+            } else {
+                phaseBOutcome = .unknownKey
+            }
+            phaseBSema.signal()
+        }
+        phaseBSema.wait()
+
+        switch phaseBOutcome {
+        case .ok:
+            return .ok(resolved.responseEnvelope)
+        case .unknownKey:
+            return .err(code: "invalid_params", message: "Unknown key", data: ["key": key])
+        }
     }
 
     private func v2SurfaceClearHistory(params: [String: Any]) -> V2CallResult {
