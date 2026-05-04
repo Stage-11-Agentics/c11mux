@@ -2843,6 +2843,69 @@ struct CMUXCLI {
         }
     }
 
+    /// Classification of an executor `ApplyFailure` for human-readable
+    /// rendering. CMUX-37 workstream 3: the wire shape carried by
+    /// `Sources/WorkspaceApplyPlan.swift`'s `ApplyFailure` stays unchanged;
+    /// only this client-side classifier decides what surfaces under
+    /// `failure:` versus the new `info:` line. A future caller with a
+    /// different opinion can ignore this and read the structured payload.
+    enum FailureSeverity {
+        case failure
+        case info
+    }
+
+    /// Classify a single failure entry. Two codes are treated as info-level
+    /// because the executor emits them on every clean snapshot/restore round
+    /// trip:
+    ///
+    /// - `metadata_override` — fires when a SurfaceSpec sets both `.title`
+    ///   and `metadata["title"]` (or both descriptions). The capture-side
+    ///   fix in `Sources/WorkspacePlanCapture.swift` strips the dup, so this
+    ///   should rarely fire on a clean round-trip; the classification is the
+    ///   belt for the suspenders.
+    /// - `working_directory_not_applied` with a "seed terminal reuse" marker
+    ///   in the message — fires on every restore whose first terminal had a
+    ///   captured cwd. The seed shell is already running by the time the
+    ///   executor sees the spec, so the cwd cannot apply. Expected, not a
+    ///   real failure.
+    ///
+    /// Other emission sites of `working_directory_not_applied` (browser /
+    /// markdown split, in-pane creation) are still real failures; they
+    /// indicate the operator passed a cwd to a kind that can't accept one.
+    ///
+    /// CAUTION: detection of the seed-terminal case relies on the executor's
+    /// emitted message containing the substring "seed terminal reuse". If
+    /// `Sources/WorkspaceLayoutExecutor.swift`'s
+    /// `reportWorkingDirectoryNotApplicable` call for the seedTerminal
+    /// context (around L656) ever changes its `context:` argument, update
+    /// the matcher below.
+    static func failureSeverity(code: String, message: String) -> FailureSeverity {
+        if code == "metadata_override" { return .info }
+        if code == "working_directory_not_applied",
+           message.contains("seed terminal reuse") {
+            return .info
+        }
+        return .failure
+    }
+
+    /// Split an executor failure list into (real failures, info-level lines)
+    /// while preserving original order so output stays stable across runs.
+    static func partitionFailures(
+        _ failures: [[String: Any]]
+    ) -> (failures: [[String: Any]], info: [[String: Any]]) {
+        var realFailures: [[String: Any]] = []
+        var infoLines: [[String: Any]] = []
+        for f in failures {
+            let code = (f["code"] as? String) ?? ""
+            let msg = (f["message"] as? String) ?? ""
+            switch failureSeverity(code: code, message: msg) {
+            case .failure: realFailures.append(f)
+            case .info:    infoLines.append(f)
+            }
+        }
+        return (failures: realFailures, info: infoLines)
+    }
+
     private func localizedBlueprintSourceLabel(_ raw: String) -> String {
         switch raw {
         case "repo":
@@ -2910,12 +2973,24 @@ struct CMUXCLI {
                 for w in warnings { print("  - \(w)") }
             }
             if !failures.isEmpty {
-                print("failures: \(failures.count)")
-                for f in failures {
-                    let code = (f["code"] as? String) ?? "?"
-                    let step = (f["step"] as? String) ?? "?"
-                    let msg = (f["message"] as? String) ?? ""
-                    print("  - [\(code)] \(step): \(msg)")
+                let (realFailures, infoLines) = Self.partitionFailures(failures)
+                if !realFailures.isEmpty {
+                    print("failures: \(realFailures.count)")
+                    for f in realFailures {
+                        let code = (f["code"] as? String) ?? "?"
+                        let step = (f["step"] as? String) ?? "?"
+                        let msg = (f["message"] as? String) ?? ""
+                        print("  - [\(code)] \(step): \(msg)")
+                    }
+                }
+                if !infoLines.isEmpty {
+                    print("info: \(infoLines.count)")
+                    for f in infoLines {
+                        let code = (f["code"] as? String) ?? "?"
+                        let step = (f["step"] as? String) ?? "?"
+                        let msg = (f["message"] as? String) ?? ""
+                        print("  - [\(code)] \(step): \(msg)")
+                    }
                 }
             }
         }
@@ -2968,11 +3043,18 @@ struct CMUXCLI {
                 for w in warnings { print("  warning: \(w)") }
             }
             if !failures.isEmpty {
-                for f in failures {
+                let (realFailures, infoLines) = Self.partitionFailures(failures)
+                for f in realFailures {
                     let code = (f["code"] as? String) ?? "?"
                     let step = (f["step"] as? String) ?? "?"
                     let msg = (f["message"] as? String) ?? ""
                     print("  failure: [\(code)] \(step): \(msg)")
+                }
+                for f in infoLines {
+                    let code = (f["code"] as? String) ?? "?"
+                    let step = (f["step"] as? String) ?? "?"
+                    let msg = (f["message"] as? String) ?? ""
+                    print("  info: [\(code)] \(step): \(msg)")
                 }
             }
         }
@@ -3382,12 +3464,24 @@ struct CMUXCLI {
             for w in warnings { print("  - \(w)") }
         }
         if !failures.isEmpty {
-            print("failures: \(failures.count)")
-            for f in failures {
-                let code = (f["code"] as? String) ?? "?"
-                let step = (f["step"] as? String) ?? "?"
-                let msg = (f["message"] as? String) ?? ""
-                print("  - [\(code)] \(step): \(msg)")
+            let (realFailures, infoLines) = Self.partitionFailures(failures)
+            if !realFailures.isEmpty {
+                print("failures: \(realFailures.count)")
+                for f in realFailures {
+                    let code = (f["code"] as? String) ?? "?"
+                    let step = (f["step"] as? String) ?? "?"
+                    let msg = (f["message"] as? String) ?? ""
+                    print("  - [\(code)] \(step): \(msg)")
+                }
+            }
+            if !infoLines.isEmpty {
+                print("info: \(infoLines.count)")
+                for f in infoLines {
+                    let code = (f["code"] as? String) ?? "?"
+                    let step = (f["step"] as? String) ?? "?"
+                    let msg = (f["message"] as? String) ?? ""
+                    print("  - [\(code)] \(step): \(msg)")
+                }
             }
         }
     }
@@ -14677,6 +14771,16 @@ struct CMUXCLI {
         idFormat: CLIIDFormat = .refs
     ) -> String {
         formatDebugTerminalsPayload(payload, idFormat: idFormat)
+    }
+
+    static func debugFailureSeverityForTesting(code: String, message: String) -> FailureSeverity {
+        failureSeverity(code: code, message: message)
+    }
+
+    static func debugPartitionFailuresForTesting(
+        _ failures: [[String: Any]]
+    ) -> (failures: [[String: Any]], info: [[String: Any]]) {
+        partitionFailures(failures)
     }
 #endif
 }
