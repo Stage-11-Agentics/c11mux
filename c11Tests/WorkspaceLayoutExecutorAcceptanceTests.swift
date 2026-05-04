@@ -476,8 +476,14 @@ final class WorkspaceLayoutExecutorAcceptanceTests: XCTestCase {
         let panelUUIDToPlanId = Dictionary(
             uniqueKeysWithValues: planSurfaceIdToPanelUUID.map { ($0.value, $0.key) }
         )
+        // `ExternalTab.id` is a stringified UUID (bonsplit's external view),
+        // but `Workspace.panelIdFromSurfaceId(_:)` is typed on the opaque
+        // `TabID` wrapper. Parse the string back to UUID and wrap before
+        // looking up — same conversion `WorkspacePlanCapture.panelID(forTabIDString:)`
+        // does at the v2 socket boundary.
         let livePlanIds: [String] = livePane.tabs.map { tab in
-            guard let panelId = workspace.panelIdFromSurfaceId(tab.id),
+            guard let tabUUID = UUID(uuidString: tab.id),
+                  let panelId = workspace.panelIdFromSurfaceId(TabID(uuid: tabUUID)),
                   let planId = panelUUIDToPlanId[panelId] else {
                 return "unknown(\(tab.id))"
             }
@@ -497,9 +503,13 @@ final class WorkspaceLayoutExecutorAcceptanceTests: XCTestCase {
                 XCTFail("[\(fixtureName) @ \(path)] could not resolve expected selected surface \(expectedSurfaceId)")
                 return
             }
+            // `livePane.selectedTabId` is `String?` (bonsplit's external
+            // view); `expectedTabId` is `TabID`. Project the wrapper to
+            // its canonical UUID-string form so the comparison stays in
+            // the same value space.
             XCTAssertEqual(
                 livePane.selectedTabId,
-                expectedTabId,
+                expectedTabId.uuid.uuidString,
                 "[\(fixtureName) @ \(path)] selectedTabId mismatch (expected surface \(expectedSurfaceId))"
             )
         }
