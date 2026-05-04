@@ -164,7 +164,7 @@ private final class CLISocketSentryTelemetry {
         self.command = command.lowercased()
         self.subcommand = commandArgs.first?.lowercased() ?? "help"
         self.socketPath = socketPath
-        self.envSocketPath = processEnv["CMUX_SOCKET_PATH"] ?? processEnv["CMUX_SOCKET"]
+        self.envSocketPath = processEnv["C11_SOCKET"] ?? processEnv["CMUX_SOCKET_PATH"] ?? processEnv["CMUX_SOCKET"]
         self.workspaceId = processEnv["CMUX_WORKSPACE_ID"]
         self.surfaceId = processEnv["CMUX_SURFACE_ID"]
         self.disabledByEnv =
@@ -259,7 +259,7 @@ private final class CLISocketSentryTelemetry {
         if CLISocketPathResolver.isImplicitDefaultPath(socketPath),
            (envSocketPath?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true),
            !taggedSockets.isEmpty {
-            context["possible_root_cause"] = "CMUX_SOCKET_PATH/CMUX_SOCKET missing while tagged sockets exist"
+            context["possible_root_cause"] = "C11_SOCKET/CMUX_SOCKET_PATH/CMUX_SOCKET missing while tagged sockets exist"
         }
 
         return context
@@ -757,6 +757,10 @@ private enum CLISocketPathResolver {
     }
 
     private static func readLastSocketPath() -> String? {
+        return readLastSocketPathWithSource()?.value
+    }
+
+    private static func readLastSocketPathWithSource() -> (value: String, source: String)? {
         let primaryCandidate: String? = stableSocketDirectoryURL()?
             .appendingPathComponent(lastSocketPathFileName, isDirectory: false)
             .path
@@ -767,7 +771,29 @@ private enum CLISocketPathResolver {
                 continue
             }
             if let value = normalized(data) {
-                return value
+                return (value: value, source: candidate)
+            }
+        }
+        return nil
+    }
+
+    /// Best-effort attribution for an auto-discovered socket path.
+    ///
+    /// Returns a human-readable hint identifying *where* `resolvedPath` came
+    /// from — the pointer file path when the resolver matched the
+    /// `last-socket-path` breadcrumb, or a short `CMUX_TAG=...` tag when the
+    /// path matches a tag-derived candidate. Returns `nil` when the source is
+    /// unclear (default fallback, /tmp scan, etc.) so callers can fall back
+    /// to a generic "(auto-discovered)" message.
+    static func discoverySourceHint(resolvedPath: String, environment: [String: String]) -> String? {
+        if let last = readLastSocketPathWithSource(), last.value == resolvedPath {
+            return last.source
+        }
+        if let tag = normalized(environment["CMUX_TAG"]) {
+            let slug = sanitizeTagSlug(tag)
+            if resolvedPath == "/tmp/cmux-debug-\(slug).sock"
+                || resolvedPath == "/tmp/cmux-\(slug).sock" {
+                return "CMUX_TAG=\(tag)"
             }
         }
         return nil
@@ -1421,8 +1447,10 @@ struct CMUXCLI {
     }
 
     private static func defaultSocketPath(environment: [String: String]) -> String {
-        if let explicit = normalizedEnvValue(environment["CMUX_SOCKET_PATH"]) {
-            return explicit
+        for key in ["C11_SOCKET", "CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
+            if let explicit = normalizedEnvValue(environment[key]) {
+                return explicit
+            }
         }
 #if DEBUG
         if let hinted = debugSocketPathFromHintFile() {
@@ -1434,10 +1462,42 @@ struct CMUXCLI {
 #endif
     }
 
+    /// Print one stderr line attributing an auto-discovered socket so the
+    /// operator can see they are not on the implicit default. Suppressed by
+    /// `C11_QUIET_DISCOVERY=1` (any non-empty, non-"0" value). The value
+    /// names both the picked socket and, when known, the source it came from
+    /// (the `last-socket-path` pointer file or a `CMUX_TAG=` env var).
+    private func emitAutoDiscoveryNotice(
+        resolvedPath: String,
+        environment: [String: String]
+    ) {
+        if let suppress = environment["C11_QUIET_DISCOVERY"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !suppress.isEmpty, suppress != "0" {
+            return
+        }
+        let line: String
+        if let source = CLISocketPathResolver.discoverySourceHint(
+            resolvedPath: resolvedPath,
+            environment: environment
+        ) {
+            line = String(
+                localized: "cli.socket.autoDiscoveredWithSource",
+                defaultValue: "c11: using socket \(resolvedPath) (auto-discovered from \(source))"
+            )
+        } else {
+            line = String(
+                localized: "cli.socket.autoDiscovered",
+                defaultValue: "c11: using socket \(resolvedPath) (auto-discovered)"
+            )
+        }
+        FileHandle.standardError.write(Data((line + "\n").utf8))
+    }
+
     func run() throws {
         let processEnv = ProcessInfo.processInfo.environment
         let envSocketPath: String? = {
-            for key in ["CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
+            for key in ["C11_SOCKET", "CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
                 guard let raw = processEnv[key] else { continue }
                 let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
@@ -1630,6 +1690,10 @@ struct CMUXCLI {
                     "requested_path": socketPath,
                     "resolved_path": resolvedSocketPath
                 ]
+            )
+            emitAutoDiscoveryNotice(
+                resolvedPath: resolvedSocketPath,
+                environment: processEnv
             )
         }
         cliTelemetry.breadcrumb(
@@ -2784,6 +2848,69 @@ struct CMUXCLI {
         }
     }
 
+    /// Classification of an executor `ApplyFailure` for human-readable
+    /// rendering. CMUX-37 workstream 3: the wire shape carried by
+    /// `Sources/WorkspaceApplyPlan.swift`'s `ApplyFailure` stays unchanged;
+    /// only this client-side classifier decides what surfaces under
+    /// `failure:` versus the new `info:` line. A future caller with a
+    /// different opinion can ignore this and read the structured payload.
+    enum FailureSeverity {
+        case failure
+        case info
+    }
+
+    /// Classify a single failure entry. Two codes are treated as info-level
+    /// because the executor emits them on every clean snapshot/restore round
+    /// trip:
+    ///
+    /// - `metadata_override` — fires when a SurfaceSpec sets both `.title`
+    ///   and `metadata["title"]` (or both descriptions). The capture-side
+    ///   fix in `Sources/WorkspacePlanCapture.swift` strips the dup, so this
+    ///   should rarely fire on a clean round-trip; the classification is the
+    ///   belt for the suspenders.
+    /// - `working_directory_not_applied` with a "seed terminal reuse" marker
+    ///   in the message — fires on every restore whose first terminal had a
+    ///   captured cwd. The seed shell is already running by the time the
+    ///   executor sees the spec, so the cwd cannot apply. Expected, not a
+    ///   real failure.
+    ///
+    /// Other emission sites of `working_directory_not_applied` (browser /
+    /// markdown split, in-pane creation) are still real failures; they
+    /// indicate the operator passed a cwd to a kind that can't accept one.
+    ///
+    /// CAUTION: detection of the seed-terminal case relies on the executor's
+    /// emitted message containing the substring "seed terminal reuse". If
+    /// `Sources/WorkspaceLayoutExecutor.swift`'s
+    /// `reportWorkingDirectoryNotApplicable` call for the seedTerminal
+    /// context (around L656) ever changes its `context:` argument, update
+    /// the matcher below.
+    static func failureSeverity(code: String, message: String) -> FailureSeverity {
+        if code == "metadata_override" { return .info }
+        if code == "working_directory_not_applied",
+           message.contains("seed terminal reuse") {
+            return .info
+        }
+        return .failure
+    }
+
+    /// Split an executor failure list into (real failures, info-level lines)
+    /// while preserving original order so output stays stable across runs.
+    static func partitionFailures(
+        _ failures: [[String: Any]]
+    ) -> (failures: [[String: Any]], info: [[String: Any]]) {
+        var realFailures: [[String: Any]] = []
+        var infoLines: [[String: Any]] = []
+        for f in failures {
+            let code = (f["code"] as? String) ?? ""
+            let msg = (f["message"] as? String) ?? ""
+            switch failureSeverity(code: code, message: msg) {
+            case .failure: realFailures.append(f)
+            case .info:    infoLines.append(f)
+            }
+        }
+        return (failures: realFailures, info: infoLines)
+    }
+
     private func localizedBlueprintSourceLabel(_ raw: String) -> String {
         switch raw {
         case "repo":
@@ -2851,12 +2978,24 @@ struct CMUXCLI {
                 for w in warnings { print("  - \(w)") }
             }
             if !failures.isEmpty {
-                print("failures: \(failures.count)")
-                for f in failures {
-                    let code = (f["code"] as? String) ?? "?"
-                    let step = (f["step"] as? String) ?? "?"
-                    let msg = (f["message"] as? String) ?? ""
-                    print("  - [\(code)] \(step): \(msg)")
+                let (realFailures, infoLines) = Self.partitionFailures(failures)
+                if !realFailures.isEmpty {
+                    print("failures: \(realFailures.count)")
+                    for f in realFailures {
+                        let code = (f["code"] as? String) ?? "?"
+                        let step = (f["step"] as? String) ?? "?"
+                        let msg = (f["message"] as? String) ?? ""
+                        print("  - [\(code)] \(step): \(msg)")
+                    }
+                }
+                if !infoLines.isEmpty {
+                    print("info: \(infoLines.count)")
+                    for f in infoLines {
+                        let code = (f["code"] as? String) ?? "?"
+                        let step = (f["step"] as? String) ?? "?"
+                        let msg = (f["message"] as? String) ?? ""
+                        print("  - [\(code)] \(step): \(msg)")
+                    }
                 }
             }
         }
@@ -2890,13 +3029,7 @@ struct CMUXCLI {
             guard let data = FileManager.default.contents(atPath: resolved) else {
                 throw CLIError(message: "workspace new: could not read '\(resolved)'")
             }
-            guard
-                let file = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let plan = file["plan"]
-            else {
-                throw CLIError(message: "workspace new: '\(resolved)' is not a valid blueprint file (missing 'plan' key)")
-            }
-            planObject = plan
+            planObject = try blueprintPlanFromFile(at: resolved, data: data, client: client)
         } else {
             planObject = try workspaceBlueprintPicker(client: client, jsonOutput: jsonOutput)
         }
@@ -2915,11 +3048,18 @@ struct CMUXCLI {
                 for w in warnings { print("  warning: \(w)") }
             }
             if !failures.isEmpty {
-                for f in failures {
+                let (realFailures, infoLines) = Self.partitionFailures(failures)
+                for f in realFailures {
                     let code = (f["code"] as? String) ?? "?"
                     let step = (f["step"] as? String) ?? "?"
                     let msg = (f["message"] as? String) ?? ""
                     print("  failure: [\(code)] \(step): \(msg)")
+                }
+                for f in infoLines {
+                    let code = (f["code"] as? String) ?? "?"
+                    let step = (f["step"] as? String) ?? "?"
+                    let msg = (f["message"] as? String) ?? ""
+                    print("  info: [\(code)] \(step): \(msg)")
                 }
             }
         }
@@ -2978,11 +3118,35 @@ struct CMUXCLI {
         guard let data = FileManager.default.contents(atPath: resolved) else {
             throw CLIError(message: "workspace new: could not read blueprint at '\(resolved)'")
         }
+        return try blueprintPlanFromFile(at: resolved, data: data, client: client)
+    }
+
+    /// Resolve a blueprint file's bytes to a layout plan dict suitable for
+    /// `workspace.apply`. Dispatches on extension: `.md` files are routed
+    /// through the `workspace.parse_blueprint` v2 method (so the markdown
+    /// parser stays out of the CLI binary's link surface); `.json` and
+    /// other extensions are decoded as `WorkspaceBlueprintFile` JSON
+    /// envelopes.
+    private func blueprintPlanFromFile(at path: String, data: Data, client: SocketClient) throws -> Any {
+        let ext = (path as NSString).pathExtension.lowercased()
+        if ext == "md" {
+            guard let content = String(data: data, encoding: .utf8) else {
+                throw CLIError(message: "workspace new: '\(path)' is not valid UTF-8")
+            }
+            let parsed = try client.sendV2(
+                method: "workspace.parse_blueprint",
+                params: ["format": "md", "content": content]
+            )
+            guard let plan = parsed["plan"] else {
+                throw CLIError(message: "workspace new: '\(path)' parse returned no plan")
+            }
+            return plan
+        }
         guard
             let file = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let plan = file["plan"]
         else {
-            throw CLIError(message: "workspace new: '\(resolved)' is not a valid blueprint file (missing 'plan' key)")
+            throw CLIError(message: "workspace new: '\(path)' is not a valid blueprint file (missing 'plan' key)")
         }
         return plan
     }
@@ -3019,10 +3183,13 @@ struct CMUXCLI {
     }
 
     /// `c11 workspace export-blueprint --name <name> [--workspace <ref>]
-    /// [--description <text>] [--out <path>] [--force]`. Captures the current
-    /// (or named) workspace as a `WorkspaceBlueprintFile` JSON and writes it.
-    /// Without `--out`, prints the default path written by the socket handler.
-    /// `--force` allows overwriting an existing blueprint with the same name.
+    /// [--description <text>] [--format md|json] [--out <path>] [--force]`.
+    /// Captures the current (or named) workspace as a
+    /// `WorkspaceBlueprintFile` and writes it. Default format is `md`
+    /// (Obsidian-friendly markdown under `~/.config/c11/blueprints/`); pass
+    /// `--format json` for the legacy JSON envelope. Without `--out`,
+    /// prints the default path written by the socket handler. `--force`
+    /// allows overwriting an existing blueprint with the same name.
     private func runWorkspaceExportBlueprint(
         _ args: [String],
         client: SocketClient,
@@ -3031,17 +3198,25 @@ struct CMUXCLI {
         let (workspaceOpt, a1) = parseOption(args, name: "--workspace")
         let (nameOpt, a2) = parseOption(a1, name: "--name")
         let (descOpt, a3) = parseOption(a2, name: "--description")
-        let (outOpt, a4) = parseOption(a3, name: "--out")
-        let forceFlag = a4.contains("--force")
-        let a5 = a4.filter { $0 != "--force" }
-        if let unknown = a5.first(where: { $0.hasPrefix("--") }) {
-            throw CLIError(message: "workspace export-blueprint: unknown flag '\(unknown)'. Known flags: --workspace <ref>, --name <name>, --description <text>, --out <path>, --force")
+        let (formatOpt, a4) = parseOption(a3, name: "--format")
+        let (outOpt, a5) = parseOption(a4, name: "--out")
+        let forceFlag = a5.contains("--force")
+        let a6 = a5.filter { $0 != "--force" }
+        if let unknown = a6.first(where: { $0.hasPrefix("--") }) {
+            throw CLIError(message: "workspace export-blueprint: unknown flag '\(unknown)'. Known flags: --workspace <ref>, --name <name>, --description <text>, --format md|json, --out <path>, --force")
         }
         guard let name = nameOpt else {
             throw CLIError(message: "workspace export-blueprint: --name <name> is required")
         }
+        let format: String = {
+            guard let raw = formatOpt?.lowercased(), !raw.isEmpty else { return "md" }
+            return (raw == "markdown") ? "md" : raw
+        }()
+        if format != "md" && format != "json" {
+            throw CLIError(message: "workspace export-blueprint: --format must be md or json (got '\(format)')")
+        }
 
-        var params: [String: Any] = ["name": name]
+        var params: [String: Any] = ["name": name, "format": format]
         if let wsRaw = workspaceOpt {
             params["workspace_id"] = try resolveWorkspaceId(wsRaw, client: client)
         }
@@ -3078,7 +3253,7 @@ struct CMUXCLI {
             mutable["path"] = resolvedPath
             print(jsonString(mutable))
         } else {
-            print("OK blueprint=\(name) path=\(resolvedPath)")
+            print("OK blueprint=\(name) format=\(format) path=\(resolvedPath)")
         }
     }
 
@@ -3131,11 +3306,19 @@ struct CMUXCLI {
                     let id = (snap["snapshot_id"] as? String) ?? "?"
                     let path = (snap["path"] as? String) ?? "?"
                     let count = (snap["surface_count"] as? Int) ?? 0
-                    print("OK snapshot=\(id) surfaces=\(count) workspace=\(wsRef) path=\(path)")
+                    let selected = (snap["selected"] as? Bool) == true ? " (selected)" : ""
+                    print("OK snapshot=\(id) surfaces=\(count) workspace=\(wsRef) path=\(path)\(selected)")
                 }
             }
+            if let setId = payload["set_id"] as? String,
+               let setPath = payload["set_path"] as? String {
+                print("OK set=\(setId) path=\(setPath)")
+            } else if let setErr = payload["set_error"] as? String {
+                print("ERROR manifest reason=\(setErr)")
+                anyFailure = true
+            }
             if anyFailure {
-                throw CLIError(message: "snapshot --all: one or more workspaces failed to write")
+                throw CLIError(message: "snapshot --all: one or more writes failed")
             }
             return
         }
@@ -3230,6 +3413,7 @@ struct CMUXCLI {
             throw CLIError(message: "restore: unexpected trailing argument '\(positional[1])'")
         }
         var params: [String: Any] = [:]
+        var isSetRestore = false
         // Path-like targets (absolute / `~` / extension `.json`) get
         // resolved in the CLI. Everything else is treated as a snapshot
         // id and submitted as-is; the handler's traversal guard catches
@@ -3239,16 +3423,34 @@ struct CMUXCLI {
             || target.hasPrefix("~")
             || target.contains("/") {
             let resolvedPath = resolvePath(target)
-            let snapshotId = try importSnapshotFileForRestore(pathOnDisk: resolvedPath)
-            params["snapshot_id"] = snapshotId
+            let (id, kind) = try importSnapshotOrSetFileForRestore(pathOnDisk: resolvedPath)
+            switch kind {
+            case .single:
+                params["snapshot_id"] = id
+            case .set:
+                isSetRestore = true
+                params["set_id"] = id
+            }
         } else {
-            params["snapshot_id"] = target
+            // Bare-id form: probe `~/.c11-snapshots/sets/<id>.json` first
+            // (the manifest path) and only fall through to single-snapshot
+            // restore if no manifest exists. Both ids share the ULID
+            // grammar so we cannot disambiguate by shape alone.
+            if isLocalSnapshotSetId(target) {
+                isSetRestore = true
+                params["set_id"] = target
+            } else {
+                params["snapshot_id"] = target
+            }
         }
         // Env gate: mirrored by `mirrorC11CmuxEnv()` so either variable works.
         let env = ProcessInfo.processInfo.environment
         let raw = env["C11_SESSION_RESUME"] ?? env["CMUX_SESSION_RESUME"]
         if let raw, isTruthyFlag(raw) {
             params["restart_registry"] = "phase1"
+        }
+        if isSetRestore && inPlace {
+            throw CLIError(message: "restore: --in-place is not supported for snapshot sets (a set creates several fresh workspaces)")
         }
         if inPlace {
             params["in_place"] = true
@@ -3278,9 +3480,35 @@ struct CMUXCLI {
                 }
             }
         }
-        let payload = try client.sendV2(method: "snapshot.restore", params: params)
+        let method = isSetRestore ? "snapshot.restore_set" : "snapshot.restore"
+        let payload = try client.sendV2(method: method, params: params)
         if jsonOutput {
             print(jsonString(formatIDs(payload, mode: idFormat)))
+            return
+        }
+        if isSetRestore {
+            let setId = (payload["set_id"] as? String) ?? "?"
+            let workspaces = payload["workspaces"] as? [[String: Any]] ?? []
+            let selected = (payload["selected_workspace_ref"] as? String) ?? ""
+            print("OK set=\(setId) workspaces=\(workspaces.count)\(selected.isEmpty ? "" : " selected=\(selected)")")
+            for entry in workspaces {
+                if let err = entry["error"] as? String {
+                    let snap = (entry["snapshot_id"] as? String) ?? "?"
+                    let wsRef = (entry["original_workspace_ref"] as? String) ?? (entry["workspace_ref"] as? String) ?? "?"
+                    print("  ERROR snapshot=\(snap) original=\(wsRef) reason=\(err)")
+                    continue
+                }
+                let snap = (entry["snapshot_id"] as? String) ?? "?"
+                let ref = (entry["workspaceRef"] as? String) ?? "?"
+                let surfaceRefs = entry["surfaceRefs"] as? [String: String] ?? [:]
+                let isSel = (entry["selected"] as? Bool) == true ? " (selected)" : ""
+                print("  OK snapshot=\(snap) workspace=\(ref) surfaces=\(surfaceRefs.count)\(isSel)")
+            }
+            let warnings = payload["warnings"] as? [String] ?? []
+            if !warnings.isEmpty {
+                print("warnings: \(warnings.count)")
+                for w in warnings { print("  - \(w)") }
+            }
             return
         }
         let ref = (payload["workspaceRef"] as? String) ?? "?"
@@ -3294,14 +3522,41 @@ struct CMUXCLI {
             for w in warnings { print("  - \(w)") }
         }
         if !failures.isEmpty {
-            print("failures: \(failures.count)")
-            for f in failures {
-                let code = (f["code"] as? String) ?? "?"
-                let step = (f["step"] as? String) ?? "?"
-                let msg = (f["message"] as? String) ?? ""
-                print("  - [\(code)] \(step): \(msg)")
+            let (realFailures, infoLines) = Self.partitionFailures(failures)
+            if !realFailures.isEmpty {
+                print("failures: \(realFailures.count)")
+                for f in realFailures {
+                    let code = (f["code"] as? String) ?? "?"
+                    let step = (f["step"] as? String) ?? "?"
+                    let msg = (f["message"] as? String) ?? ""
+                    print("  - [\(code)] \(step): \(msg)")
+                }
+            }
+            if !infoLines.isEmpty {
+                print("info: \(infoLines.count)")
+                for f in infoLines {
+                    let code = (f["code"] as? String) ?? "?"
+                    let step = (f["step"] as? String) ?? "?"
+                    let msg = (f["message"] as? String) ?? ""
+                    print("  - [\(code)] \(step): \(msg)")
+                }
             }
         }
+    }
+
+    /// Whether `~/.c11-snapshots/sets/<id>.json` exists. Used by the
+    /// polymorphic `c11 restore <id>` dispatch.
+    private func isLocalSnapshotSetId(_ id: String) -> Bool {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              trimmed.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
+            return false
+        }
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let url = home
+            .appendingPathComponent(".c11-snapshots/sets")
+            .appendingPathComponent("\(trimmed).json")
+        return FileManager.default.fileExists(atPath: url.path)
     }
 
     /// Read a snapshot file at `pathOnDisk`, extract `snapshot_id`, and
@@ -3313,6 +3568,24 @@ struct CMUXCLI {
     /// CLI holds the user's real FS permissions, so reading and copying
     /// the file here is safe in a way reading via the socket is not.
     private func importSnapshotFileForRestore(pathOnDisk: String) throws -> String {
+        let (id, kind) = try importSnapshotOrSetFileForRestore(pathOnDisk: pathOnDisk)
+        guard kind == .single else {
+            throw CLIError(message: "restore: '\(pathOnDisk)' is a set manifest; use `c11 restore <set-id>` directly")
+        }
+        return id
+    }
+
+    private enum SnapshotImportKind { case single, set }
+
+    /// Read a snapshot or snapshot-set file on disk (with the user's real
+    /// FS permissions), classify it, and stage it under the canonical
+    /// `~/.c11-snapshots/` location so the v2 id-based handlers can find
+    /// it. Returns the id and which kind of artifact it was.
+    ///
+    /// Classification: a single snapshot envelope carries a top-level
+    /// `snapshot_id` and `plan` key; a set manifest carries `set_id` and
+    /// `snapshots` (list). Anything else is rejected.
+    private func importSnapshotOrSetFileForRestore(pathOnDisk: String) throws -> (id: String, kind: SnapshotImportKind) {
         let srcURL = URL(fileURLWithPath: pathOnDisk)
         let data: Data
         do {
@@ -3320,41 +3593,55 @@ struct CMUXCLI {
         } catch {
             throw CLIError(message: "restore: failed to read '\(pathOnDisk)': \(error)")
         }
-        let snapshotId: String
+        let dict: [String: Any]
         do {
             let obj = try JSONSerialization.jsonObject(with: data, options: [])
-            guard let dict = obj as? [String: Any],
-                  let id = dict["snapshot_id"] as? String,
-                  !id.isEmpty else {
-                throw CLIError(message: "restore: file '\(pathOnDisk)' is not a valid snapshot envelope (missing snapshot_id)")
+            guard let asDict = obj as? [String: Any] else {
+                throw CLIError(message: "restore: '\(pathOnDisk)' is not a JSON object")
             }
-            snapshotId = id
+            dict = asDict
         } catch let err as CLIError {
             throw err
         } catch {
             throw CLIError(message: "restore: file '\(pathOnDisk)' is not valid JSON: \(error)")
         }
+
+        let id: String
+        let kind: SnapshotImportKind
+        let stagingSubdir: String
+        if let setId = dict["set_id"] as? String, !setId.isEmpty,
+           dict["snapshots"] is [Any] {
+            id = setId
+            kind = .set
+            stagingSubdir = ".c11-snapshots/sets"
+        } else if let snapId = dict["snapshot_id"] as? String, !snapId.isEmpty,
+                  dict["plan"] != nil {
+            id = snapId
+            kind = .single
+            stagingSubdir = ".c11-snapshots"
+        } else {
+            throw CLIError(message: "restore: '\(pathOnDisk)' is not a recognised snapshot envelope (missing snapshot_id+plan or set_id+snapshots)")
+        }
+
         // Reject traversal-shaped ids before we touch disk — matches the
         // grammar the v2 handler enforces on the other side.
-        let idRange = NSRange(location: 0, length: (snapshotId as NSString).length)
+        let idRange = NSRange(location: 0, length: (id as NSString).length)
         let safePattern = try NSRegularExpression(
             pattern: "^[A-Za-z0-9_-]{1,128}$",
             options: []
         )
-        if safePattern.firstMatch(in: snapshotId, options: [], range: idRange) == nil {
-            throw CLIError(message: "restore: snapshot_id '\(snapshotId)' is not a safe filename stem")
+        if safePattern.firstMatch(in: id, options: [], range: idRange) == nil {
+            throw CLIError(message: "restore: id '\(id)' is not a safe filename stem")
         }
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let defaultDir = home.appendingPathComponent(".c11-snapshots", isDirectory: true)
-        let destURL = defaultDir.appendingPathComponent("\(snapshotId).json")
-        // If the user passed in a path that already is the default
-        // location, there's nothing to copy.
+        let stagingDir = home.appendingPathComponent(stagingSubdir, isDirectory: true)
+        let destURL = stagingDir.appendingPathComponent("\(id).json")
         if destURL.standardizedFileURL.path == srcURL.standardizedFileURL.path {
-            return snapshotId
+            return (id, kind)
         }
         do {
             try FileManager.default.createDirectory(
-                at: defaultDir,
+                at: stagingDir,
                 withIntermediateDirectories: true
             )
             if FileManager.default.fileExists(atPath: destURL.path) {
@@ -3362,37 +3649,101 @@ struct CMUXCLI {
             }
             try FileManager.default.copyItem(at: srcURL, to: destURL)
         } catch {
-            throw CLIError(message: "restore: failed to stage '\(pathOnDisk)' into ~/.c11-snapshots/: \(error)")
+            throw CLIError(message: "restore: failed to stage '\(pathOnDisk)' into ~/\(stagingSubdir)/: \(error)")
         }
-        return snapshotId
+        return (id, kind)
     }
 
-    /// `c11 list-snapshots [--json]`. Columns:
+    /// `c11 list-snapshots [--json] [--sets] [--all]`. Columns by default:
     /// SNAPSHOT_ID, CREATED_AT, WORKSPACE_TITLE, SURFACES, ORIGIN, SOURCE.
     ///
-    /// `--json` is accepted both as a global pre-subcommand flag (handled
-    /// by the main parser and threaded in via `jsonOutput`) and as a
-    /// subcommand-local flag. The help text advertises
-    /// `c11 list-snapshots --json`; callers writing that literally should
-    /// not have to know about the global/local distinction.
+    /// `--sets` switches to the manifest table
+    /// (SET_ID, CREATED_AT, COUNT, C11_VERSION). `--all` prints both
+    /// tables back-to-back. `--json` is accepted both as a global
+    /// pre-subcommand flag (handled by the main parser and threaded in
+    /// via `jsonOutput`) and as a subcommand-local flag.
     private func runListSnapshots(
         _ args: [String],
         client: SocketClient,
         jsonOutput: Bool
     ) throws {
         var localJson = false
+        var listSets = false
+        var listAll = false
         for arg in args {
             switch arg {
             case "--json":
                 localJson = true
+            case "--sets":
+                listSets = true
+            case "--all":
+                listAll = true
             default:
                 if arg.hasPrefix("--") {
-                    throw CLIError(message: "list-snapshots: unknown flag '\(arg)'. Known flags: --json")
+                    throw CLIError(message: "list-snapshots: unknown flag '\(arg)'. Known flags: --json, --sets, --all")
                 }
                 throw CLIError(message: "list-snapshots: unexpected argument '\(arg)'")
             }
         }
         let wantJson = jsonOutput || localJson
+        if listSets && listAll {
+            throw CLIError(message: "list-snapshots: --sets and --all are mutually exclusive")
+        }
+        // --sets: only the manifest table.
+        if listSets {
+            try printSnapshotSetsTable(client: client, wantJson: wantJson)
+            return
+        }
+        // --all: per-snapshot table, blank line, then the manifest table.
+        if listAll {
+            try printSnapshotsTable(client: client, wantJson: wantJson)
+            if !wantJson { print("") }
+            try printSnapshotSetsTable(client: client, wantJson: wantJson)
+            return
+        }
+        try printSnapshotsTable(client: client, wantJson: wantJson)
+    }
+
+    /// `c11 list-snapshots --sets`: enumerate set manifests under
+    /// `~/.c11-snapshots/sets/`. Columns: SET_ID, CREATED_AT, COUNT,
+    /// C11_VERSION.
+    private func printSnapshotSetsTable(client: SocketClient, wantJson: Bool) throws {
+        let payload = try client.sendV2(method: "snapshot.list_sets", params: [:])
+        if wantJson {
+            print(jsonString(payload))
+            return
+        }
+        let sets = payload["sets"] as? [[String: Any]] ?? []
+        if sets.isEmpty {
+            print("no snapshot sets")
+            return
+        }
+        func pad(_ s: String, _ width: Int) -> String {
+            if s.count >= width { return s }
+            return s + String(repeating: " ", count: width - s.count)
+        }
+        print(
+            pad("SET_ID", 26) + "  "
+            + pad("CREATED_AT", 24) + "  "
+            + pad("COUNT", 6) + "  "
+            + pad("C11_VERSION", 18)
+        )
+        for entry in sets {
+            let id = (entry["set_id"] as? String) ?? "?"
+            let created = (entry["created_at"] as? String) ?? "?"
+            let count = (entry["snapshot_count"] as? Int).map(String.init) ?? "?"
+            let version = (entry["c11_version"] as? String) ?? ""
+            print(
+                pad(id, 26) + "  "
+                + pad(created, 24) + "  "
+                + pad(count, 6) + "  "
+                + pad(version, 18)
+            )
+        }
+    }
+
+    /// `c11 list-snapshots`: enumerate per-workspace snapshots.
+    private func printSnapshotsTable(client: SocketClient, wantJson: Bool) throws {
         let payload = try client.sendV2(method: "snapshot.list", params: [:])
         guard let snapshotsAny = payload["snapshots"] as? [[String: Any]] else {
             if wantJson {
@@ -7270,8 +7621,11 @@ struct CMUXCLI {
         throw CLIError(message: "Unable to resolve surface ID")
     }
 
-    /// Return the help/usage text for a subcommand, or nil if the command is unknown.
-    private func subcommandUsage(_ command: String) -> String? {
+    /// Return the help/usage text for a subcommand, or nil if the command is
+    /// unknown. `commandArgs` is the slice after the top-level command token,
+    /// allowing two-level dispatch for commands like `workspace` that have
+    /// their own subcommand surface (e.g. `c11 workspace new --help`).
+    private func subcommandUsage(_ command: String, commandArgs: [String] = []) -> String? {
         switch command {
         case "ping":
             return """
@@ -8775,7 +9129,12 @@ struct CMUXCLI {
             Flags:
               --workspace <ref>   Workspace to capture (ref or UUID)
               --out <path>        Override the default output path
-              --all               Capture every open workspace in one pass
+              --all               Capture every open workspace in one pass.
+                                  Writes one per-workspace file AND a
+                                  manifest at
+                                  `~/.c11-snapshots/sets/<set-ulid>.json`
+                                  that lists them. Pass the set ulid back
+                                  to `c11 restore` to rehydrate them all.
               --json              Emit raw snapshot.create result as JSON
 
             Note: --all and --workspace / --out are mutually exclusive.
@@ -8797,12 +9156,15 @@ struct CMUXCLI {
                     "Running `c11 restore <id>` twice creates two workspaces unless --in-place is passed."
             )
             return """
-            Usage: c11 restore <snapshot-id-or-path> [--in-place] [--json]
+            Usage: c11 restore <snapshot-or-set-id-or-path> [--in-place] [--json]
 
             Restore a workspace layout from a snapshot written by `c11 snapshot`.
-            The argument is either a ULID (resolved under `~/.c11-snapshots/` or
-            the legacy `~/.cmux-snapshots/`) or an absolute path to a `.json`
-            snapshot file.
+            The argument is either a ULID (resolved under `~/.c11-snapshots/`,
+            the legacy `~/.cmux-snapshots/`, or — for set manifests written by
+            `c11 snapshot --all` — `~/.c11-snapshots/sets/`), or an absolute
+            path to a `.json` snapshot or set-manifest file. Set manifests
+            rehydrate every workspace they reference; `--in-place` is rejected
+            for sets.
 
             \(inPlaceNote)
 
@@ -8826,7 +9188,7 @@ struct CMUXCLI {
             """
         case "list-snapshots":
             return """
-            Usage: c11 list-snapshots [--json]
+            Usage: c11 list-snapshots [--json] [--sets|--all]
 
             List snapshots under `~/.c11-snapshots/` merged with the legacy
             `~/.cmux-snapshots/` path. Newest first.
@@ -8834,10 +9196,106 @@ struct CMUXCLI {
             Columns: SNAPSHOT_ID, CREATED_AT, WORKSPACE_TITLE, SURFACES, ORIGIN, SOURCE.
             SOURCE is `current` for `~/.c11-snapshots/`, `legacy` for the fallback.
 
+            Flags:
+              --json    Emit raw snapshot.list result as JSON.
+              --sets    List snapshot-set manifests under `~/.c11-snapshots/sets/`
+                        (written by `c11 snapshot --all`) instead of per-workspace
+                        snapshots. Columns: SET_ID, CREATED_AT, COUNT, C11_VERSION.
+              --all     Print both tables back-to-back (per-workspace, then sets).
+
             Examples:
               c11 list-snapshots
               c11 list-snapshots --json
+              c11 list-snapshots --sets
+              c11 list-snapshots --all
             """
+        case "workspace":
+            // CMUX-37: two-level dispatch. Without a subcommand, list the
+            // three known workspace subcommands. With one, return its
+            // per-subcommand help text.
+            let sub = commandArgs.first(where: { !$0.hasPrefix("-") })
+            switch sub {
+            case "apply":
+                return """
+                Usage: c11 workspace apply --file <path|->
+
+                Apply a `WorkspaceApplyPlan` JSON document. Materializes the
+                plan into a fresh workspace via `workspace.apply` v2.
+
+                Flags:
+                  --file <path|->   Plan source. `-` reads from stdin.
+
+                Example:
+                  c11 workspace apply --file ./plan.json
+                  cat ./plan.json | c11 workspace apply --file -
+                """
+            case "new":
+                return """
+                Usage: c11 workspace new [--blueprint <path>]
+
+                Create a new workspace from a blueprint. Without `--blueprint`,
+                drops into an interactive picker that lists the built-in
+                blueprints plus any discovered under
+                `~/.config/c11/blueprints/`, `<repo>/.c11/blueprints/`, and
+                their legacy `cmux` siblings. Both `.md` (operator-edited
+                markdown) and `.json` blueprint files are accepted.
+
+                Flags:
+                  --blueprint <path>   Apply the blueprint at the given path
+                                       directly, skipping the picker.
+
+                Examples:
+                  c11 workspace new
+                  c11 workspace new --blueprint ~/.config/c11/blueprints/agent-room.md
+                """
+            case "export-blueprint":
+                return """
+                Usage: c11 workspace export-blueprint --name <name>
+                                                      [--workspace <id|ref|index>]
+                                                      [--description <text>]
+                                                      [--format md|json]
+                                                      [--out <path>]
+                                                      [--force]
+
+                Capture the current (or named) workspace as a
+                `WorkspaceBlueprintFile` and write it to disk. Default
+                destination is `~/.config/c11/blueprints/<name>.md`. Pass
+                `--format json` for the legacy JSON envelope.
+
+                Flags:
+                  --name <name>            Required. Blueprint name (also the file stem).
+                  --workspace <ref>        Source workspace. Defaults to the caller's workspace.
+                  --description <text>     Optional description embedded in the blueprint envelope.
+                  --format md|json         Output format. Default: md.
+                  --out <path>             Move the written file to this path.
+                  --force                  Overwrite an existing blueprint with the same name.
+
+                Examples:
+                  c11 workspace export-blueprint --name agent-room
+                  c11 workspace export-blueprint --name agent-room --format json --workspace workspace:1 --force
+                """
+            case nil:
+                return """
+                Usage: c11 workspace <subcommand> [options]
+
+                Workspace persistence and blueprint commands.
+
+                Subcommands:
+                  apply              Apply a WorkspaceApplyPlan JSON document.
+                  new                Create a workspace from a blueprint (interactive or by path).
+                  export-blueprint   Capture a workspace as a reusable blueprint file.
+
+                Run `c11 workspace <subcommand> --help` for per-subcommand flags.
+                """
+            default:
+                return """
+                Usage: c11 workspace <subcommand> [options]
+
+                Unknown workspace subcommand: '\(sub ?? "")'.
+                Known subcommands: apply, new, export-blueprint.
+                Run `c11 workspace --help` for the full list.
+                """
+            }
         default:
             return nil
         }
@@ -8846,8 +9304,16 @@ struct CMUXCLI {
     /// Dispatch help for a subcommand. Returns true if help was printed.
     private func dispatchSubcommandHelp(command: String, commandArgs: [String]) -> Bool {
         guard commandArgs.contains("--help") || commandArgs.contains("-h") else { return false }
-        guard let text = subcommandUsage(command) else { return false }
-        print("c11 \(command)")
+        guard let text = subcommandUsage(command, commandArgs: commandArgs) else { return false }
+        // For two-level commands (e.g. `c11 workspace new --help`) include the
+        // resolved subcommand in the header so the operator can tell which
+        // help block they got back.
+        let subToken = commandArgs.first(where: { !$0.hasPrefix("-") })
+        if let subToken {
+            print("c11 \(command) \(subToken)")
+        } else {
+            print("c11 \(command)")
+        }
         print("")
         print(text)
         return true
@@ -12260,7 +12726,7 @@ struct CMUXCLI {
 
     private func claudeTeamsResolvedSocketPath(processEnvironment: [String: String]) -> String {
         let envSocketPath: String? = {
-            for key in ["CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
+            for key in ["C11_SOCKET", "CMUX_SOCKET_PATH", "CMUX_SOCKET"] {
                 guard let raw = processEnvironment[key] else { continue }
                 let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
@@ -14368,6 +14834,11 @@ struct CMUXCLI {
           `tab-action` also accepts `tab:<n>` in addition to `surface:<n>`.
           Output defaults to refs; pass --id-format uuids or --id-format both to include UUIDs.
 
+        Socket Path:
+          Resolution precedence: --socket flag → C11_SOCKET → CMUX_SOCKET_PATH → CMUX_SOCKET → auto-discovery.
+          When auto-discovery picks a non-default socket, c11 prints one stderr line attributing the source.
+          Suppress that line with C11_QUIET_DISCOVERY=1.
+
         Socket Auth:
           --password takes precedence, then CMUX_SOCKET_PASSWORD env var, then password saved in Settings.
 
@@ -14393,6 +14864,10 @@ struct CMUXCLI {
           workspace-action --action <name> [--workspace <id|ref|index>] [--title <text>]
           list-workspaces
           new-workspace [--cwd <path>] [--command <text>]
+          workspace                                        (workspace persistence subcommands)
+          workspace apply --file <path|->                  (apply a WorkspaceApplyPlan JSON)
+          workspace new [--blueprint <path>]               (create from a blueprint, interactive picker without --blueprint)
+          workspace export-blueprint --name <name> [--workspace <ref>] [--description <text>] [--out <path>] [--force]
           ssh <destination> [--name <title>] [--port <n>] [--identity <path>] [--ssh-option <opt>] [-- <remote-command-args>]
           remote-daemon-status [--os <darwin|linux>] [--arch <arm64|amd64>]
           new-split <left|right|up|down> [--workspace <id|ref>] [--surface <id|ref>] [--panel <id|ref>] [--title <text>]
@@ -14507,8 +14982,11 @@ struct CMUXCLI {
                               ALL commands (send, list-panels, new-split, notify, etc.).
           CMUX_TAB_ID         Optional alias used by `tab-action`/`rename-tab` as default --tab.
           CMUX_SURFACE_ID     Auto-set in c11 terminals. Used as default --surface.
-          CMUX_SOCKET_PATH    Override the Unix socket path. Without this, the CLI defaults
-                              to ~/Library/Application Support/cmux/cmux.sock and auto-discovers tagged/debug sockets.
+          C11_SOCKET          Override the Unix socket path (preferred). Takes precedence over
+                              CMUX_SOCKET_PATH and CMUX_SOCKET.
+          CMUX_SOCKET_PATH    Legacy alias for C11_SOCKET. Still accepted; loses to C11_SOCKET when both set.
+          CMUX_SOCKET         Older alias for the same. Loses to both above.
+          C11_QUIET_DISCOVERY Set to 1 to suppress the stderr line c11 prints when auto-discovering a non-default socket.
         """
     }
 
@@ -14522,6 +15000,16 @@ struct CMUXCLI {
         idFormat: CLIIDFormat = .refs
     ) -> String {
         formatDebugTerminalsPayload(payload, idFormat: idFormat)
+    }
+
+    static func debugFailureSeverityForTesting(code: String, message: String) -> FailureSeverity {
+        failureSeverity(code: code, message: message)
+    }
+
+    static func debugPartitionFailuresForTesting(
+        _ failures: [[String: Any]]
+    ) -> (failures: [[String: Any]], info: [[String: Any]]) {
+        partitionFailures(failures)
     }
 #endif
 }

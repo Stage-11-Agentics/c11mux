@@ -55,6 +55,10 @@
 		D8014BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8014BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift */; };
 		D8015BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8015BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift */; };
 		D8016BF0A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8016BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift */; };
+		D8018BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8018BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift */; };
+		D8019BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8019BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift */; };
+		D801ABF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D801ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift */; };
+		D801BBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D801BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift */; };
 		D7011BF0A1B2C3D4E5F60718 /* PaneMetadataStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7011BF1A1B2C3D4E5F60718 /* PaneMetadataStoreTests.swift */; };
 		D7012BF0A1B2C3D4E5F60718 /* PaneMetadataPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7012BF1A1B2C3D4E5F60718 /* PaneMetadataPersistenceTests.swift */; };
 		D7015BF0A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7015BF1A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift */; };
@@ -358,6 +362,10 @@
 		D8014BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintFileCodableTests.swift; sourceTree = "<group>"; };
 		D8015BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintStoreTests.swift; sourceTree = "<group>"; };
 		D8016BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift; sourceTree = "<group>"; };
+		D8018BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintMarkdown.swift; sourceTree = "<group>"; };
+		D8019BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintMarkdownTests.swift; sourceTree = "<group>"; };
+		D801ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotSet.swift; sourceTree = "<group>"; };
+		D801BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotSetCodableTests.swift; sourceTree = "<group>"; };
 		D8017BF1A1B2C3D4E5F60718 /* Blueprints */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Blueprints; sourceTree = "<group>"; };
 		D8017BF0A1B2C3D4E5F60718 /* Blueprints in Resources */ = {isa = PBXBuildFile; fileRef = D8017BF1A1B2C3D4E5F60718 /* Blueprints */; };
 		D7011BF1A1B2C3D4E5F60718 /* PaneMetadataStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneMetadataStoreTests.swift; sourceTree = "<group>"; };
@@ -704,6 +712,8 @@
 				D8011BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift */,
 				D8012BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStore.swift */,
 				D8013BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintExporter.swift */,
+				D8018BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift */,
+				D801ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift */,
 				A5001545 /* AgentDetector.swift */,
 				A5001701 /* TextBoxInput.swift */,
 				A5F1002001A1B2C3D4E5F001 /* ThemedValueAST.swift */,
@@ -927,6 +937,8 @@
 				D8014BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift */,
 				D8015BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift */,
 				D8016BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift */,
+				D8019BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift */,
+				D801BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift */,
 					D70B3BF1A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift */,
 					A5C36031 /* StatusBarButtonDisplayTests.swift */,
 					D7101BF1A1B2C3D4E5F60718 /* MailboxLayoutTests.swift */,
@@ -1114,6 +1126,8 @@
 				D8011BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift in Sources */,
 				D8012BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintStore.swift in Sources */,
 				D8013BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintExporter.swift in Sources */,
+				D8018BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift in Sources */,
+				D801ABF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift in Sources */,
 				A5001544 /* AgentDetector.swift in Sources */,
 			A5001700 /* TextBoxInput.swift in Sources */,
 			A5F1001001A1B2C3D4E5F001 /* ThemedValueAST.swift in Sources */,
@@ -1308,6 +1322,8 @@
 					D8014BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift in Sources */,
 					D8015BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift in Sources */,
 					D8016BF0A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift in Sources */,
+					D8019BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift in Sources */,
+					D801BBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift in Sources */,
 					D70B3BF0A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
