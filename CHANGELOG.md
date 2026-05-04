@@ -4,6 +4,32 @@ All notable changes to c11 (and, before the fork, cmux) are documented here.
 
 Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the 0.38.0 section for the rename.
 
+## [0.45.0] - 2026-05-04
+
+### Added
+
+- **Force-Quit / unclean-exit detection.** A per-launch JSON sentinel under `~/Library/Caches/<bundle-id>/sessions/`; if the previous launch never reached `applicationWillTerminate`, the marker is archived as `unclean-exit-<ts>.json` on next launch. Catches the failure modes Sentry's in-process handler can't see — Force Quit, SIGKILL, jetsam, watchdog kills, and silent GUI exits where no `.ips` file is written. Telemetry-independent by design: the file never leaves the machine. Foundation for the upcoming `c11 health` CLI. ([#109](https://github.com/Stage-11-Agentics/c11/pull/109))
+
+- **MetricKit crash channel.** `CrashDiagnostics` (an `MXMetricManagerSubscriber`) now persists `MXCrashDiagnostic`, `MXHangDiagnostic`, `MXCPUExceptionDiagnostic`, and `MXDiskWriteExceptionDiagnostic` payloads to `~/Library/Logs/c11/metrickit/` unconditionally; Sentry breadcrumb forwarding stays gated on telemetry consent. Closes the visibility gap between Sentry's in-process crash handler and the OS-level kills it never sees.
+
+### Changed
+
+- **Menu bar icon: c11 mark, surface-aware tooltip, no Integrations submenu.** Replaces the upstream chevron with the c11 "open-center plus" derived from the app icon, retuned to a square `(1.0, 1.0, 11.0, 11.0)` glyph rect so the symmetric plus reads square. Drops the dead "Install Claude Code / Codex / OpenCode / Kimi" submenu (`c11 install <tui>` is explicitly off the table). Hovering the status item with unread notifications now appends deduplicated surface titles below the count on a second line, capped to six with a trailing ellipsis. ([#106](https://github.com/Stage-11-Agentics/c11/pull/106))
+
+- **Sentry routes to a dedicated `stage11-c11` project, with symbolicated traces.** Events were previously going to a generic `demo-project` (python-fastapi) on Sentry, mixed with unrelated Python service errors. dSYM uploads were pointed at `SENTRY_ORG=stage11` (wrong slug) and a project that never existed, so the upload step silently no-op'd on every CI run. `release.yml` and `nightly.yml` now upload to `stage-11-kl` / `stage11-c11` with a real auth token, and the in-app DSN matches.
+
+- **C11-1: post-rebrand stragglers cleaned up.** The About-dialog source-level fallback now reads `c11` (the localized override was already correct in all seven locales). Source-comment links to nonexistent `docs/c11mux-module-*-spec.md` files dropped. Legacy `generate_dark_icon.py` and `generate_nightly_icon.py` had `os.execv` targets pointing at a `generate_c11mux_icon.py` that was never renamed — corrected to the actual `generate_c11_icon.py`. The `docs/c11-charter.md` tap and bundle identifier corrected to what shipped. ([#111](https://github.com/Stage-11-Agentics/c11/pull/111))
+
+### Fixed
+
+- **Main-thread deadlock from blocking v2 socket methods (4×/day → 0).** Under heavy automation, `surface.send_text` / `surface.send_key` / `surface.read_text` / `surface.clear_history` were parking `CFRunLoopRun()` on the main thread inside `v2AwaitCallback`, beach-balling the whole app with no recovery. The four handlers now run on the socket worker thread under a new `socketWorker` execution policy and only hop to `@MainActor` for bounded slices via `Task { @MainActor in ... } + DispatchSemaphore`. New `waitForTerminalSurfaceOffMain` uses observer-then-recheck-then-`DispatchSemaphore` so the main queue stays free, observers fire, and the semaphore signals correctly off-main. Hand-port of upstream cmux [#3340](https://github.com/manaflow-ai/cmux/pull/3340) by [@lawrencecchen](https://github.com/lawrencecchen) plus c11-specific scope expansion to actually cover the `surface.*` methods (upstream's allowlist did not include any of them). Pre-fix main-thread sample under 50× `surface.send_text` load: 7120/7120 ticks parked under `v2AwaitCallback` / `v2MainSync` / `waitForTerminalSurface*`. Post-fix sample under the same load: 0/7120. ([#112](https://github.com/Stage-11-Agentics/c11/pull/112)) — thanks [@lawrencecchen](https://github.com/lawrencecchen) for the upstream fix!
+
+- **Claude Code session resume now works inside worktree subdirs.** `c11 restart` was emitting `claude --resume <id>` from whatever cwd the surface respawned in. Claude Code stores session JSONLs at `~/.claude/projects/<encoded-cwd>/<id>.jsonl` and resolves `--resume` by the *current* shell's cwd, so a session captured inside e.g. `code/c11-worktrees/some-branch/` failed with "No conversation found with session ID" when the surface respawned in `code/`. Restart now records `claude.session_project_dir` at SessionStart (paired atomically with `claude.session_id`), and synthesizes `cd '<path>' && claude --dangerously-skip-permissions --resume <id>` when the path is present and valid. Existing surfaces with id-only metadata keep working unchanged. Validators reject malformed paths at write time and re-validate at synthesis time, with single-quote escaping for paths containing spaces. ([#113](https://github.com/Stage-11-Agentics/c11/pull/113))
+
+### Built and shipped by
+
+Stage 11 Agentics. Operator:agent, fused.
+
 ## [0.44.1] - 2026-04-28
 
 ### Fixed
