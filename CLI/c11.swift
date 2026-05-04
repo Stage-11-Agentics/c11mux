@@ -13342,9 +13342,25 @@ struct CMUXCLI {
                     // `Sources/WorkspaceMetadataKeys.swift` is linked into
                     // both the c11 app target and the c11-cli target, so the
                     // reserved-key constant has one spelling in one place.
-                    let metadata: [String: Any] = [
+                    var metadata: [String: Any] = [
                         SurfaceMetadataKeyName.claudeSessionId: trimmedSessionId
                     ]
+                    // Pair the session id with the project directory it was
+                    // created in. `claude --resume` resolves the session JSONL
+                    // relative to the shell's cwd, so a session captured in a
+                    // worktree subdir cannot be resumed from its parent.
+                    // Recording the project_dir lets the restart registry `cd`
+                    // there before issuing the resume command. Re-validate
+                    // here: the store rejects malformed values, but skipping
+                    // the write entirely on an invalid path keeps the
+                    // session_id capture intact rather than failing the
+                    // whole metadata-merge call.
+                    if let cwd = parsedInput.cwd?
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                       !cwd.isEmpty,
+                       isValidClaudeSessionProjectDir(cwd) {
+                        metadata[SurfaceMetadataKeyName.claudeSessionProjectDir] = cwd
+                    }
                     var params: [String: Any] = [
                         "surface_id": surfaceId,
                         "metadata": metadata,
@@ -13514,14 +13530,20 @@ struct CMUXCLI {
                 _ = try? sendV1Command("clear_notifications --tab=\(workspaceId)", client: client)
                 // C11-24: clear `claude.session_id` from the surface metadata
                 // so a subsequent c11 restart doesn't auto-resume an
-                // already-ended session. `terminal_type` stays — it's a
-                // per-surface configuration ("this surface is a claude
-                // terminal"), not a per-session pointer.
+                // already-ended session. The paired `claude.session_project_dir`
+                // is cleared in the same call — they're written atomically
+                // at SessionStart and only meaningful as a pair.
+                // `terminal_type` stays — it's a per-surface configuration
+                // ("this surface is a claude terminal"), not a per-session
+                // pointer.
                 let surfaceId = consumedSession.surfaceId
                 if !surfaceId.isEmpty {
                     var params: [String: Any] = [
                         "surface_id": surfaceId,
-                        "keys": [SurfaceMetadataKeyName.claudeSessionId],
+                        "keys": [
+                            SurfaceMetadataKeyName.claudeSessionId,
+                            SurfaceMetadataKeyName.claudeSessionProjectDir
+                        ],
                         "source": "explicit"
                     ]
                     if !workspaceId.isEmpty {
