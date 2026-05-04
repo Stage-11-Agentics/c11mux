@@ -1,14 +1,13 @@
 import Foundation
 
-/// Source precedence for metadata writes (c11 Module 2).
+/// Source precedence for metadata writes.
 ///
 /// Writers declare a `source` per call. The precedence chain is
 /// `explicit > declare > osc > heuristic`. A lower-precedence write is
 /// rejected per-key (soft reject: `applied: false`, `reason: lower_precedence`).
-/// Canonical-key namespace (c11 Module 2).
+/// Canonical-key namespace.
 /// String constants for the canonical metadata keys rendered in the sidebar
-/// and title bar. Non-canonical keys accept any JSON value and are opaque to
-/// c11. See `docs/c11mux-module-2-metadata-spec.md`.
+/// and title bar. Non-canonical keys accept any JSON value and are opaque to c11.
 public enum MetadataKey {
     public static let role = "role"
     public static let status = "status"
