@@ -6590,6 +6590,15 @@ class TerminalController {
 
     @MainActor
     private func resolveSurfaceSendTargets(params: [String: Any], errMessageOnInternalError: String) -> SurfaceSendPhaseAOutcome {
+        // C11-26: Worker-policy methods skip processV2Command's
+        // `v2MainSync { v2RefreshKnownRefs() }` (Sources/TerminalController.swift:2132).
+        // Without this refresh, a fresh `surface:N` / `workspace:N` ref handle is
+        // unresolved on the first worker call and `v2UUID(...)` silently falls
+        // back to the focused panel — meaning text/keys can be injected into the
+        // wrong terminal. Refresh here so the handle map is current before any
+        // resolution call below.
+        v2RefreshKnownRefs()
+
         guard let tabManager = v2ResolveTabManager(params: params) else {
             return .err(.err(code: "unavailable", message: "TabManager not available", data: nil))
         }
@@ -6825,6 +6834,10 @@ class TerminalController {
         nonisolated(unsafe) var result: V2CallResult = .err(code: "internal_error", message: "Failed to clear history", data: nil)
         Task { @MainActor in
             defer { semaphore.signal() }
+            // C11-26: refresh ref handles before resolution; see
+            // resolveSurfaceSendTargets for the full rationale.
+            v2RefreshKnownRefs()
+
             guard let tabManager = v2ResolveTabManager(params: params) else {
                 result = .err(code: "unavailable", message: "TabManager not available", data: nil)
                 return
@@ -6883,6 +6896,10 @@ class TerminalController {
         nonisolated(unsafe) var result: V2CallResult = .err(code: "internal_error", message: "Failed to read terminal text", data: nil)
         Task { @MainActor in
             defer { semaphore.signal() }
+            // C11-26: refresh ref handles before resolution; see
+            // resolveSurfaceSendTargets for the full rationale.
+            v2RefreshKnownRefs()
+
             guard let tabManager = v2ResolveTabManager(params: params) else {
                 result = .err(code: "unavailable", message: "TabManager not available", data: nil)
                 return
