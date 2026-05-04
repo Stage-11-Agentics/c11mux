@@ -186,6 +186,109 @@ final class WorkspaceRestartCommandsTests: XCTestCase {
         XCTAssertTrue(workspace.pendingRestartCommands(from: snapshot, registry: .phase1).isEmpty)
     }
 
+    // MARK: - claude.session_project_dir
+
+    func testPrependsCdWhenProjectDirRecorded() {
+        let workspace = Workspace()
+        let panelId = UUID()
+        let projectDir = "/Users/test/repo/c11-worktrees/feature-branch"
+        let snapshot = makeSnapshot(panels: [
+            makePanelSnapshot(
+                id: panelId,
+                type: .terminal,
+                metadata: [
+                    SurfaceMetadataKeyName.terminalType: .string(SurfaceMetadataKeyName.terminalTypeClaudeCode),
+                    SurfaceMetadataKeyName.claudeSessionId: .string(claudeSessionId),
+                    SurfaceMetadataKeyName.claudeSessionProjectDir: .string(projectDir)
+                ]
+            )
+        ])
+
+        let pending = workspace.pendingRestartCommands(from: snapshot, registry: .phase1)
+
+        XCTAssertEqual(pending.count, 1)
+        XCTAssertEqual(
+            pending.first?.command,
+            "cd '\(projectDir)' && claude --dangerously-skip-permissions --resume \(claudeSessionId)\n"
+        )
+    }
+
+    func testFallsBackToBareResumeWhenProjectDirAbsent() {
+        // Existing surfaces captured before the project_dir field shipped
+        // must keep working — bare `claude --resume` is the right behavior.
+        let workspace = Workspace()
+        let snapshot = makeSnapshot(panels: [
+            makePanelSnapshot(
+                id: UUID(),
+                type: .terminal,
+                metadata: [
+                    SurfaceMetadataKeyName.terminalType: .string(SurfaceMetadataKeyName.terminalTypeClaudeCode),
+                    SurfaceMetadataKeyName.claudeSessionId: .string(claudeSessionId)
+                ]
+            )
+        ])
+
+        let pending = workspace.pendingRestartCommands(from: snapshot, registry: .phase1)
+
+        XCTAssertEqual(
+            pending.first?.command,
+            "claude --dangerously-skip-permissions --resume \(claudeSessionId)\n"
+        )
+    }
+
+    func testFallsBackToBareResumeWhenProjectDirMalformed() {
+        // The store rejects malformed paths at write time, but registry
+        // re-validation must still drop a bypass. Defense-in-depth: a
+        // relative path or one with shell metacharacters cannot become
+        // part of the synthesized command.
+        let workspace = Workspace()
+        let snapshot = makeSnapshot(panels: [
+            makePanelSnapshot(
+                id: UUID(),
+                type: .terminal,
+                metadata: [
+                    SurfaceMetadataKeyName.terminalType: .string(SurfaceMetadataKeyName.terminalTypeClaudeCode),
+                    SurfaceMetadataKeyName.claudeSessionId: .string(claudeSessionId),
+                    // Relative path → registry rejects, falls back to bare.
+                    SurfaceMetadataKeyName.claudeSessionProjectDir: .string("relative/path")
+                ]
+            )
+        ])
+
+        let pending = workspace.pendingRestartCommands(from: snapshot, registry: .phase1)
+
+        XCTAssertEqual(
+            pending.first?.command,
+            "claude --dangerously-skip-permissions --resume \(claudeSessionId)\n",
+            "registry must drop a malformed project_dir rather than emit it"
+        )
+    }
+
+    func testProjectDirWithSpacesIsSingleQuoted() {
+        // Real-world paths can have spaces. The single-quote escape must
+        // wrap the whole path so `cd` receives one argument.
+        let workspace = Workspace()
+        let projectDir = "/Users/test/My Projects/repo"
+        let snapshot = makeSnapshot(panels: [
+            makePanelSnapshot(
+                id: UUID(),
+                type: .terminal,
+                metadata: [
+                    SurfaceMetadataKeyName.terminalType: .string(SurfaceMetadataKeyName.terminalTypeClaudeCode),
+                    SurfaceMetadataKeyName.claudeSessionId: .string(claudeSessionId),
+                    SurfaceMetadataKeyName.claudeSessionProjectDir: .string(projectDir)
+                ]
+            )
+        ])
+
+        let pending = workspace.pendingRestartCommands(from: snapshot, registry: .phase1)
+
+        XCTAssertEqual(
+            pending.first?.command,
+            "cd '\(projectDir)' && claude --dangerously-skip-permissions --resume \(claudeSessionId)\n"
+        )
+    }
+
     // MARK: - stringValues helper
 
     func testStringValuesKeepsOnlyStringEntries() {

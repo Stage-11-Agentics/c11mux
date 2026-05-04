@@ -29,6 +29,15 @@ func isValidClaudeSessionId(_ candidate: String) -> Bool {
     return claudeSessionIdUUIDPattern.firstMatch(in: candidate, options: [], range: range) != nil
 }
 
+/// Wrap a path in single quotes for safe interpolation into a shell
+/// command. `isValidClaudeSessionProjectDir` already rejects single
+/// quotes; this helper still escapes them defensively so a bypass of the
+/// validator (direct in-process writer, future regression) cannot become
+/// a command-injection vector.
+nonisolated func shellSingleQuote(_ value: String) -> String {
+    "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+}
+
 /// Pure-value lookup table mapping a known terminal type + session hint to
 /// the shell command that resumes it. Phase 1 ships a single row for
 /// `claude-code`; rows for `codex`, `opencode`, `kimi` land in Phase 5
@@ -132,11 +141,26 @@ struct AgentRestartRegistry: Sendable {
     /// globally. Opencode and kimi have no verified resume flag and launch
     /// fresh — best-effort is preferable to a broken flag.
     static let phase1: AgentRestartRegistry = .init(name: "phase1", rows: [
-        Row(terminalType: "claude-code") { sessionId, _ in
+        Row(terminalType: "claude-code") { sessionId, metadata in
             guard let raw = sessionId?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !raw.isEmpty,
                   isValidClaudeSessionId(raw) else { return nil }
-            return "claude --dangerously-skip-permissions --resume \(raw)\n"
+            let resume = "claude --dangerously-skip-permissions --resume \(raw)"
+            // `claude --resume <id>` resolves the session JSONL relative to
+            // the current shell's cwd encoding (`~/.claude/projects/<encoded-cwd>/<id>.jsonl`).
+            // A session captured in a worktree subdir cannot be resumed
+            // from its parent. When the hook recorded a project_dir, `cd`
+            // there first — re-validating defensively in case a future
+            // bypass slipped a malformed value past the store. The
+            // single-quote escape is belt-and-braces: the validator
+            // already rejects single quotes.
+            if let raw = metadata[SurfaceMetadataKeyName.claudeSessionProjectDir]?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+               !raw.isEmpty,
+               isValidClaudeSessionProjectDir(raw) {
+                return "cd \(shellSingleQuote(raw)) && \(resume)\n"
+            }
+            return "\(resume)\n"
         },
         Row(terminalType: "codex") { _, _ in
             // codex resume --last resumes the most recent codex session globally.
