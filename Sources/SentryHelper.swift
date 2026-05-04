@@ -29,11 +29,20 @@ final class CrashDiagnostics: NSObject, MXMetricManagerSubscriber {
         MXMetricManager.shared.add(self)
     }
 
+    // `MXMetricPayload` is marked unavailable on macOS in the macOS 15.5
+    // SDK (Xcode 16.4 — what `macos-15-xlarge` GitHub runners default to).
+    // Apple made it macOS-available in the macOS 26 SDK (Xcode 26.x), so
+    // gate the override on the Swift toolchain version: 6.2 ships with
+    // Xcode 26 alongside the new SDK, while Xcode 16.4 stays on 6.1. When
+    // CI catches up to Xcode 26 the gate becomes a no-op and the override
+    // re-engages automatically.
+    #if compiler(>=6.2)
     nonisolated func didReceive(_ payloads: [MXMetricPayload]) {
         for payload in payloads {
             persist(payload.jsonRepresentation(), kind: "metric", timestamp: payload.timeStampEnd)
         }
     }
+    #endif
 
     nonisolated func didReceive(_ payloads: [MXDiagnosticPayload]) {
         for payload in payloads {
