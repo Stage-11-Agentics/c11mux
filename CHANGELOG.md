@@ -4,6 +4,12 @@ All notable changes to c11 (and, before the fork, cmux) are documented here.
 
 Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the 0.38.0 section for the rename.
 
+## [0.45.1] - 2026-05-04
+
+### Fixed
+
+- **Silent c11 crashes from Metal scheduler abort on surface destruction.** c11 was vanishing without a dialog under heavy multi-pane / multi-workspace use — three identical SIGABRTs on 2026-05-04 alone, including one that hit v0.45.0 within 22 minutes of launch. PC was inside `Metal::MTLSchedulerRequest::release()+84`, dispatched from a block in `MTLSchedulerRequest::generateMonolithicBlock`. Apple's UI never showed because ghostty's bundled sentry-native (breakpad) installs after Sentry-Cocoa, so it caught the signal first, wrote a minidump under `~/.local/state/ghostty/crash/`, and `_exit`ed cleanly. Root cause was in the ghostty Metal renderer: `Metal.deinit` released `MTLCommandQueue` immediately after `SwapChain.deinit`'s frame semaphore returned, but that semaphore only proves Metal completion blocks have *started* on the scheduler thread — not that the surrounding scheduler trampoline has fully unwound. Releasing the queue mid-unwind tripped a defensive abort. Fix detaches the layer's display callback, drains the queue with a synchronous no-op command buffer (`commit` + `waitUntilCompleted`), and reorders release so the layer drops pending presentation before the queue is freed. Sub-millisecond cost per surface destruction, no typing-latency hot paths affected. Investigation log preserved at `notes/metal-crash-investigation.md` so a recurrence has a head start. ([#119](https://github.com/Stage-11-Agentics/c11/pull/119))
+
 ## [0.45.0] - 2026-05-04
 
 ### Added
