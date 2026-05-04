@@ -14,9 +14,11 @@ stack.
 
 C11-26 routes `surface.send_text` (and the rest of the v2MainSync-wrapping
 surface.* family) onto the socket worker thread via
-`SocketCommandExecutionPolicy.socketWorker`. On the worker thread,
-`v2AwaitCallback` takes its semaphore branch instead of `CFRunLoopRun`, and
-the wait is bounded.
+`SocketCommandExecutionPolicy.socketWorker`. On the worker thread, the new
+`waitForTerminalSurfaceOffMain` helper blocks on a DispatchSemaphore while
+NotificationCenter observers fire on the still-free main queue (the legacy
+`v2AwaitCallback` is left untouched per ticket non-goals — the parallel
+helper avoids repointing its many @MainActor callers). The wait is bounded.
 
 What this test asserts
 ----------------------

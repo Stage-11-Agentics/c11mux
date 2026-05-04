@@ -6589,7 +6589,7 @@ class TerminalController {
     }
 
     @MainActor
-    private func resolveSurfaceSendTargets(params: [String: Any], errMessageOnInternalError: String) -> SurfaceSendPhaseAOutcome {
+    private func resolveSurfaceSendTargets(params: [String: Any]) -> SurfaceSendPhaseAOutcome {
         // C11-26: Worker-policy methods skip processV2Command's
         // `v2MainSync { v2RefreshKnownRefs() }` (Sources/TerminalController.swift:2132).
         // Without this refresh, a fresh `surface:N` / `workspace:N` ref handle is
@@ -6684,9 +6684,11 @@ class TerminalController {
     // queue when the surface is not yet attached. Phase A resolves refs on
     // @MainActor (no notification waits inside, so it cannot deadlock). Phase B
     // either sends immediately on @MainActor when the surface was already
-    // attached, or waits for it on the worker thread (so v2AwaitCallback's
-    // semaphore branch runs while the main queue is free to drain observers)
-    // and then re-hops to @MainActor for the actual send.
+    // attached, or waits for it on the worker thread via
+    // waitForTerminalSurfaceOffMain (a parallel helper, not the legacy
+    // v2AwaitCallback — repointing v2AwaitCallback's many @MainActor callers is
+    // out of scope per ticket non-goals; this helper avoids touching them) and
+    // then re-hops to @MainActor for the actual send.
     private nonisolated func v2SurfaceSendText(params: [String: Any]) -> V2CallResult {
         #if DEBUG
         dlog("v2.surface.send_text isMain=\(Thread.isMainThread) tid=\(pthread_mach_thread_np(pthread_self()))")
@@ -6700,7 +6702,7 @@ class TerminalController {
         nonisolated(unsafe) var phaseAOutcome: SurfaceSendPhaseAOutcome = .err(.err(code: "internal_error", message: "Failed to send text", data: nil))
         Task { @MainActor in
             defer { phaseASema.signal() }
-            phaseAOutcome = resolveSurfaceSendTargets(params: params, errMessageOnInternalError: "Failed to send text")
+            phaseAOutcome = resolveSurfaceSendTargets(params: params)
         }
         phaseASema.wait()
 
@@ -6790,7 +6792,7 @@ class TerminalController {
         nonisolated(unsafe) var phaseAOutcome: SurfaceSendPhaseAOutcome = .err(.err(code: "internal_error", message: "Failed to send key", data: nil))
         Task { @MainActor in
             defer { phaseASema.signal() }
-            phaseAOutcome = resolveSurfaceSendTargets(params: params, errMessageOnInternalError: "Failed to send key")
+            phaseAOutcome = resolveSurfaceSendTargets(params: params)
         }
         phaseASema.wait()
 
