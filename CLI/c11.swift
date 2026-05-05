@@ -10194,13 +10194,18 @@ struct CMUXCLI {
 
         let response = try client.sendV2(method: "surface.list", params: ["workspace_id": resolvedWorkspaceId])
         let items = (response["surfaces"] as? [[String: Any]]) ?? []
-        let match = items.first { ($0["id"] as? String) == surfaceId }
+        guard let match = items.first(where: { ($0["id"] as? String) == surfaceId }) else {
+            // Match the v2 server's not_found semantics. resolveSurfaceId short-circuits
+            // any UUID-shaped string without validating membership, so a stale or wrong
+            // UUID would otherwise print 'color: (none)' and exit 0 — silently lying.
+            throw CLIError(message: "Surface not found: \(surfaceRef ?? surfaceId)")
+        }
 
         if jsonOutput {
-            print(jsonString(match ?? [:]))
+            print(jsonString(match))
             return
         }
-        if let color = match?["custom_color"] as? String {
+        if let color = match["custom_color"] as? String {
             print("color: \(color)")
         } else {
             print("color: (none)")
