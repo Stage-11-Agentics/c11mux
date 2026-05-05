@@ -2692,15 +2692,16 @@ final class BrowserPanel: Panel, ObservableObject {
         // C11-25: cheap-tier detach is auto-driven by the existing
         // `WebViewRepresentable.shouldAttachWebView` gate in BrowserPanelView
         // (~line 6087). The controller mirrors the canonical `lifecycle_state`
-        // metadata key and updates `lifecycleState` for SwiftUI re-render.
-        // The C11-25 commit 5 hibernate path extends this handler with
-        // snapshot+terminate dispatch when the target is `.hibernated`.
+        // metadata key, updates `lifecycleState` for SwiftUI re-render, and
+        // dispatches snapshot+terminate on the ARC-grade hibernate path.
         self.lifecycle = SurfaceLifecycleController(
             workspaceId: workspaceId,
             surfaceId: self.id,
             initial: .active
-        ) { [weak self] _, target in
-            self?.lifecycleState = target
+        ) { [weak self] from, target in
+            guard let self else { return }
+            self.lifecycleState = target
+            self.dispatchLifecycleTransition(from: from, to: target)
         }
 
         // Navigate to initial URL if provided
@@ -2784,6 +2785,108 @@ final class BrowserPanel: Panel, ObservableObject {
     func applyVisibility(_ isVisibleInUI: Bool) {
         if lifecycle.state.isOperatorPinned { return }
         lifecycle.transition(to: isVisibleInUI ? .active : .throttled)
+    }
+
+    /// Operator-driven transition into / out of `.hibernated`. Invoked
+    /// from `TabManager.hibernateWorkspace` / `resumeWorkspace`
+    /// (C11-25 commit 7). Hibernating captures the current snapshot
+    /// and tears down the WebContent process; resuming refires
+    /// `load(URLRequest:)` against the captured URL.
+    func setHibernated(_ on: Bool) {
+        if on {
+            lifecycle.transition(to: .hibernated)
+        } else if lifecycle.state == .hibernated {
+            lifecycle.transition(to: .active)
+        }
+    }
+
+    /// React to a lifecycle transition. Called from the controller's
+    /// handler closure, which already updated `lifecycleState`. Splits
+    /// the work by transition direction:
+    ///
+    /// - `* → .hibernated`: capture snapshot, then release the live
+    ///   WKWebView so ARC reaps the WebContent process. The panel's
+    ///   `webView` is replaced with a fresh, unloaded WKWebView; the
+    ///   body branches to `BrowserHibernatedPlaceholderView` until
+    ///   resume.
+    /// - `.hibernated → .active`: read the captured snapshot's URL
+    ///   and refire `navigate(to:)`. Cookies survive because the
+    ///   `WKHTTPCookieStore` lives at the process-pool level.
+    ///   Best-effort scroll restore is deferred (operator accepted in
+    ///   §0a of the C11-25 plan).
+    /// - `* → .throttled`, `.throttled → .active`: cheap-tier detach
+    ///   is auto-driven by the existing `shouldAttachWebView` gate;
+    ///   no extra dispatch needed here.
+    /// - `* → .suspended`: not entered in C11-25.
+    private func dispatchLifecycleTransition(
+        from: SurfaceLifecycleState,
+        to target: SurfaceLifecycleState
+    ) {
+        switch (from, target) {
+        case (let prior, .hibernated) where prior != .hibernated:
+            performHibernate()
+        case (.hibernated, .active):
+            performResumeFromHibernate()
+        default:
+            break
+        }
+    }
+
+    /// ARC-grade hibernate. Captures a snapshot of the current page,
+    /// then replaces the WKWebView with a fresh inert one and releases
+    /// the prior reference so ARC reaps the WebContent process. The
+    /// panel's body branches to placeholder via `lifecycleState`.
+    private func performHibernate() {
+        let liveWebView = webView
+        BrowserSnapshotStore.shared.capture(
+            surfaceId: self.id,
+            webView: liveWebView
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.replaceWebViewForHibernate(oldWebView: liveWebView)
+        }
+    }
+
+    /// Resume from hibernate. The WKWebView is fresh-and-empty (was
+    /// replaced during hibernate) — refire `navigate(to:)` with the
+    /// snapshot's URL so the WebContent process spins back up. Drops
+    /// the cached snapshot once the navigation is initiated.
+    private func performResumeFromHibernate() {
+        let snapshot = BrowserSnapshotStore.shared.snapshot(forSurfaceId: self.id)
+        BrowserSnapshotStore.shared.clear(forSurfaceId: self.id)
+        if let url = snapshot?.url {
+            shouldRenderWebView = true
+            navigate(to: url)
+        }
+    }
+
+    /// Hibernate-time companion to `replaceWebViewPreservingState`.
+    /// Tears down the live WKWebView (graceful: stopLoading + delegates
+    /// nil + portal detach + ARC release via reference replacement)
+    /// and installs a fresh inert webview in its place. Unlike the
+    /// post-crash variant, the new webview is NOT loaded with the
+    /// original URL — the panel renders a placeholder until resume.
+    private func replaceWebViewForHibernate(oldWebView: WKWebView) {
+        guard oldWebView === webView else { return }
+        webViewObservers.removeAll()
+        webViewCancellables.removeAll()
+        faviconTask?.cancel()
+        faviconTask = nil
+        BrowserWindowPortalRegistry.detach(webView: oldWebView)
+        BrowserWebContentTerminator.tearDownGracefully(oldWebView)
+
+        let replacement = Self.makeWebView(
+            profileID: profileID,
+            websiteDataStore: websiteDataStore
+        )
+        webViewInstanceID = UUID()
+        webView = replacement
+        // Don't bind the replacement to the portal — the body branches
+        // to placeholder while hibernated, and binding would
+        // unnecessarily reach for portal hosts that the placeholder
+        // doesn't use. Resume calls navigate(to:) which sets up the
+        // attachment via the regular shouldAttachWebView path once
+        // lifecycleState flips back to .active.
     }
 
     func reattachToWorkspace(
