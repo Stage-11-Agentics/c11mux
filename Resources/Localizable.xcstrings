@@ -18948,6 +18948,42 @@
             "state": "translated",
             "value": "Suspends browser surfaces in this workspace. Terminals stay on auto-throttle (already low-CPU when the workspace isn't focused)."
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このワークスペース内のブラウザサーフェスを一時停止します。ターミナルは自動スロットルのまま動作します（ワークスペースが非フォーカス時はすでに低CPU使用率）。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂停此工作区中的浏览器界面。终端保持自动节流（工作区未聚焦时 CPU 占用已较低）。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暫停此工作區中的瀏覽器介面。終端機維持自動節流（工作區未聚焦時 CPU 佔用已較低）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 작업 공간의 브라우저 서피스를 일시 중단합니다. 터미널은 자동 스로틀 상태를 유지합니다(작업 공간에 포커스가 없을 때 이미 CPU 사용량이 낮음)."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Приостанавливает поверхности браузера в этом рабочем пространстве. Терминалы остаются на автодросселировании (уже с низким потреблением ЦП, когда рабочее пространство не в фокусе)."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Призупиняє браузерні поверхні в цьому робочому просторі. Термінали залишаються на автодроселюванні (вже з низьким завантаженням ЦП, коли робочий простір не у фокусі)."
+          }
         }
       }
     },
