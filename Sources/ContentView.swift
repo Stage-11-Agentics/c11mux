@@ -11892,6 +11892,28 @@ private struct TabItemView: View, Equatable {
 
         Divider()
 
+        // C11-25: hibernate / resume the right-clicked workspace. Mirrors
+        // the App menu bar's Workspace submenu (`c11App.swift:1394`) so
+        // the action is reachable from the sidebar where operators expect
+        // it (DoD #6 placement). Browser surfaces snapshot + terminate
+        // their WebContent processes and render a placeholder until
+        // resume; terminals stay on the auto-throttle path.
+        if tab.isHibernated {
+            Button(String(localized: "contextMenu.resumeWorkspace", defaultValue: "Resume Workspace")) {
+                tab.resume()
+            }
+        } else {
+            Button(String(localized: "contextMenu.hibernateWorkspace", defaultValue: "Hibernate Workspace")) {
+                tab.hibernate()
+            }
+            .help(String(
+                localized: "contextMenu.hibernateWorkspaceTooltip",
+                defaultValue: "Suspends browser surfaces in this workspace. Terminals stay on auto-throttle (already low-CPU when the workspace isn't focused)."
+            ))
+        }
+
+        Divider()
+
         Button(markReadLabel) {
             markTabsRead(targetIds)
         }
