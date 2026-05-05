@@ -1,4 +1,5 @@
 import XCTest
+import WebKit
 
 #if canImport(c11_DEV)
 @testable import c11_DEV
@@ -228,6 +229,78 @@ final class SurfaceLifecycleTests: XCTestCase {
         XCTAssertEqual(calls.count, 1)
         XCTAssertEqual(calls[0].0, .active)
         XCTAssertEqual(calls[0].1, .throttled)
+    }
+
+    // MARK: - Native hibernated browser construction (S4 + E1)
+
+    /// C11-25 fix S4+E1: a `BrowserPanel` constructed with
+    /// `pendingHibernate: true` must come up natively in `.hibernated`,
+    /// must NOT fire the initial `WKWebView.load(URLRequest:)` for
+    /// `initialURL`, and must record the URL where resume can find it
+    /// (so `Resume Workspace` lands on the right page). Closes the
+    /// privacy/billing leak where a brief network hit attached cookies
+    /// and a billable pageview against the persisted URL during the
+    /// gap between construction and the legacy re-hibernate dispatch.
+    @MainActor
+    func testBrowserPanelPendingHibernateSkipsInitialLoad() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/c11-25-pending-hibernate"))
+        let surfaceId = UUID()
+        BrowserSnapshotStore.shared.clear(forSurfaceId: surfaceId)
+        defer { BrowserSnapshotStore.shared.clear(forSurfaceId: surfaceId) }
+
+        let panel = BrowserPanel(
+            id: surfaceId,
+            workspaceId: UUID(),
+            initialURL: url,
+            pendingHibernate: true
+        )
+
+        XCTAssertEqual(
+            panel.lifecycleState,
+            .hibernated,
+            "panel constructed with pendingHibernate=true must publish hibernated"
+        )
+        XCTAssertEqual(
+            panel.currentURL,
+            url,
+            "currentURL is preserved so the omnibar still presents the destination"
+        )
+        XCTAssertFalse(
+            panel.shouldRenderWebView,
+            "shouldRenderWebView must stay false; the placeholder owns the body"
+        )
+        XCTAssertNil(
+            panel.webView.url,
+            "WKWebView.url must remain nil — no request was dispatched for initialURL"
+        )
+        XCTAssertFalse(
+            panel.webView.isLoading,
+            "WKWebView must not be loading — no initial navigate fired"
+        )
+        let snapshot = try XCTUnwrap(
+            BrowserSnapshotStore.shared.snapshot(forSurfaceId: surfaceId),
+            "snapshot store must be primed with the initialURL so Resume can find it"
+        )
+        XCTAssertEqual(snapshot.url, url)
+        XCTAssertNil(snapshot.image, "no live page rendered yet, so no captured image")
+    }
+
+    /// Sanity check the legacy path: without `pendingHibernate`, the
+    /// panel still drives the initial navigate. Guards against an
+    /// over-broad fix that suppresses the navigate for the normal case.
+    @MainActor
+    func testBrowserPanelDefaultConstructionStillFiresInitialLoad() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com/c11-25-default"))
+        let panel = BrowserPanel(
+            workspaceId: UUID(),
+            initialURL: url
+        )
+
+        XCTAssertEqual(panel.lifecycleState, .active)
+        XCTAssertTrue(
+            panel.shouldRenderWebView,
+            "shouldRenderWebView flips to true for the default initialURL path"
+        )
     }
 
     @MainActor

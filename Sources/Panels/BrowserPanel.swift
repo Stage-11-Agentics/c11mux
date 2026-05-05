@@ -2584,6 +2584,14 @@ final class BrowserPanel: Panel, ObservableObject {
     /// - Parameter id: Stable panel UUID. Pass `nil` for fresh creation; pass a
     ///   snapshot's panel id during session restore to keep IDs stable across
     ///   app restarts (Tier 1 persistence, Phase 1).
+    /// - Parameter pendingHibernate: C11-25 fix S4+E1. When `true`, the
+    ///   panel comes up natively in `.hibernated` and the initial
+    ///   `WKWebView.load(URLRequest:)` is suppressed — no cookies attach,
+    ///   no pageview is billed against `initialURL` until the operator
+    ///   resumes. Used by `WorkspaceLayoutExecutor` when a `c11 restore`
+    ///   plan declares `lifecycle_state == "hibernated"` for the surface.
+    ///   The `initialURL` is still recorded (in `currentURL` and the
+    ///   snapshot store) so `Resume Workspace` has a destination.
     init(
         id: UUID? = nil,
         workspaceId: UUID,
@@ -2592,7 +2600,8 @@ final class BrowserPanel: Panel, ObservableObject {
         bypassInsecureHTTPHostOnce: String? = nil,
         proxyEndpoint: BrowserProxyEndpoint? = nil,
         isRemoteWorkspace: Bool = false,
-        remoteWebsiteDataStoreIdentifier: UUID? = nil
+        remoteWebsiteDataStoreIdentifier: UUID? = nil,
+        pendingHibernate: Bool = false
     ) {
         self.id = id ?? UUID()
         self.workspaceId = workspaceId
@@ -2716,14 +2725,25 @@ final class BrowserPanel: Panel, ObservableObject {
         // (~line 6087). The controller mirrors the canonical `lifecycle_state`
         // metadata key, updates `lifecycleState` for SwiftUI re-render, and
         // dispatches snapshot+terminate on the ARC-grade hibernate path.
+        //
+        // C11-25 fix S4+E1: when `pendingHibernate` is set the controller
+        // starts at `.hibernated` so the SwiftUI body branches straight to
+        // `BrowserHibernatedPlaceholderView` and the WKWebView is never
+        // attached. `lifecycleState` is set explicitly because the
+        // controller's initial-state assignment does not fire the
+        // transition handler (handler runs on real transitions only).
+        let initialLifecycle: SurfaceLifecycleState = pendingHibernate ? .hibernated : .active
         self.lifecycle = SurfaceLifecycleController(
             workspaceId: workspaceId,
             surfaceId: self.id,
-            initial: .active
+            initial: initialLifecycle
         ) { [weak self] from, target in
             guard let self else { return }
             self.lifecycleState = target
             self.dispatchLifecycleTransition(from: from, to: target)
+        }
+        if pendingHibernate {
+            self.lifecycleState = .hibernated
         }
 
         // C11-25 commit 6 (review fix B4): register with the per-surface
@@ -2734,10 +2754,27 @@ final class BrowserPanel: Panel, ObservableObject {
         // isolation violation against an AppKit/WebKit object.
         SurfaceMetricsSampler.shared.register(surfaceId: self.id)
 
-        // Navigate to initial URL if provided
+        // Navigate to initial URL if provided.
+        //
+        // C11-25 fix S4+E1: when this panel is being constructed in
+        // `.hibernated` (operator restored a hibernated workspace), skip
+        // the initial navigate entirely so no request fires for
+        // `initialURL` — closes the privacy/billing leak where cookies
+        // attach and a billable pageview lands during the brief window
+        // between construction and the legacy re-hibernate dispatch.
+        // Resume reads the URL from `currentURL` (or the snapshot store
+        // entry primed below) when the operator unfreezes the workspace.
         if let url = initialURL {
-            shouldRenderWebView = true
-            navigate(to: url)
+            if pendingHibernate {
+                self.currentURL = url
+                BrowserSnapshotStore.shared.storeMetadataOnly(
+                    surfaceId: self.id,
+                    url: url
+                )
+            } else {
+                shouldRenderWebView = true
+                navigate(to: url)
+            }
         }
     }
 

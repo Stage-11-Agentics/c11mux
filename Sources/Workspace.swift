@@ -810,12 +810,19 @@ extension Workspace {
             return terminalPanel.id
         case .browser:
             let initialURL = snapshot.browser?.urlString.flatMap { URL(string: $0) }
+            // C11-25 fix S4+E1: when the persisted snapshot says the panel
+            // was hibernated, construct it natively in `.hibernated` so the
+            // initial WKWebView load never fires for `initialURL` —
+            // matches the executor-driven restore path and closes the same
+            // privacy/billing leak on session-snapshot restore.
+            let restoredHibernated = snapshotRequestsHibernated(snapshot)
             guard let browserPanel = newBrowserSurface(
                 inPane: paneId,
                 url: initialURL,
                 focus: false,
                 preferredProfileID: snapshot.browser?.profileID,
-                panelId: restoredPanelId
+                panelId: restoredPanelId,
+                pendingHibernate: restoredHibernated
             ) else {
                 return nil
             }
@@ -833,6 +840,19 @@ extension Workspace {
             applySessionPanelMetadata(snapshot, toPanelId: markdownPanel.id)
             return markdownPanel.id
         }
+    }
+
+    /// C11-25 fix S4+E1: returns `true` when the persisted session
+    /// snapshot's per-surface metadata pinned the panel to
+    /// `lifecycle_state == "hibernated"`. Used by `createPanel` to
+    /// suppress the initial WKWebView navigate so a restored hibernated
+    /// browser never briefly hits the network for its persisted URL.
+    private func snapshotRequestsHibernated(_ snapshot: SessionPanelSnapshot) -> Bool {
+        guard let metadata = snapshot.metadata,
+              case .string(let raw)? = metadata[MetadataKey.lifecycleState] else {
+            return false
+        }
+        return raw == SurfaceLifecycleState.hibernated.rawValue
     }
 
     private func applySessionPanelMetadata(_ snapshot: SessionPanelSnapshot, toPanelId panelId: UUID) {
@@ -7725,6 +7745,10 @@ final class Workspace: Identifiable, ObservableObject {
     }
 
     /// Create a new browser panel split
+    /// - Parameter pendingHibernate: C11-25 fix S4+E1. When `true`, the
+    ///   panel is constructed natively in `.hibernated` and the initial
+    ///   URL navigate is suppressed. Used by `c11 restore` when the plan
+    ///   declares `lifecycle_state == "hibernated"` for the surface.
     @discardableResult
     func newBrowserSplit(
         from panelId: UUID,
@@ -7732,7 +7756,8 @@ final class Workspace: Identifiable, ObservableObject {
         insertFirst: Bool = false,
         url: URL? = nil,
         preferredProfileID: UUID? = nil,
-        focus: Bool = true
+        focus: Bool = true,
+        pendingHibernate: Bool = false
     ) -> BrowserPanel? {
         guard let paneId = paneIdForPanel(panelId) else { return nil }
 
@@ -7746,7 +7771,8 @@ final class Workspace: Identifiable, ObservableObject {
             initialURL: url,
             proxyEndpoint: remoteProxyEndpoint,
             isRemoteWorkspace: isRemoteWorkspace,
-            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil
+            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil,
+            pendingHibernate: pendingHibernate
         )
         panels[browserPanel.id] = browserPanel
         panelTitles[browserPanel.id] = browserPanel.displayTitle
@@ -7801,6 +7827,10 @@ final class Workspace: Identifiable, ObservableObject {
     /// - Parameter focus: nil = focus only if the target pane is already focused (default UI behavior),
     ///                    true = force focus/selection of the new surface,
     ///                    false = never focus (used for internal placeholder repair paths).
+    /// - Parameter pendingHibernate: C11-25 fix S4+E1. When `true`, the
+    ///   panel is constructed natively in `.hibernated` and the initial
+    ///   URL navigate is suppressed. Used by `c11 restore` when the plan
+    ///   declares `lifecycle_state == "hibernated"` for the surface.
     @discardableResult
     func newBrowserSurface(
         inPane paneId: PaneID,
@@ -7809,7 +7839,8 @@ final class Workspace: Identifiable, ObservableObject {
         insertAtEnd: Bool = false,
         preferredProfileID: UUID? = nil,
         bypassInsecureHTTPHostOnce: String? = nil,
-        panelId: UUID? = nil
+        panelId: UUID? = nil,
+        pendingHibernate: Bool = false
     ) -> BrowserPanel? {
         let shouldFocusNewTab = focus ?? (bonsplitController.focusedPaneId == paneId)
         let sourcePanelId = effectiveSelectedPanelId(inPane: paneId)
@@ -7827,7 +7858,8 @@ final class Workspace: Identifiable, ObservableObject {
             bypassInsecureHTTPHostOnce: bypassInsecureHTTPHostOnce,
             proxyEndpoint: remoteProxyEndpoint,
             isRemoteWorkspace: isRemoteWorkspace,
-            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil
+            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil,
+            pendingHibernate: pendingHibernate
         )
         panels[browserPanel.id] = browserPanel
         panelTitles[browserPanel.id] = browserPanel.displayTitle

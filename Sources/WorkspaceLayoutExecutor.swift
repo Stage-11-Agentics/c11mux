@@ -831,7 +831,8 @@ enum WorkspaceLayoutExecutor {
                     orientation: orientation,
                     insertFirst: false,
                     url: url,
-                    focus: false
+                    focus: false,
+                    pendingHibernate: Self.specRequestsHibernated(spec)
                 )?.id
             case .markdown:
                 if spec.workingDirectory != nil {
@@ -1042,7 +1043,8 @@ enum WorkspaceLayoutExecutor {
                 return workspace.newBrowserSurface(
                     inPane: paneId,
                     url: url,
-                    focus: focus
+                    focus: focus,
+                    pendingHibernate: Self.specRequestsHibernated(spec)
                 )?.id
             case .markdown:
                 if spec.workingDirectory != nil {
@@ -1163,6 +1165,21 @@ enum WorkspaceLayoutExecutor {
             }
         }
         return out
+    }
+
+    /// C11-25 fix S4+E1: returns `true` when the plan declares
+    /// `lifecycle_state == "hibernated"` for `spec`. Browser construction
+    /// uses this to skip the initial `WKWebView.load(URLRequest:)` so a
+    /// restored hibernated workspace never briefly hits the network for
+    /// `spec.url` before being re-hibernated. Returning `false` keeps the
+    /// legacy spin-up + `restoreLifecycleStateFromMetadata` fallback for
+    /// any panel kind whose construction path doesn't yet honor the flag.
+    fileprivate nonisolated static func specRequestsHibernated(_ spec: SurfaceSpec) -> Bool {
+        guard let metadata = spec.metadata,
+              case .string(let raw)? = metadata[MetadataKey.lifecycleState] else {
+            return false
+        }
+        return raw == SurfaceLifecycleState.hibernated.rawValue
     }
 
     // MARK: - Timing helper
