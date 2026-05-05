@@ -54,7 +54,7 @@ Run this workflow to prepare and publish a c11 release.
 - `git checkout main && git pull --ff-only`
 
 10. Create and push tag:
-- `git tag vX.Y.Z`
+- `git tag -a vX.Y.Z -m "Release vX.Y.Z"` (annotated; lightweight `git tag vX.Y.Z` is rejected with "no tag message?" by local git config)
 - `git push origin vX.Y.Z`
 
 11. Verify release workflow and assets:
@@ -95,10 +95,12 @@ Updates both `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` (build number). T
 If not using the `/release` command:
 
 ```bash
-git tag vX.Y.Z
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
 git push origin vX.Y.Z
 gh run watch --repo Stage-11-Agentics/c11
 ```
+
+Use the annotated form (`-a -m`). A lightweight `git tag vX.Y.Z` is rejected with "no tag message?" because of local git config (likely `tag.gpgSign` or equivalent forcing all tags to be annotated).
 
 ## Reference
 

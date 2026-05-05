@@ -4,6 +4,84 @@ All notable changes to c11 (and, before the fork, cmux) are documented here.
 
 Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the 0.38.0 section for the rename.
 
+## [0.45.2] - 2026-05-04
+
+### Fixed
+
+- **Silent c11 crashes from socket-handler self-deadlock (4× on 2026-05-04).** After C11-26 ([#112](https://github.com/Stage-11-Agentics/c11/pull/112)), the new socket dispatcher routes default-policy commands through `DispatchQueue.main.sync { MainActor.assumeIsolated { … } }` from the worker thread. About 100 v1 handlers in `TerminalController.swift` and 12 in `ThemeSocketMethods.swift` were written for the *pre*-C11-26 assumption that they were already on the worker, and each did its own `DispatchQueue.main.sync { … }` to hop to main. Post-C11-26 that hop is reentrant: libdispatch's self-deadlock guard (`__DISPATCH_WAIT_FOR_QUEUE__`) trapped with `EXC_BREAKPOINT` and the c11 window vanished silently. Apple's UI never saw it; only ghostty's bundled sentry-native breakpad in `~/.local/state/ghostty/crash/` recorded the dump. Operator hit this 4× on 2026-05-04 alone (builds 95/96/97). The earlier 14:26 IPS hang on 0.44.1 was the same class of bug pre-detection, on an older libdispatch that hung indefinitely (1673 s unresponsive) rather than trapping. Fix swaps the 99+12 bare `DispatchQueue.main.sync` sites for the existing `v2MainSync` helper (which short-circuits when already on main), and adds a parallel `Self.mainSync` to `ThemeSocketMethods`. Both helpers are correct under either dispatcher path. Two intentional bare-sync sites kept (the dispatcher itself and `v2MainSync`'s own implementation). New regression test `tests_v2/test_v1_handler_main_self_deadlock.py` exercises 30 successive `set_progress` calls plus a spread of 7 v1 handlers; all return `OK`. ([#121](https://github.com/Stage-11-Agentics/c11/pull/121))
+
+### Changed
+
+- **CMUX-37 final push: blueprint markdown, `snapshot --all` manifests, CLI ergonomics.** Closes the five gaps from the 2026-05-03 smoke-test of CMUX-37. Workspace blueprints now have a markdown parser/writer and default to `~/.config/c11/blueprints/` (legacy paths still read). `c11 workspace snapshot --all` writes a manifest envelope and `restore <set-id>` is polymorphic on the id, rebuilding all workspaces in one shot. Clean restores no longer emit redundant `failure:` lines (expected restore diagnostics are reclassified as info). `c11 workspace <subcommand> --help` routes through a two-level dispatch instead of dumping the top-level help. The CLI honors `C11_SOCKET` (legacy `CMUX_SOCKET` still works), with auto-discovery logged to stderr. ([#118](https://github.com/Stage-11-Agentics/c11/pull/118))
+
+### Built and shipped by
+
+Stage 11 Agentics. Operator:agent, fused.
+
+## [0.45.1] - 2026-05-04
+
+### Fixed
+
+- **Silent c11 crashes from Metal scheduler abort on surface destruction.** c11 was vanishing without a dialog under heavy multi-pane / multi-workspace use — three identical SIGABRTs on 2026-05-04 alone, including one that hit v0.45.0 within 22 minutes of launch. PC was inside `Metal::MTLSchedulerRequest::release()+84`, dispatched from a block in `MTLSchedulerRequest::generateMonolithicBlock`. Apple's UI never showed because ghostty's bundled sentry-native (breakpad) installs after Sentry-Cocoa, so it caught the signal first, wrote a minidump under `~/.local/state/ghostty/crash/`, and `_exit`ed cleanly. Root cause was in the ghostty Metal renderer: `Metal.deinit` released `MTLCommandQueue` immediately after `SwapChain.deinit`'s frame semaphore returned, but that semaphore only proves Metal completion blocks have *started* on the scheduler thread — not that the surrounding scheduler trampoline has fully unwound. Releasing the queue mid-unwind tripped a defensive abort. Fix detaches the layer's display callback, drains the queue with a synchronous no-op command buffer (`commit` + `waitUntilCompleted`), and reorders release so the layer drops pending presentation before the queue is freed. Sub-millisecond cost per surface destruction, no typing-latency hot paths affected. Investigation log preserved at `notes/metal-crash-investigation.md` so a recurrence has a head start. ([#119](https://github.com/Stage-11-Agentics/c11/pull/119))
+
+## [0.45.0] - 2026-05-04
+
+### Added
+
+- **Force-Quit / unclean-exit detection.** A per-launch JSON sentinel under `~/Library/Caches/<bundle-id>/sessions/`; if the previous launch never reached `applicationWillTerminate`, the marker is archived as `unclean-exit-<ts>.json` on next launch. Catches the failure modes Sentry's in-process handler can't see — Force Quit, SIGKILL, jetsam, watchdog kills, and silent GUI exits where no `.ips` file is written. Telemetry-independent by design: the file never leaves the machine. Foundation for the upcoming `c11 health` CLI. ([#109](https://github.com/Stage-11-Agentics/c11/pull/109))
+
+- **MetricKit crash channel.** `CrashDiagnostics` (an `MXMetricManagerSubscriber`) now persists `MXCrashDiagnostic`, `MXHangDiagnostic`, `MXCPUExceptionDiagnostic`, and `MXDiskWriteExceptionDiagnostic` payloads to `~/Library/Logs/c11/metrickit/` unconditionally; Sentry breadcrumb forwarding stays gated on telemetry consent. Closes the visibility gap between Sentry's in-process crash handler and the OS-level kills it never sees.
+
+### Changed
+
+- **Menu bar icon: c11 mark, surface-aware tooltip, no Integrations submenu.** Replaces the upstream chevron with the c11 "open-center plus" derived from the app icon, retuned to a square `(1.0, 1.0, 11.0, 11.0)` glyph rect so the symmetric plus reads square. Drops the dead "Install Claude Code / Codex / OpenCode / Kimi" submenu (`c11 install <tui>` is explicitly off the table). Hovering the status item with unread notifications now appends deduplicated surface titles below the count on a second line, capped to six with a trailing ellipsis. ([#106](https://github.com/Stage-11-Agentics/c11/pull/106))
+
+- **Sentry routes to a dedicated `stage11-c11` project, with symbolicated traces.** Events were previously going to a generic `demo-project` (python-fastapi) on Sentry, mixed with unrelated Python service errors. dSYM uploads were pointed at `SENTRY_ORG=stage11` (wrong slug) and a project that never existed, so the upload step silently no-op'd on every CI run. `release.yml` and `nightly.yml` now upload to `stage-11-kl` / `stage11-c11` with a real auth token, and the in-app DSN matches.
+
+- **C11-1: post-rebrand stragglers cleaned up.** The About-dialog source-level fallback now reads `c11` (the localized override was already correct in all seven locales). Source-comment links to nonexistent `docs/c11mux-module-*-spec.md` files dropped. Legacy `generate_dark_icon.py` and `generate_nightly_icon.py` had `os.execv` targets pointing at a `generate_c11mux_icon.py` that was never renamed — corrected to the actual `generate_c11_icon.py`. The `docs/c11-charter.md` tap and bundle identifier corrected to what shipped. ([#111](https://github.com/Stage-11-Agentics/c11/pull/111))
+
+### Fixed
+
+- **Main-thread deadlock from blocking v2 socket methods (4×/day → 0).** Under heavy automation, `surface.send_text` / `surface.send_key` / `surface.read_text` / `surface.clear_history` were parking `CFRunLoopRun()` on the main thread inside `v2AwaitCallback`, beach-balling the whole app with no recovery. The four handlers now run on the socket worker thread under a new `socketWorker` execution policy and only hop to `@MainActor` for bounded slices via `Task { @MainActor in ... } + DispatchSemaphore`. New `waitForTerminalSurfaceOffMain` uses observer-then-recheck-then-`DispatchSemaphore` so the main queue stays free, observers fire, and the semaphore signals correctly off-main. Hand-port of upstream cmux [#3340](https://github.com/manaflow-ai/cmux/pull/3340) by [@lawrencecchen](https://github.com/lawrencecchen) plus c11-specific scope expansion to actually cover the `surface.*` methods (upstream's allowlist did not include any of them). Pre-fix main-thread sample under 50× `surface.send_text` load: 7120/7120 ticks parked under `v2AwaitCallback` / `v2MainSync` / `waitForTerminalSurface*`. Post-fix sample under the same load: 0/7120. ([#112](https://github.com/Stage-11-Agentics/c11/pull/112)) — thanks [@lawrencecchen](https://github.com/lawrencecchen) for the upstream fix!
+
+- **Claude Code session resume now works inside worktree subdirs.** `c11 restart` was emitting `claude --resume <id>` from whatever cwd the surface respawned in. Claude Code stores session JSONLs at `~/.claude/projects/<encoded-cwd>/<id>.jsonl` and resolves `--resume` by the *current* shell's cwd, so a session captured inside e.g. `code/c11-worktrees/some-branch/` failed with "No conversation found with session ID" when the surface respawned in `code/`. Restart now records `claude.session_project_dir` at SessionStart (paired atomically with `claude.session_id`), and synthesizes `cd '<path>' && claude --dangerously-skip-permissions --resume <id>` when the path is present and valid. Existing surfaces with id-only metadata keep working unchanged. Validators reject malformed paths at write time and re-validate at synthesis time, with single-quote escaping for paths containing spaces. ([#113](https://github.com/Stage-11-Agentics/c11/pull/113))
+
+### Built and shipped by
+
+Stage 11 Agentics. Operator:agent, fused.
+
+## [0.44.1] - 2026-04-28
+
+### Fixed
+
+- **"What's new" link after auto-update now points at the c11 release page.** When you accepted an update and relaunched, the release-notes link in the Sparkle dialog opened the upstream cmux release page on GitHub instead of the c11 fork. The semver path in `UpdateViewModel.ReleaseNotes` was hand-rolling a URL against `manaflow-ai/cmux`. Same sweep removed an "Upstream" button from the About panel, fixed the About panel "GitHub" and commit links (which pointed at a `c11mux` repo that doesn't exist), corrected the `c11 daemon-status` advisory `gh release download` text, and replaced the splash banner's upstream URL with the c11 repo. Sparkle install itself was always correct, so the only user-visible symptom was the misrouted release-notes link.
+
+### Built and shipped by
+
+Stage 11 Agentics. Operator:agent, fused.
+
+## [0.44.0] - 2026-04-27
+
+### Added
+
+- **Claude Code session resume across c11 restarts.** When you quit and relaunch c11, terminals that were running Claude Code auto-resume the conversation: about 2.5 s after restore, the pane types and submits `claude --dangerously-skip-permissions --resume <session-uuid>` for you. Capture works via a hooks-via-tempfile workaround for Claude Code 2.1.119, which silently ignores hooks loaded from inline `--settings` JSON; restore drives the resume command through `TextBoxSubmit` (paste plus a synthetic Return), since bracketed-paste mode would otherwise swallow the embedded newline. The wrapper falls back to inline JSON with a stderr warning if the tempfile write fails. SessionEnd clears `claude.session_id` from surface metadata so an already-ended session does not auto-resume on next launch. ([#89](https://github.com/Stage-11-Agentics/c11/pull/89))
+
+- **C11-20: CLI hygiene and focus policy sweep (7 upstream picks).** `c11 new-surface --no-focus` (and `surface.create focus:false`) so agents can spawn surfaces without stealing focus. New `tty` field in `surface.list` and `system.tree` responses. `c11 send` and `send-key` now error when `--surface` is omitted and `CMUX_SURFACE_ID` is unset, so silent defaults can no longer deliver to the wrong surface. `surface.send_text` reaches non-focused tabs via `waitForTerminalSurface`. Focus and `workspace select` bring the existing window forward and resolve indices cross-window. `workspace.create --layout` rolls back the orphan workspace on layout failure. SIGABRT on broken pipe is now caught. Reported upstream by @andy5090, @hummer98, @nengqi, @jasonkuhrt, @EtanHey, @austinywang, @shaun0927. ([#84](https://github.com/Stage-11-Agentics/c11/pull/84))
+
+- **C11-22: Stability, render, theme, config (10 upstream picks).** SSH subprocess inherits the full process environment (`SSH_AUTH_SOCK`, agent forwarding). `parseByteCount` understands K/M/G suffixes with overflow and negative guards. Notification authorization now requests `.badge` so the dock badge fires for terminal alerts. `customColor` accepts named palette colors, with unknown names returning a typed `unknown_color_name` failure. Palette index is bounded to `0...15`; a KVO observer reloads config on system-appearance changes. `.safeHelp` removed from high-churn titlebar, sidebar, and new-workspace buttons (UAF risk). Legacy-mode scrollbar gutter is subtracted from terminal width. Idle redraws are gated when the palette overlay is hidden. `applyContrastFallbackIfNeeded` logs the override and palette entries now apply in `TerminalView`. Ghostty submodule bumps to `c649529` for the `SlidingWindow.Meta` page-rows SIGSEGV race fix. ([#87](https://github.com/Stage-11-Agentics/c11/pull/87))
+
+### Changed
+
+- **C11-21: Input handling, keyboard, IME, paste (8 upstream picks).** Tightened `allowANSIKeyCodeFallback` in `matchShortcut` so the physical-keycode fallback only fires when both AppKit and the active layout returned no character; fixes JIS `Cmd+Shift+[` routing to the wrong shortcut. Option+Backspace now does word-deletion in TUI apps (lazygit, vim, Claude Code, Codex) via a fast path before `interpretKeyEvents`. `flagsChanged` tracks per-bit modifier transitions and emits press / release for newly-set or cleared bits, fixing modifier events dropped during IME marked text. `stringContents(from:)` prefers `NSPasteboard.utf8PlainTextType` over `.string` for clean Hangul, Cyrillic, and Qt non-ASCII paste. Disproportionately important for c11's six-locale shipping story. Reported upstream by @wada811, @sldx, @judekim0507, @shouryamaanjain, @pandec, @austinywang, @shaun0927. ([#86](https://github.com/Stage-11-Agentics/c11/pull/86))
+
+### Fixed
+
+- **Orphan portal entries no longer paint stale chrome strokes on launch.** Bonsplit's `_ConditionalContent` flipping between `EmptyPanelView` and `PanelContentView` during launch or workspace remount could leave a portal entry frozen at its initial frame, painting phantom chrome and sometimes the empty-pane SwiftUI subtree on top of the live workspace for the rest of the session. `TerminalWindowPortal` and `BrowserWindowPortal` now reap these orphans during the geometry-sync pass: when the anchor weak ref deallocates or the anchor migrated to another window, the entry is hidden and the chrome overlay is invalidated. A belt-and-suspenders guard in `workspaceFrameSegmentsForChromeOverlay` keeps chrome strokes from outpacing the hide on a single redraw cycle. ([#88](https://github.com/Stage-11-Agentics/c11/pull/88))
+
+### Built and shipped by
+
+Stage 11 Agentics. Operator:agent, fused.
+
 ## [0.43.0] - 2026-04-26
 
 ### Added

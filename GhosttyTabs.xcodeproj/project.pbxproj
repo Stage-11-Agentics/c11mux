@@ -56,6 +56,12 @@
 		D8C24115A1B2C3D4E5F60718 /* WorkspaceConversationResumeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C24125A1B2C3D4E5F60718 /* WorkspaceConversationResumeTests.swift */; };
 		D8C24116A1B2C3D4E5F60718 /* ConversationSnapshotBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C24126A1B2C3D4E5F60718 /* ConversationSnapshotBridgeTests.swift */; };
 		D8C24117A1B2C3D4E5F60718 /* ConversationStoreFailureModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C24127A1B2C3D4E5F60718 /* ConversationStoreFailureModeTests.swift */; };
+		DH010BF0A1B2C3D4E5F60718 /* HealthIPSParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH010BF1A1B2C3D4E5F60718 /* HealthIPSParserTests.swift */; };
+		DH011BF0A1B2C3D4E5F60718 /* HealthSentryParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH011BF1A1B2C3D4E5F60718 /* HealthSentryParserTests.swift */; };
+		DH012BF0A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH012BF1A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift */; };
+		DH013BF0A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH013BF1A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift */; };
+		DH014BF0A1B2C3D4E5F60718 /* HealthFlagsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH014BF1A1B2C3D4E5F60718 /* HealthFlagsTests.swift */; };
+		DH015BF0A1B2C3D4E5F60718 /* CLIHealthRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH015BF1A1B2C3D4E5F60718 /* CLIHealthRuntimeTests.swift */; };
 		D800ABF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCapture.swift */; };
 		D800BBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStore.swift */; };
 		D800CBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */; };
@@ -69,6 +75,10 @@
 		D8014BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8014BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift */; };
 		D8015BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8015BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift */; };
 		D8016BF0A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8016BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift */; };
+		D8018BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8018BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift */; };
+		D8019BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8019BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift */; };
+		D801ABF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D801ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift */; };
+		D801BBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D801BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift */; };
 		D7011BF0A1B2C3D4E5F60718 /* PaneMetadataStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7011BF1A1B2C3D4E5F60718 /* PaneMetadataStoreTests.swift */; };
 		D7012BF0A1B2C3D4E5F60718 /* PaneMetadataPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7012BF1A1B2C3D4E5F60718 /* PaneMetadataPersistenceTests.swift */; };
 		D7015BF0A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7015BF1A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift */; };
@@ -106,6 +116,9 @@
 		A5001501 /* UITestRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001511 /* UITestRecorder.swift */; };
 		A5001226 /* SocketControlSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001225 /* SocketControlSettings.swift */; };
 		A5001601 /* SentryHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001600 /* SentryHelper.swift */; };
+		DH001BF0A1B2C3D4E5F60718 /* HealthCommandCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH001BF1A1B2C3D4E5F60718 /* HealthCommandCore.swift */; };
+		DH001BF0A1B2C3D4E5F60719 /* HealthCommandCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH001BF1A1B2C3D4E5F60718 /* HealthCommandCore.swift */; };
+		DH002BF0A1B2C3D4E5F60719 /* HealthCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH002BF1A1B2C3D4E5F60719 /* HealthCommand.swift */; };
 		A5001621 /* AppleScriptSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001620 /* AppleScriptSupport.swift */; };
 		A5001400 /* Panel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001410 /* Panel.swift */; };
 		A5001401 /* TerminalPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001411 /* TerminalPanel.swift */; };
@@ -370,6 +383,12 @@
 		D8C24125A1B2C3D4E5F60718 /* WorkspaceConversationResumeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceConversationResumeTests.swift; sourceTree = "<group>"; };
 		D8C24126A1B2C3D4E5F60718 /* ConversationSnapshotBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSnapshotBridgeTests.swift; sourceTree = "<group>"; };
 		D8C24127A1B2C3D4E5F60718 /* ConversationStoreFailureModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStoreFailureModeTests.swift; sourceTree = "<group>"; };
+		DH010BF1A1B2C3D4E5F60718 /* HealthIPSParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthIPSParserTests.swift; sourceTree = "<group>"; };
+		DH011BF1A1B2C3D4E5F60718 /* HealthSentryParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSentryParserTests.swift; sourceTree = "<group>"; };
+		DH012BF1A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthMetricKitParserTests.swift; sourceTree = "<group>"; };
+		DH013BF1A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSentinelParserTests.swift; sourceTree = "<group>"; };
+		DH014BF1A1B2C3D4E5F60718 /* HealthFlagsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthFlagsTests.swift; sourceTree = "<group>"; };
+		DH015BF1A1B2C3D4E5F60718 /* CLIHealthRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIHealthRuntimeTests.swift; sourceTree = "<group>"; };
 		D800ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotCapture.swift; sourceTree = "<group>"; };
 		D800BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotStore.swift; sourceTree = "<group>"; };
 		D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotCaptureTests.swift; sourceTree = "<group>"; };
@@ -383,6 +402,10 @@
 		D8014BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintFileCodableTests.swift; sourceTree = "<group>"; };
 		D8015BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintStoreTests.swift; sourceTree = "<group>"; };
 		D8016BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift; sourceTree = "<group>"; };
+		D8018BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintMarkdown.swift; sourceTree = "<group>"; };
+		D8019BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintMarkdownTests.swift; sourceTree = "<group>"; };
+		D801ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotSet.swift; sourceTree = "<group>"; };
+		D801BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotSetCodableTests.swift; sourceTree = "<group>"; };
 		D8017BF1A1B2C3D4E5F60718 /* Blueprints */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Blueprints; sourceTree = "<group>"; };
 		D8017BF0A1B2C3D4E5F60718 /* Blueprints in Resources */ = {isa = PBXBuildFile; fileRef = D8017BF1A1B2C3D4E5F60718 /* Blueprints */; };
 		D7011BF1A1B2C3D4E5F60718 /* PaneMetadataStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneMetadataStoreTests.swift; sourceTree = "<group>"; };
@@ -439,6 +462,8 @@
 		A5001018 /* c11-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "c11-Bridging-Header.h"; sourceTree = "<group>"; };
 		A5001019 /* TerminalController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalController.swift; sourceTree = "<group>"; };
 		A5001600 /* SentryHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryHelper.swift; sourceTree = "<group>"; };
+		DH001BF1A1B2C3D4E5F60718 /* HealthCommandCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCommandCore.swift; sourceTree = "<group>"; };
+		DH002BF1A1B2C3D4E5F60719 /* HealthCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCommand.swift; sourceTree = "<group>"; };
 		A5001620 /* AppleScriptSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleScriptSupport.swift; sourceTree = "<group>"; };
 			A5001510 /* CmuxWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/CmuxWebView.swift; sourceTree = "<group>"; };
 			A5001511 /* UITestRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestRecorder.swift; sourceTree = "<group>"; };
@@ -740,6 +765,8 @@
 				D8011BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift */,
 				D8012BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStore.swift */,
 				D8013BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintExporter.swift */,
+				D8018BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift */,
+				D801ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift */,
 				A5001545 /* AgentDetector.swift */,
 				A5001701 /* TextBoxInput.swift */,
 				A5F1002001A1B2C3D4E5F001 /* ThemedValueAST.swift */,
@@ -773,6 +800,7 @@
 				A5008F22 /* TitleFormatting.swift */,
 				A5001225 /* SocketControlSettings.swift */,
 				A5001600 /* SentryHelper.swift */,
+				DH001BF1A1B2C3D4E5F60718 /* HealthCommandCore.swift */,
 				A5001620 /* AppleScriptSupport.swift */,
 				A5001090 /* AppDelegate.swift */,
 				A5001091 /* NotificationsPage.swift */,
@@ -826,6 +854,7 @@
 			isa = PBXGroup;
 			children = (
 				B9000001A1B2C3D4E5F60719 /* c11.swift */,
+				DH002BF1A1B2C3D4E5F60719 /* HealthCommand.swift */,
 			);
 			path = CLI;
 			sourceTree = "<group>";
@@ -955,6 +984,12 @@
 					D8C24125A1B2C3D4E5F60718 /* WorkspaceConversationResumeTests.swift */,
 					D8C24126A1B2C3D4E5F60718 /* ConversationSnapshotBridgeTests.swift */,
 					D8C24127A1B2C3D4E5F60718 /* ConversationStoreFailureModeTests.swift */,
+					DH010BF1A1B2C3D4E5F60718 /* HealthIPSParserTests.swift */,
+					DH011BF1A1B2C3D4E5F60718 /* HealthSentryParserTests.swift */,
+					DH012BF1A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift */,
+					DH013BF1A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift */,
+					DH014BF1A1B2C3D4E5F60718 /* HealthFlagsTests.swift */,
+					DH015BF1A1B2C3D4E5F60718 /* CLIHealthRuntimeTests.swift */,
 					D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */,
 					D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */,
 					D800EBF1A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift */,
@@ -962,6 +997,8 @@
 				D8014BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift */,
 				D8015BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift */,
 				D8016BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift */,
+				D8019BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift */,
+				D801BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift */,
 					D70B3BF1A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift */,
 					A5C36031 /* StatusBarButtonDisplayTests.swift */,
 					D7101BF1A1B2C3D4E5F60718 /* MailboxLayoutTests.swift */,
@@ -1162,6 +1199,8 @@
 				D8011BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift in Sources */,
 				D8012BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintStore.swift in Sources */,
 				D8013BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintExporter.swift in Sources */,
+				D8018BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdown.swift in Sources */,
+				D801ABF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift in Sources */,
 				A5001544 /* AgentDetector.swift in Sources */,
 			A5001700 /* TextBoxInput.swift in Sources */,
 			A5F1001001A1B2C3D4E5F001 /* ThemedValueAST.swift in Sources */,
@@ -1195,6 +1234,7 @@
 				A5008F21 /* TitleFormatting.swift in Sources */,
 				A5001226 /* SocketControlSettings.swift in Sources */,
 				A5001601 /* SentryHelper.swift in Sources */,
+				DH001BF0A1B2C3D4E5F60718 /* HealthCommandCore.swift in Sources */,
 				A5001621 /* AppleScriptSupport.swift in Sources */,
 				A5001093 /* AppDelegate.swift in Sources */,
 				A5001094 /* NotificationsPage.swift in Sources */,
@@ -1349,6 +1389,12 @@
 					D8C24115A1B2C3D4E5F60718 /* WorkspaceConversationResumeTests.swift in Sources */,
 					D8C24116A1B2C3D4E5F60718 /* ConversationSnapshotBridgeTests.swift in Sources */,
 					D8C24117A1B2C3D4E5F60718 /* ConversationStoreFailureModeTests.swift in Sources */,
+					DH010BF0A1B2C3D4E5F60718 /* HealthIPSParserTests.swift in Sources */,
+					DH011BF0A1B2C3D4E5F60718 /* HealthSentryParserTests.swift in Sources */,
+					DH012BF0A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift in Sources */,
+					DH013BF0A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift in Sources */,
+					DH014BF0A1B2C3D4E5F60718 /* HealthFlagsTests.swift in Sources */,
+					DH015BF0A1B2C3D4E5F60718 /* CLIHealthRuntimeTests.swift in Sources */,
 					D800CBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift in Sources */,
 					D800DBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift in Sources */,
 					D800EBF0A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift in Sources */,
@@ -1356,6 +1402,8 @@
 					D8014BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift in Sources */,
 					D8015BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift in Sources */,
 					D8016BF0A1B2C3D4E5F60718 /* WorkspaceSnapshotBrowserMarkdownRoundTripTests.swift in Sources */,
+					D8019BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift in Sources */,
+					D801BBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift in Sources */,
 					D70B3BF0A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
@@ -1365,6 +1413,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				B9000002A1B2C3D4E5F60719 /* c11.swift in Sources */,
+				DH001BF0A1B2C3D4E5F60719 /* HealthCommandCore.swift in Sources */,
+				DH002BF0A1B2C3D4E5F60719 /* HealthCommand.swift in Sources */,
 				CC401003A1B2C3D4E5F60719 /* SkillInstaller.swift in Sources */,
 				D7200BF0A1B2C3D4E5F60719 /* MailboxLayout.swift in Sources */,
 				D7202BF0A1B2C3D4E5F60719 /* MailboxIO.swift in Sources */,
@@ -1465,7 +1515,7 @@
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 98;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1474,7 +1524,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.43.0;
+				MARKETING_VERSION = 0.45.2;
 				OTHER_LDFLAGS = (
 					"-lc++",
 					"-framework",
@@ -1506,7 +1556,7 @@
 				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 98;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -1515,7 +1565,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.43.0;
+				MARKETING_VERSION = 0.45.2;
 				OTHER_LDFLAGS = (
 					"-lc++",
 					"-framework",
@@ -1584,10 +1634,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 98;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.43.0;
+				MARKETING_VERSION = 0.45.2;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stage11.c11.appuitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1601,10 +1651,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 98;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.43.0;
+				MARKETING_VERSION = 0.45.2;
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stage11.c11.appuitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1618,10 +1668,10 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 98;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.43.0;
+				MARKETING_VERSION = 0.45.2;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stage11.c11.apptests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1637,10 +1687,10 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 93;
+				CURRENT_PROJECT_VERSION = 98;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.43.0;
+				MARKETING_VERSION = 0.45.2;
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stage11.c11.apptests;
 				PRODUCT_NAME = "$(TARGET_NAME)";

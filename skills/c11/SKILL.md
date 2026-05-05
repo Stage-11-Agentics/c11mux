@@ -390,6 +390,8 @@ disown
 
 **c11 ships a per-workspace mailbox primitive.** Any agent in a surface can write an envelope to `_outbox/`; the c11-in-process dispatcher validates, resolves the recipient by surface name, copies into the recipient's inbox, and — for stdin-delivery recipients — writes a framed `<c11-msg>` block into the PTY.
 
+This section is the agent-facing quick-reference. The full guide (filesystem layout, sequence diagrams, schema reference, dispatch log shape, patterns, anti-patterns, Stage 2 limits) lives in [`docs/c11-mailbox-guide.md`](../../docs/c11-mailbox-guide.md).
+
 ### The framed block you'll see in your PTY
 
 When another surface sends you a message and your surface's `mailbox.delivery` contains `stdin`, a block like this appears between prompts:

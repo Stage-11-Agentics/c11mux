@@ -1,14 +1,13 @@
 import Foundation
 
-/// Source precedence for metadata writes (c11 Module 2).
+/// Source precedence for metadata writes.
 ///
 /// Writers declare a `source` per call. The precedence chain is
 /// `explicit > declare > osc > heuristic`. A lower-precedence write is
 /// rejected per-key (soft reject: `applied: false`, `reason: lower_precedence`).
-/// Canonical-key namespace (c11 Module 2).
+/// Canonical-key namespace.
 /// String constants for the canonical metadata keys rendered in the sidebar
-/// and title bar. Non-canonical keys accept any JSON value and are opaque to
-/// c11. See `docs/c11mux-module-2-metadata-spec.md`.
+/// and title bar. Non-canonical keys accept any JSON value and are opaque to c11.
 public enum MetadataKey {
     public static let role = "role"
     public static let status = "status"
@@ -155,7 +154,8 @@ final class SurfaceMetadataStore: @unchecked Sendable {
         "terminal_type",
         "title",
         "description",
-        "claude.session_id"
+        "claude.session_id",
+        "claude.session_project_dir"
     ]
 
     static func validateReservedKey(_ key: String, _ value: Any) -> WriteError? {
@@ -195,6 +195,24 @@ final class SurfaceMetadataStore: @unchecked Sendable {
                 return .reservedKeyInvalidType(
                     key,
                     "must match UUIDv4 shape 8-4-4-4-12 hex"
+                )
+            }
+            return nil
+        case "claude.session_project_dir":
+            // Project directory the claude session was created in;
+            // interpolated into `cd '<path>' && …` at restore time. The
+            // registry single-quote-escapes it, but we still reject
+            // values that could break that escape (single-quote, NUL,
+            // newlines) or yield a non-absolute path. PATH_MAX on Darwin
+            // is 1024 — cap at 4096 for headroom on synthetic / encoded
+            // paths.
+            guard let s = value as? String else {
+                return .reservedKeyInvalidType(key, "expected string")
+            }
+            if !isValidClaudeSessionProjectDir(s) {
+                return .reservedKeyInvalidType(
+                    key,
+                    "must be an absolute POSIX path (≤4096 chars, no NUL/newline/single-quote)"
                 )
             }
             return nil
