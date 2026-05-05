@@ -10086,7 +10086,20 @@ struct CMUXCLI {
 
     private func resolveWorkspaceColorTarget(_ raw: String?, client: SocketClient) throws -> String? {
         let value = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value == nil || value?.isEmpty == true || value == "@current" || value == "@focused" {
+        if value == "@current" || value == "@focused" {
+            return try normalizeWorkspaceHandle(nil, client: client, allowCurrent: true)
+        }
+        if value == nil || value?.isEmpty == true {
+            // No --workspace flag: prefer caller's env workspace so commands launched
+            // from an unfocused surface still target the caller's own workspace
+            // (matches the env-first pattern used at CLI/c11.swift:1762 'identify').
+            let env = ProcessInfo.processInfo.environment
+            if let envWs = env["CMUX_WORKSPACE_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines), !envWs.isEmpty {
+                return try normalizeWorkspaceHandle(envWs, client: client)
+            }
+            if let envWs = env["C11_WORKSPACE_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines), !envWs.isEmpty {
+                return try normalizeWorkspaceHandle(envWs, client: client)
+            }
             return try normalizeWorkspaceHandle(nil, client: client, allowCurrent: true)
         }
         return try normalizeWorkspaceHandle(value, client: client)
