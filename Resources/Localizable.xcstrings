@@ -18893,6 +18893,17 @@
         }
       }
     },
+    "contextMenu.hibernateWorkspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hibernate Workspace"
+          }
+        }
+      }
+    },
     "contextMenu.markWorkspaceRead": {
       "extractionState": "manual",
       "localizations": {
@@ -19641,6 +19652,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Перейменувати робочий простір…"
+          }
+        }
+      }
+    },
+    "contextMenu.resumeWorkspace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume Workspace"
           }
         }
       }

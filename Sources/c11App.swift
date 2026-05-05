@@ -1391,6 +1391,25 @@ struct cmuxApp: App {
 
         Divider()
 
+        // C11-25: hibernate / resume the workspace. Browser surfaces
+        // capture a snapshot, terminate their WebContent processes, and
+        // render a placeholder until resume; terminals stay on the auto
+        // throttle path. The menu flips between Hibernate and Resume
+        // based on `workspace.isHibernated`.
+        if workspace?.isHibernated == true {
+            Button(String(localized: "contextMenu.resumeWorkspace", defaultValue: "Resume Workspace")) {
+                workspace?.resume()
+            }
+            .disabled(workspace == nil)
+        } else {
+            Button(String(localized: "contextMenu.hibernateWorkspace", defaultValue: "Hibernate Workspace")) {
+                workspace?.hibernate()
+            }
+            .disabled(workspace == nil)
+        }
+
+        Divider()
+
         Button(String(localized: "contextMenu.markWorkspaceRead", defaultValue: "Mark Workspace as Read")) {
             markSelectedWorkspaceRead(in: manager)
         }

@@ -5106,6 +5106,14 @@ final class Workspace: Identifiable, ObservableObject {
     /// row pulse together. Visual-only; never affects selection.
     @Published private(set) var sidebarFlashToken: Int = 0
 
+    /// C11-25: workspace-level operator hibernate flag. True when the
+    /// operator has explicitly hibernated this workspace via the
+    /// "Hibernate Workspace" context menu (or socket equivalent). Survives
+    /// `c11 snapshot` / `restore` via the canonical `lifecycle_state`
+    /// metadata mirror on each panel — the workspace flag is rebuilt on
+    /// restore from "any panel hibernated".
+    @Published var isHibernated: Bool = false
+
     /// Subscriptions for panel updates (e.g., browser title changes)
     private var panelSubscriptions: [UUID: AnyCancellable] = [:]
 
@@ -5971,6 +5979,32 @@ final class Workspace: Identifiable, ObservableObject {
 
     func browserPanel(for panelId: UUID) -> BrowserPanel? {
         panels[panelId] as? BrowserPanel
+    }
+
+    /// C11-25: hibernate every browser panel in the workspace and flip
+    /// the workspace-level flag. Terminals stay on the auto-throttle
+    /// path (workspace deselect already pauses libghostty rendering;
+    /// SIGSTOP for terminals is deferred). Markdown surfaces are
+    /// unaffected. Idempotent.
+    func hibernate() {
+        for panel in panels.values {
+            if let browser = panel as? BrowserPanel {
+                browser.setHibernated(true)
+            }
+        }
+        isHibernated = true
+    }
+
+    /// C11-25: resume the workspace. Browser panels transition out of
+    /// `.hibernated` (back to `.active`); the auto-throttle path takes
+    /// it from there based on visibility. Idempotent.
+    func resume() {
+        for panel in panels.values {
+            if let browser = panel as? BrowserPanel {
+                browser.setHibernated(false)
+            }
+        }
+        isHibernated = false
     }
 
     func markdownPanel(for panelId: UUID) -> MarkdownPanel? {
