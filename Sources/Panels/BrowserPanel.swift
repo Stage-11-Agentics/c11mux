@@ -2704,6 +2704,15 @@ final class BrowserPanel: Panel, ObservableObject {
             self.dispatchLifecycleTransition(from: from, to: target)
         }
 
+        // C11-25 commit 6: register with the per-surface CPU/RSS sampler.
+        // The provider reads `_webProcessIdentifier` (KVC SPI; safe to
+        // call off-main) at sample time so it always reflects the
+        // current WebContent process — including after process
+        // termination + auto-relaunch.
+        SurfaceMetricsSampler.shared.register(surfaceId: self.id) { [weak self] in
+            return self?.webView.c11_webProcessIdentifier
+        }
+
         // Navigate to initial URL if provided
         if let url = initialURL {
             shouldRenderWebView = true
@@ -3271,6 +3280,7 @@ final class BrowserPanel: Panel, ObservableObject {
         webViewCancellables.removeAll()
         faviconTask?.cancel()
         faviconTask = nil
+        SurfaceMetricsSampler.shared.unregister(surfaceId: self.id)
     }
 
     // MARK: - Popup window management
