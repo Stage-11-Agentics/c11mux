@@ -625,6 +625,7 @@ extension Workspace {
             type: panel.panelType,
             title: panelTitle,
             customTitle: customTitle,
+            customColor: panelCustomColors[panelId],
             directory: directory,
             isPinned: isPinned,
             isManuallyUnread: isManuallyUnread,
@@ -830,6 +831,7 @@ extension Workspace {
         }
 
         setPanelCustomTitle(panelId: panelId, title: snapshot.customTitle)
+        setPanelCustomColor(panelId: panelId, color: snapshot.customColor)
         setPanelPinned(panelId: panelId, pinned: snapshot.isPinned)
 
         if snapshot.isManuallyUnread {
@@ -5187,6 +5189,10 @@ final class Workspace: Identifiable, ObservableObject {
     @Published var panelDirectories: [UUID: String] = [:]
     @Published var panelTitles: [UUID: String] = [:]
     @Published private(set) var panelCustomTitles: [UUID: String] = [:]
+    /// Per-surface custom color, normalized as `#RRGGBB`. Identity marker for
+    /// individual pane tabs; distinct from workspace-level `customColor` which
+    /// drives sidebar/theme chrome. See ticket C11-10.
+    @Published private(set) var panelCustomColors: [UUID: String] = [:]
     /// M7 per-surface title-bar collapse state (in-memory, session-scoped).
     @Published var titleBarCollapsed: [UUID: Bool] = [:]
     /// M7 per-surface flag: user explicitly collapsed this surface (suppresses auto-expand).
@@ -5767,6 +5773,7 @@ final class Workspace: Identifiable, ObservableObject {
         let directory: String?
         let cachedTitle: String?
         let customTitle: String?
+        let customColor: String?
         let manuallyUnread: Bool
     }
 
@@ -6092,6 +6099,34 @@ final class Workspace: Identifiable, ObservableObject {
         }
 
         syncPanelTitleFromMetadata(panelId: panelId)
+    }
+
+    /// Set or clear the surface tab color for a panel. Pass nil or an empty/whitespace
+    /// string to clear; otherwise the input is normalized to `#RRGGBB` via
+    /// `WorkspaceTabColorSettings.normalizedHex`. Invalid hex inputs are ignored
+    /// (state unchanged) so callers can pass user input directly.
+    func setPanelCustomColor(panelId: UUID, color: String?) {
+        guard panels[panelId] != nil else { return }
+        let next: String?
+        if let raw = color?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
+            guard let normalized = WorkspaceTabColorSettings.normalizedHex(raw) else { return }
+            next = normalized
+        } else {
+            next = nil
+        }
+        let previous = panelCustomColors[panelId]
+        guard previous != next else { return }
+        if let next {
+            panelCustomColors[panelId] = next
+        } else {
+            panelCustomColors.removeValue(forKey: panelId)
+        }
+    }
+
+    /// Returns the current normalized surface tab color for a panel, or nil if
+    /// none is set.
+    func panelCustomColor(panelId: UUID) -> String? {
+        panelCustomColors[panelId]
     }
 
     func isPanelPinned(_ panelId: UUID) -> Bool {
@@ -6820,6 +6855,7 @@ final class Workspace: Identifiable, ObservableObject {
         panelDirectories = panelDirectories.filter { validSurfaceIds.contains($0.key) }
         panelTitles = panelTitles.filter { validSurfaceIds.contains($0.key) }
         panelCustomTitles = panelCustomTitles.filter { validSurfaceIds.contains($0.key) }
+        panelCustomColors = panelCustomColors.filter { validSurfaceIds.contains($0.key) }
         pinnedPanelIds = pinnedPanelIds.filter { validSurfaceIds.contains($0) }
         manualUnreadPanelIds = manualUnreadPanelIds.filter { validSurfaceIds.contains($0) }
         panelGitBranches = panelGitBranches.filter { validSurfaceIds.contains($0.key) }
@@ -8389,6 +8425,11 @@ final class Workspace: Identifiable, ObservableObject {
         if let customTitle = detached.customTitle {
             panelCustomTitles[detached.panelId] = customTitle
         }
+        if let customColor = detached.customColor {
+            panelCustomColors[detached.panelId] = customColor
+        } else {
+            panelCustomColors.removeValue(forKey: detached.panelId)
+        }
         if detached.isPinned {
             pinnedPanelIds.insert(detached.panelId)
         } else {
@@ -8417,6 +8458,7 @@ final class Workspace: Identifiable, ObservableObject {
             panelDirectories.removeValue(forKey: detached.panelId)
             panelTitles.removeValue(forKey: detached.panelId)
             panelCustomTitles.removeValue(forKey: detached.panelId)
+            panelCustomColors.removeValue(forKey: detached.panelId)
             pinnedPanelIds.remove(detached.panelId)
             manualUnreadPanelIds.remove(detached.panelId)
             manualUnreadMarkedAt.removeValue(forKey: detached.panelId)
@@ -10396,6 +10438,7 @@ extension Workspace: BonsplitDelegate {
                 directory: panelDirectories[panelId],
                 cachedTitle: cachedTitle,
                 customTitle: panelCustomTitles[panelId],
+                customColor: panelCustomColors[panelId],
                 manuallyUnread: manualUnreadPanelIds.contains(panelId)
             )
         } else {
@@ -10419,6 +10462,7 @@ extension Workspace: BonsplitDelegate {
         panelPullRequests.removeValue(forKey: panelId)
         panelTitles.removeValue(forKey: panelId)
         panelCustomTitles.removeValue(forKey: panelId)
+        panelCustomColors.removeValue(forKey: panelId)
         pinnedPanelIds.remove(panelId)
         manualUnreadPanelIds.remove(panelId)
         manualUnreadMarkedAt.removeValue(forKey: panelId)
@@ -10582,6 +10626,7 @@ extension Workspace: BonsplitDelegate {
                 panelPullRequests.removeValue(forKey: panelId)
                 panelTitles.removeValue(forKey: panelId)
                 panelCustomTitles.removeValue(forKey: panelId)
+                panelCustomColors.removeValue(forKey: panelId)
                 pinnedPanelIds.remove(panelId)
                 manualUnreadPanelIds.remove(panelId)
                 panelSubscriptions.removeValue(forKey: panelId)

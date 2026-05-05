@@ -1986,3 +1986,88 @@ final class WorkspaceCustomColorDidChangeTests: XCTestCase {
         XCTAssertEqual(fired, fired1, "Setting the same normalized hex must not re-publish")
     }
 }
+
+// MARK: - C11-10 surface tab color (panel-scoped custom color)
+
+@MainActor
+final class WorkspacePanelCustomColorTests: XCTestCase {
+    func testSetPanelCustomColorNormalizesValidHex() {
+        let workspace = Workspace()
+        guard let panelId = workspace.focusedPanelId else {
+            XCTFail("Expected focused panel in new workspace")
+            return
+        }
+
+        workspace.setPanelCustomColor(panelId: panelId, color: "ff8800")
+        XCTAssertEqual(workspace.panelCustomColor(panelId: panelId), "#FF8800")
+
+        workspace.setPanelCustomColor(panelId: panelId, color: "  #aabbcc  ")
+        XCTAssertEqual(workspace.panelCustomColor(panelId: panelId), "#AABBCC")
+    }
+
+    func testSetPanelCustomColorRejectsInvalidHexLeavesPriorValue() {
+        let workspace = Workspace()
+        guard let panelId = workspace.focusedPanelId else {
+            XCTFail("Expected focused panel in new workspace")
+            return
+        }
+
+        workspace.setPanelCustomColor(panelId: panelId, color: "#123456")
+        XCTAssertEqual(workspace.panelCustomColor(panelId: panelId), "#123456")
+
+        workspace.setPanelCustomColor(panelId: panelId, color: "not-a-color")
+        XCTAssertEqual(
+            workspace.panelCustomColor(panelId: panelId), "#123456",
+            "Invalid hex must not mutate the existing color"
+        )
+
+        workspace.setPanelCustomColor(panelId: panelId, color: "#GGHHII")
+        XCTAssertEqual(workspace.panelCustomColor(panelId: panelId), "#123456")
+    }
+
+    func testSetPanelCustomColorClearsViaNilOrEmpty() {
+        let workspace = Workspace()
+        guard let panelId = workspace.focusedPanelId else {
+            XCTFail("Expected focused panel in new workspace")
+            return
+        }
+
+        workspace.setPanelCustomColor(panelId: panelId, color: "#C0392B")
+        XCTAssertEqual(workspace.panelCustomColor(panelId: panelId), "#C0392B")
+
+        workspace.setPanelCustomColor(panelId: panelId, color: nil)
+        XCTAssertNil(workspace.panelCustomColor(panelId: panelId))
+        XCTAssertNil(workspace.panelCustomColors[panelId])
+
+        workspace.setPanelCustomColor(panelId: panelId, color: "#1565C0")
+        workspace.setPanelCustomColor(panelId: panelId, color: "   ")
+        XCTAssertNil(workspace.panelCustomColor(panelId: panelId))
+    }
+
+    func testSetPanelCustomColorIgnoresUnknownPanelId() {
+        let workspace = Workspace()
+        let unknownPanelId = UUID()
+
+        workspace.setPanelCustomColor(panelId: unknownPanelId, color: "#FF0000")
+        XCTAssertNil(workspace.panelCustomColor(panelId: unknownPanelId))
+        XCTAssertTrue(workspace.panelCustomColors.isEmpty)
+    }
+
+    func testTeardownClearsPanelCustomColors() {
+        let workspace = Workspace()
+        guard let panelId = workspace.focusedPanelId else {
+            XCTFail("Expected focused panel in new workspace")
+            return
+        }
+
+        workspace.setPanelCustomColor(panelId: panelId, color: "#196F3D")
+        XCTAssertFalse(workspace.panelCustomColors.isEmpty)
+
+        workspace.teardownAllPanels()
+
+        XCTAssertTrue(
+            workspace.panelCustomColors.isEmpty,
+            "panelCustomColors must be cleared by teardownAllPanels (via pruneSurfaceMetadata)"
+        )
+    }
+}
