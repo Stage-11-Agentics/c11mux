@@ -6121,6 +6121,9 @@ final class Workspace: Identifiable, ObservableObject {
         } else {
             panelCustomColors.removeValue(forKey: panelId)
         }
+        if let tabId = surfaceIdFromPanelId(panelId) {
+            bonsplitController.updateTab(tabId, customColorHex: .some(next))
+        }
     }
 
     /// Returns the current normalized surface tab color for a panel, or nil if
@@ -8452,6 +8455,7 @@ final class Workspace: Identifiable, ObservableObject {
             isDirty: detached.panel.isDirty,
             isLoading: detached.isLoading,
             isPinned: detached.isPinned,
+            customColorHex: detached.customColor,
             inPane: paneId
         ) else {
             panels.removeValue(forKey: detached.panelId)
