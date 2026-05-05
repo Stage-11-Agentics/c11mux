@@ -93,7 +93,7 @@ public enum SurfaceLifecycleState: String, Sendable, CaseIterable {
 final class SurfaceLifecycleController {
     typealias Handler = (_ from: SurfaceLifecycleState, _ to: SurfaceLifecycleState) -> Void
 
-    let workspaceId: UUID
+    private(set) var workspaceId: UUID
     let surfaceId: UUID
     private(set) var state: SurfaceLifecycleState
     private let onTransition: Handler
@@ -108,6 +108,13 @@ final class SurfaceLifecycleController {
         self.surfaceId = surfaceId
         self.state = initial
         self.onTransition = onTransition
+    }
+
+    /// Reparent the controller to a new workspace. Subsequent metadata
+    /// writes flow to the new workspace; old-workspace metadata is left
+    /// alone (prunes when the surface entry closes).
+    func updateWorkspaceId(_ newWorkspaceId: UUID) {
+        self.workspaceId = newWorkspaceId
     }
 
     /// Transition to `target`. Returns whether the transition was applied.
