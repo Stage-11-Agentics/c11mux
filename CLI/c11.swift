@@ -2834,6 +2834,9 @@ struct CMUXCLI {
         case "workspace-color":
             try runWorkspaceColor(commandArgs: commandArgs, client: client, jsonOutput: jsonOutput)
 
+        case "surface-color":
+            try runSurfaceColor(commandArgs: commandArgs, client: client, jsonOutput: jsonOutput)
+
         // C11-13 Stage 2: inter-agent mailbox (send/recv/trace/tail + helpers).
         case "mailbox":
             try runMailboxCommand(
@@ -10087,6 +10090,108 @@ struct CMUXCLI {
             return try normalizeWorkspaceHandle(nil, client: client, allowCurrent: true)
         }
         return try normalizeWorkspaceHandle(value, client: client)
+    }
+
+    // MARK: - `c11 surface-color` (C11-10)
+    //
+    // Per-surface tab color: identifies a single surface tab in a pane,
+    // distinct from the workspace-level chrome accent. Help text says
+    // "surface tab in a pane" to disambiguate from workspace tabs.
+
+    private func runSurfaceColor(commandArgs: [String], client: SocketClient, jsonOutput: Bool) throws {
+        guard let first = commandArgs.first else {
+            throw CLIError(message: "surface-color requires a subcommand. Try: c11 surface-color get (operates on the surface tab in a pane)")
+        }
+        let sub = first.lowercased()
+        let rest = Array(commandArgs.dropFirst())
+        switch sub {
+        case "set":
+            try runSurfaceColorSet(args: rest, client: client, jsonOutput: jsonOutput)
+        case "clear":
+            try runSurfaceColorClear(args: rest, client: client, jsonOutput: jsonOutput)
+        case "get":
+            try runSurfaceColorGet(args: rest, client: client, jsonOutput: jsonOutput)
+        case "list-palette":
+            // Shares the workspace-color palette — same list, same names.
+            try runWorkspaceColorListPalette(client: client, jsonOutput: jsonOutput)
+        default:
+            throw CLIError(message: "Unknown surface-color subcommand: \(first)")
+        }
+    }
+
+    private func runSurfaceColorSet(args: [String], client: SocketClient, jsonOutput: Bool) throws {
+        let (workspaceOpt, rest1) = parseOption(args, name: "--workspace")
+        let (surfaceOpt, rest2) = parseOption(rest1, name: "--surface")
+        let positional = rest2.filter { !$0.hasPrefix("-") }
+        guard let hex = positional.first else {
+            throw CLIError(message: "surface-color set <hex> [--workspace <ref>] [--surface <ref>]")
+        }
+
+        let workspaceHandle = try resolveWorkspaceColorTarget(workspaceOpt, client: client)
+        let surfaceRef = surfaceOpt ?? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"]
+        let surfaceId = try resolveSurfaceId(
+            surfaceRef,
+            workspaceId: workspaceHandle ?? (try resolveCurrentWorkspaceId(client: client)),
+            client: client
+        )
+
+        var params: [String: Any] = ["hex": hex, "surface_id": surfaceId]
+        if let workspaceHandle { params["workspace_id"] = workspaceHandle }
+        let response = try client.sendV2(method: "surface.set_custom_color", params: params)
+        if jsonOutput {
+            print(jsonString(response))
+        } else {
+            let applied = response["custom_color"] as? String ?? hex
+            print("OK surface_color=\(applied)")
+        }
+    }
+
+    private func runSurfaceColorClear(args: [String], client: SocketClient, jsonOutput: Bool) throws {
+        let (workspaceOpt, rest1) = parseOption(args, name: "--workspace")
+        let (surfaceOpt, _) = parseOption(rest1, name: "--surface")
+        let workspaceHandle = try resolveWorkspaceColorTarget(workspaceOpt, client: client)
+        let surfaceRef = surfaceOpt ?? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"]
+        let surfaceId = try resolveSurfaceId(
+            surfaceRef,
+            workspaceId: workspaceHandle ?? (try resolveCurrentWorkspaceId(client: client)),
+            client: client
+        )
+
+        var params: [String: Any] = ["clear": true, "surface_id": surfaceId]
+        if let workspaceHandle { params["workspace_id"] = workspaceHandle }
+        let response = try client.sendV2(method: "surface.set_custom_color", params: params)
+        if jsonOutput {
+            print(jsonString(response))
+        } else {
+            print("OK surface color cleared")
+        }
+    }
+
+    private func runSurfaceColorGet(args: [String], client: SocketClient, jsonOutput: Bool) throws {
+        let (workspaceOpt, rest1) = parseOption(args, name: "--workspace")
+        let (surfaceOpt, _) = parseOption(rest1, name: "--surface")
+        let workspaceHandle = try resolveWorkspaceColorTarget(workspaceOpt, client: client)
+        let resolvedWorkspaceId = workspaceHandle ?? (try resolveCurrentWorkspaceId(client: client))
+        let surfaceRef = surfaceOpt ?? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"]
+        let surfaceId = try resolveSurfaceId(
+            surfaceRef,
+            workspaceId: resolvedWorkspaceId,
+            client: client
+        )
+
+        let response = try client.sendV2(method: "surface.list", params: ["workspace_id": resolvedWorkspaceId])
+        let items = (response["surfaces"] as? [[String: Any]]) ?? []
+        let match = items.first { ($0["id"] as? String) == surfaceId }
+
+        if jsonOutput {
+            print(jsonString(match ?? [:]))
+            return
+        }
+        if let color = match?["custom_color"] as? String {
+            print("color: \(color)")
+        } else {
+            print("color: (none)")
+        }
     }
 
     private func availableThemeNames() -> [String] {

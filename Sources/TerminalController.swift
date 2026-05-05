@@ -2291,6 +2291,8 @@ class TerminalController {
             return v2Result(id: id, self.v2SurfaceList(params: params))
         case "surface.current":
             return v2Result(id: id, self.v2SurfaceCurrent(params: params))
+        case "surface.set_custom_color":
+            return v2Result(id: id, self.v2SurfaceSetCustomColor(params: params))
         case "surface.focus":
             return v2Result(id: id, self.v2SurfaceFocus(params: params))
         case "surface.split":
@@ -6056,7 +6058,8 @@ class TerminalController {
                     "pane_ref": v2Ref(kind: .pane, uuid: paneUUID),
                     "index_in_pane": v2OrNull(indexInPaneByPanelId[panel.id]),
                     "selected_in_pane": v2OrNull(selectedInPaneByPanelId[panel.id]),
-                    "tty": v2OrNull(ws.surfaceTTYNames[panel.id])
+                    "tty": v2OrNull(ws.surfaceTTYNames[panel.id]),
+                    "custom_color": v2OrNull(ws.panelCustomColor(panelId: panel.id))
                 ]
                 if let browserPanel = panel as? BrowserPanel {
                     item["developer_tools_visible"] = browserPanel.isDeveloperToolsVisible()
@@ -6108,7 +6111,8 @@ class TerminalController {
                 "pane_ref": v2Ref(kind: .pane, uuid: paneId),
                 "surface_id": v2OrNull(surfaceId?.uuidString),
                 "surface_ref": v2Ref(kind: .surface, uuid: surfaceId),
-                "surface_type": v2OrNull(surfaceId.flatMap { ws.panels[$0]?.panelType.rawValue })
+                "surface_type": v2OrNull(surfaceId.flatMap { ws.panels[$0]?.panelType.rawValue }),
+                "custom_color": v2OrNull(surfaceId.flatMap { ws.panelCustomColor(panelId: $0) })
             ]
         }
 
@@ -6116,6 +6120,58 @@ class TerminalController {
             return .err(code: "not_found", message: "Workspace not found", data: nil)
         }
         return .ok(payload)
+    }
+
+    private func v2SurfaceSetCustomColor(params: [String: Any]) -> V2CallResult {
+        guard let tabManager = v2ResolveTabManager(params: params) else {
+            return .err(code: "unavailable", message: "TabManager not available", data: nil)
+        }
+        guard let surfaceId = v2UUID(params, "surface_id") else {
+            return .err(code: "invalid_params", message: "Missing or invalid surface_id", data: nil)
+        }
+
+        let clear = (params["clear"] as? Bool) ?? false
+        let hex = params["hex"] as? String
+
+        if !clear && hex == nil {
+            return .err(code: "invalid_params", message: "Provide either 'hex' or 'clear=true'", data: nil)
+        }
+        if !clear, let hex, WorkspaceTabColorSettings.normalizedHex(hex) == nil {
+            return .err(code: "invalid_params", message: "Invalid hex color (use #RRGGBB)", data: ["hex": hex])
+        }
+
+        var applied: String? = nil
+        var workspaceUUID: UUID? = nil
+        var found = false
+        v2MainSync {
+            guard let workspace = v2ResolveWorkspace(params: params, tabManager: tabManager) else { return }
+            guard workspace.panels[surfaceId] != nil else { return }
+            workspaceUUID = workspace.id
+            found = true
+            if clear {
+                workspace.setPanelCustomColor(panelId: surfaceId, color: nil)
+                applied = nil
+            } else if let hex {
+                workspace.setPanelCustomColor(panelId: surfaceId, color: hex)
+                applied = workspace.panelCustomColor(panelId: surfaceId)
+            }
+        }
+
+        guard found else {
+            return .err(code: "not_found", message: "Surface not found", data: [
+                "surface_id": surfaceId.uuidString,
+                "surface_ref": v2Ref(kind: .surface, uuid: surfaceId)
+            ])
+        }
+
+        return .ok([
+            "workspace_id": v2OrNull(workspaceUUID?.uuidString),
+            "workspace_ref": v2Ref(kind: .workspace, uuid: workspaceUUID),
+            "surface_id": surfaceId.uuidString,
+            "surface_ref": v2Ref(kind: .surface, uuid: surfaceId),
+            "custom_color": v2OrNull(applied),
+            "cleared": clear
+        ])
     }
 
     private func v2SurfaceFocus(params: [String: Any]) -> V2CallResult {
