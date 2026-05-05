@@ -26,6 +26,7 @@
 		D70A4BF0A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */; };
 		D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */; };
 		D7010BF0A1B2C3D4E5F60718 /* PaneMetadataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */; };
+		D7C11250A1B2C3D4E5F60718 /* SurfaceLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11251A1B2C3D4E5F60718 /* SurfaceLifecycle.swift */; };
 		D8001BF0A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8001BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift */; };
 		D8002BF0A1B2C3D4E5F60718 /* WorkspaceApplyPlanCodableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8002BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlanCodableTests.swift */; };
 		D8003BF0A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8003BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift */; };
@@ -333,6 +334,7 @@
 		D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataValidatorTests.swift; sourceTree = "<group>"; };
 		D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedMetadata.swift; sourceTree = "<group>"; };
 		D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneMetadataStore.swift; sourceTree = "<group>"; };
+		D7C11251A1B2C3D4E5F60718 /* SurfaceLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceLifecycle.swift; sourceTree = "<group>"; };
 		D8001BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceApplyPlan.swift; sourceTree = "<group>"; };
 		D8002BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlanCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceApplyPlanCodableTests.swift; sourceTree = "<group>"; };
 		D8003BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceLayoutExecutor.swift; sourceTree = "<group>"; };
@@ -701,6 +703,7 @@
 				D70B3BF1A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift */,
 				D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */,
 				D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */,
+				D7C11251A1B2C3D4E5F60718 /* SurfaceLifecycle.swift */,
 				D8001BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift */,
 				D8003BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift */,
 				D8005BF1A1B2C3D4E5F60718 /* WorkspaceSnapshot.swift */,
@@ -1115,6 +1118,7 @@
 				D70B3BF0A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift in Sources */,
 				D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */,
 				D7010BF0A1B2C3D4E5F60718 /* PaneMetadataStore.swift in Sources */,
+				D7C11250A1B2C3D4E5F60718 /* SurfaceLifecycle.swift in Sources */,
 				D8001BF0A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift in Sources */,
 				D8003BF0A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift in Sources */,
 				D8005BF0A1B2C3D4E5F60718 /* WorkspaceSnapshot.swift in Sources */,

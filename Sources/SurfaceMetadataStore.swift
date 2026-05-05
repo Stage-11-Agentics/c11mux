@@ -17,12 +17,13 @@ public enum MetadataKey {
     public static let terminalType = "terminal_type"
     public static let title = "title"
     public static let description = "description"
+    public static let lifecycleState = "lifecycle_state"
 
     /// Non-canonical display hint used by M3's sidebar chip.
     public static let modelLabel = "model_label"
 
     public static let canonical: Set<String> = [
-        role, status, task, model, progress, terminalType, title, description
+        role, status, task, model, progress, terminalType, title, description, lifecycleState
     ]
 
     public static let canonicalTerminalTypes: Set<String> = [
@@ -154,6 +155,7 @@ final class SurfaceMetadataStore: @unchecked Sendable {
         "terminal_type",
         "title",
         "description",
+        "lifecycle_state",
         "claude.session_id",
         "claude.session_project_dir"
     ]
@@ -183,6 +185,28 @@ final class SurfaceMetadataStore: @unchecked Sendable {
             return validateString(key: key, value: value, maxLen: 256)
         case "description":
             return validateString(key: key, value: value, maxLen: 2048)
+        case "lifecycle_state":
+            // Canonical per-surface lifecycle state (C11-25). The set of
+            // legal values is defined by `SurfaceLifecycleState`; reject
+            // anything outside that vocabulary so a stale snapshot or a
+            // typo can't leak into the runtime path. Length cap matches
+            // `SurfaceLifecycleState.metadataMaxLength`.
+            guard let s = value as? String else {
+                return .reservedKeyInvalidType(key, "expected string")
+            }
+            if s.count > SurfaceLifecycleState.metadataMaxLength {
+                return .reservedKeyInvalidType(
+                    key,
+                    "exceeds max length \(SurfaceLifecycleState.metadataMaxLength)"
+                )
+            }
+            if SurfaceLifecycleState(rawValue: s) == nil {
+                return .reservedKeyInvalidType(
+                    key,
+                    "must be one of: active, throttled, suspended, hibernated"
+                )
+            }
+            return nil
         case "claude.session_id":
             // Claude SessionStart's `session_id` is a UUIDv4; reject
             // anything else. The value is interpolated verbatim into
