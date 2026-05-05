@@ -27,12 +27,14 @@ import Darwin
 ///   `os_unfair_lock`; the off-main `tick()` reads it as a scalar.
 ///   This avoids touching `WKWebView` (a `@MainActor` AppKit object)
 ///   from the sampler's utility queue.
-/// - Terminals: NOT YET IMPLEMENTED in C11-25. The TTY → child PID
-///   resolver requires either a libghostty surface accessor patch or a
-///   `lsof`-style process-listing helper. Plan §2 row 5 acknowledges
-///   this is a follow-up; for C11-25 commit 6 the terminal panel
-///   registers without supplying a pid, and the sidebar renders `—`
-///   for terminal CPU/RSS.
+/// - Terminals: a Sendable PID provider closure registered via
+///   `setPidProvider(surfaceId:provider:)`. The sampler re-invokes the
+///   closure on its utility queue every `pidProviderRefreshSeconds`
+///   (default 2s) and updates the cached scalar. The closure is
+///   typically `TerminalPIDResolver.foregroundPID(forTTYName:)` against
+///   the surface's reported tty — pure C-API (`stat` + `proc_listpids`
+///   + `proc_pidinfo`), so no main-actor dependency. Closes the DoD #5
+///   gap that was open after C11-25 commit 6 (browser-only).
 final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
     static let shared = SurfaceMetricsSampler()
 
@@ -61,6 +63,19 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
     private var cachedPids: [UUID: pid_t] = [:]
     private var lastCpuTimes: [pid_t: UInt64] = [:]
     private var lastSampleAt: Date?
+    /// C11-25 fix DoD #5: per-surface PID provider closures used for
+    /// surfaces (terminals) whose pid drifts over time as the foreground
+    /// command changes. Browsers don't use this — `setPid` from the
+    /// main actor on KVO drives them.
+    private typealias PidProvider = @Sendable () -> pid_t?
+    private var pidProviders: [UUID: PidProvider] = [:]
+    /// Throttle for re-invoking `pidProviders`: the providers themselves
+    /// run `proc_listpids` which scans every running process, so we
+    /// amortize across ticks rather than calling once per tick.
+    private var lastProviderResolveAt: [UUID: Date] = [:]
+    /// Default refresh window for terminal pid providers. Tunable via
+    /// `UserDefaults` key `c11.surfaceMetrics.terminalPidRefreshSeconds`.
+    private static let defaultPidProviderRefreshSeconds: Double = 2.0
 
     private let queue = DispatchQueue(
         label: "com.stage11.c11.surface-metrics",
@@ -138,12 +153,33 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
         os_unfair_lock_unlock(lock)
     }
 
+    /// C11-25 fix DoD #5: register a PID provider for a surface. The
+    /// sampler invokes `provider` off-main on its utility queue every
+    /// `pidProviderRefreshSeconds()` and updates the cached scalar.
+    /// Pass `nil` to drop the provider (e.g. when the surface's tty is
+    /// retracted). The closure must be Sendable: capture only value
+    /// types (the tty name string is the typical case).
+    func setPidProvider(surfaceId: UUID, provider: (@Sendable () -> pid_t?)?) {
+        os_unfair_lock_lock(lock)
+        if let provider {
+            pidProviders[surfaceId] = provider
+            // Force a fresh resolve on the next tick.
+            lastProviderResolveAt.removeValue(forKey: surfaceId)
+        } else {
+            pidProviders.removeValue(forKey: surfaceId)
+            lastProviderResolveAt.removeValue(forKey: surfaceId)
+        }
+        os_unfair_lock_unlock(lock)
+    }
+
     /// Drop a surface's registration and any cached sample / pid.
     func unregister(surfaceId: UUID) {
         os_unfair_lock_lock(lock)
         registered.remove(surfaceId)
         cachedPids.removeValue(forKey: surfaceId)
         samples.removeValue(forKey: surfaceId)
+        pidProviders.removeValue(forKey: surfaceId)
+        lastProviderResolveAt.removeValue(forKey: surfaceId)
         os_unfair_lock_unlock(lock)
     }
 
@@ -155,6 +191,22 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
         defer { os_unfair_lock_unlock(lock) }
         return samples[id]
     }
+
+    #if DEBUG
+    /// Test-only: synchronously run the pid-provider refresh path so a
+    /// unit test can drive the C11-25 fix DoD #5 wiring without
+    /// spinning the DispatchSourceTimer.
+    func testHookRefreshPidProviders(now: Date = Date()) {
+        refreshPidProviders(now: now)
+    }
+
+    /// Test-only: read back the cached pid for a surface.
+    func testHookCachedPid(forSurfaceId id: UUID) -> pid_t? {
+        os_unfair_lock_lock(lock)
+        defer { os_unfair_lock_unlock(lock) }
+        return cachedPids[id]
+    }
+    #endif
 
     deinit {
         timer?.cancel()
@@ -169,10 +221,22 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
         return raw > 0 ? raw : 2.0
     }
 
+    private static func pidProviderRefreshSeconds() -> Double {
+        let raw = UserDefaults.standard.double(forKey: "c11.surfaceMetrics.terminalPidRefreshSeconds")
+        return raw > 0 ? raw : defaultPidProviderRefreshSeconds
+    }
+
     // MARK: - Sampling tick
 
     private func tick() {
         let now = Date()
+        // C11-25 fix DoD #5: refresh terminal pid providers first so
+        // `cachedPids` already reflects the latest foreground process by
+        // the time the rusage loop runs below. Providers can be expensive
+        // (proc_listpids walks every process) so they're throttled by
+        // `pidProviderRefreshSeconds`.
+        refreshPidProviders(now: now)
+
         os_unfair_lock_lock(lock)
         // Snapshot the cached pids by surface. The off-main tick only
         // ever reads scalars from this dictionary — never the underlying
@@ -215,6 +279,56 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
         DispatchQueue.main.async { [weak self] in
             self?.revision &+= 1
         }
+    }
+
+    /// C11-25 fix DoD #5: invoke each registered terminal PID provider
+    /// at most once per `pidProviderRefreshSeconds()`. Captures the
+    /// providers + last-resolve timestamps under the lock, runs the
+    /// closures outside it (they may take milliseconds — proc_listpids
+    /// scans every running process), then writes results back under
+    /// the lock. Drops `cachedPids` entries whose provider returns nil
+    /// so a dead shell stops being sampled.
+    private func refreshPidProviders(now: Date) {
+        let refreshInterval = Self.pidProviderRefreshSeconds()
+        os_unfair_lock_lock(lock)
+        let providersSnapshot = pidProviders
+        let lastResolveSnapshot = lastProviderResolveAt
+        os_unfair_lock_unlock(lock)
+
+        guard !providersSnapshot.isEmpty else { return }
+
+        var resolvedPids: [UUID: pid_t] = [:]
+        var clearedPids: [UUID] = []
+        var newResolveAt: [UUID: Date] = [:]
+        for (surfaceId, provider) in providersSnapshot {
+            if let last = lastResolveSnapshot[surfaceId],
+               now.timeIntervalSince(last) < refreshInterval {
+                continue
+            }
+            newResolveAt[surfaceId] = now
+            if let pid = provider(), pid > 0 {
+                resolvedPids[surfaceId] = pid
+            } else {
+                clearedPids.append(surfaceId)
+            }
+        }
+
+        if resolvedPids.isEmpty && clearedPids.isEmpty && newResolveAt.isEmpty {
+            return
+        }
+
+        os_unfair_lock_lock(lock)
+        for (surfaceId, pid) in resolvedPids {
+            cachedPids[surfaceId] = pid
+        }
+        for surfaceId in clearedPids {
+            cachedPids.removeValue(forKey: surfaceId)
+            samples.removeValue(forKey: surfaceId)
+        }
+        for (surfaceId, ts) in newResolveAt {
+            lastProviderResolveAt[surfaceId] = ts
+        }
+        os_unfair_lock_unlock(lock)
     }
 
     // MARK: - proc_pid_rusage helpers

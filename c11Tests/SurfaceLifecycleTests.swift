@@ -1,11 +1,29 @@
 import XCTest
 import WebKit
+import Darwin
 
 #if canImport(c11_DEV)
 @testable import c11_DEV
 #elseif canImport(c11)
 @testable import c11
 #endif
+
+/// Lock-protected counter used by the C11-25 fix DoD #5 sampler tests
+/// to assert provider-invocation counts across the sampler's lock
+/// boundary. Cheap; doesn't need an XCTestExpectation because the
+/// refresh path is synchronous when driven through `testHook…`.
+private final class CallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value = 0
+    func increment() {
+        lock.lock(); defer { lock.unlock() }
+        _value += 1
+    }
+    var value: Int {
+        lock.lock(); defer { lock.unlock() }
+        return _value
+    }
+}
 
 /// Unit tests for the C11-25 lifecycle primitive — the transition
 /// validator on `SurfaceLifecycleState`, the canonical metadata mirror
@@ -300,6 +318,91 @@ final class SurfaceLifecycleTests: XCTestCase {
         XCTAssertTrue(
             panel.shouldRenderWebView,
             "shouldRenderWebView flips to true for the default initialURL path"
+        )
+    }
+
+    // MARK: - Terminal CPU/MEM resolver (DoD #5)
+
+    /// C11-25 fix DoD #5: the resolver runs without crashing for a real
+    /// tty path (e.g. `/dev/tty`). The exact pid returned depends on
+    /// the test runner's environment — CI containers without a
+    /// controlling tty get nil; macOS runners with one return a pid.
+    /// Either is correct; the test asserts the contract: a returned
+    /// pid is positive, no crashes on the syscall path.
+    func testTerminalPIDResolverHandlesRealTTYPath() {
+        let pid = TerminalPIDResolver.foregroundPID(forTTYName: "/dev/tty")
+        if let pid {
+            XCTAssertTrue(pid > 0, "expected a positive pid, got \(pid)")
+        }
+    }
+
+    /// Resolver returns nil for a non-existent tty path.
+    func testTerminalPIDResolverReturnsNilForUnknownTTY() {
+        XCTAssertNil(
+            TerminalPIDResolver.foregroundPID(forTTYName: "/dev/ttys999not-a-real-device")
+        )
+    }
+
+    /// C11-25 fix DoD #5: a registered pid-provider is invoked by the
+    /// sampler's tick refresh path and its result is mirrored into
+    /// `cachedPids`, so a subsequent `proc_pid_rusage` sample for that
+    /// surface can attribute CPU/MEM. Drives the refresh path directly
+    /// (rather than spinning the timer) so the test stays deterministic
+    /// and CI-safe.
+    func testSamplerInvokesPidProviderAndCachesResult() {
+        let sampler = SurfaceMetricsSampler.shared
+        let surfaceId = UUID()
+        let providerPID: pid_t = getpid()
+        sampler.register(surfaceId: surfaceId)
+        defer { sampler.unregister(surfaceId: surfaceId) }
+
+        let counter = CallCounter()
+        sampler.setPidProvider(surfaceId: surfaceId) {
+            counter.increment()
+            return providerPID
+        }
+
+        // First refresh fires the provider (no prior resolve recorded).
+        sampler.testHookRefreshPidProviders()
+        XCTAssertEqual(
+            counter.value,
+            1,
+            "provider must run on the first refresh after registration"
+        )
+        XCTAssertEqual(
+            sampler.testHookCachedPid(forSurfaceId: surfaceId),
+            providerPID,
+            "cached pid must match what the provider returned"
+        )
+
+        // A second refresh inside the throttle window must NOT re-run
+        // the provider — proc_listpids is expensive enough that the
+        // refresh window protects every tick from amortizing it.
+        sampler.testHookRefreshPidProviders()
+        XCTAssertEqual(
+            counter.value,
+            1,
+            "provider must be throttled by pidProviderRefreshSeconds; "
+            + "got \(counter.value) calls"
+        )
+    }
+
+    /// C11-25 fix DoD #5: when the provider returns nil (e.g. the
+    /// shell's foreground job has exited and no replacement exists),
+    /// the sampler drops the cached pid so the sidebar can render `—`
+    /// instead of a stale value.
+    func testSamplerClearsCacheWhenProviderReturnsNil() {
+        let sampler = SurfaceMetricsSampler.shared
+        let surfaceId = UUID()
+        sampler.register(surfaceId: surfaceId, initialPid: getpid())
+        defer { sampler.unregister(surfaceId: surfaceId) }
+
+        sampler.setPidProvider(surfaceId: surfaceId) { nil }
+        sampler.testHookRefreshPidProviders()
+
+        XCTAssertNil(
+            sampler.testHookCachedPid(forSurfaceId: surfaceId),
+            "provider returning nil must drop the cached pid"
         )
     }
 

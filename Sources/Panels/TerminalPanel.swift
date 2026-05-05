@@ -111,11 +111,15 @@ final class TerminalPanel: Panel, ObservableObject {
         }
 
         // C11-25 commit 6: register with the per-surface CPU/RSS sampler.
-        // Terminal child PID resolution is a follow-up (plan §2 row 5
-        // notes the TTY → PID lookup needs a libghostty accessor or an
-        // lsof-style helper). For now we register without a pid so the
-        // surface is known to the sampler; the sidebar renders `—` for
-        // terminal CPU/RSS until the resolver lands.
+        //
+        // C11-25 fix DoD #5: terminal CPU/MEM is now wired via the
+        // Sendable pid-provider rail. The provider is installed in
+        // `TerminalController.reportTTY` once the shell announces its
+        // tty (the only point in time where the tty name is known to
+        // the app side); the sampler invokes `TerminalPIDResolver`
+        // every couple of seconds to track the foreground process.
+        // Until that report lands, the surface is registered without
+        // a pid and the sidebar renders `—`.
         SurfaceMetricsSampler.shared.register(surfaceId: surface.id)
 
         // Subscribe to surface's search state changes

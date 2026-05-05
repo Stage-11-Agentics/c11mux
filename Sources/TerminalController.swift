@@ -17769,6 +17769,14 @@ class TerminalController {
                 tab.surfaceTTYNames[scope.panelId] = ttyName
                 PortScanner.shared.registerTTY(workspaceId: scope.workspaceId, panelId: scope.panelId, ttyName: ttyName)
                 AgentDetector.shared.registerTTY(workspaceId: scope.workspaceId, panelId: scope.panelId, ttyName: ttyName)
+                // C11-25 fix DoD #5: install a Sendable PID provider so
+                // the per-surface CPU/MEM sampler can attribute usage to
+                // the foreground process running on this tty (typically
+                // the shell or its most-recently spawned child).
+                let capturedTTY = ttyName
+                SurfaceMetricsSampler.shared.setPidProvider(surfaceId: scope.panelId) {
+                    TerminalPIDResolver.foregroundPID(forTTYName: capturedTTY)
+                }
             }
             return "OK"
         }
@@ -17809,6 +17817,13 @@ class TerminalController {
             tab.surfaceTTYNames[surfaceId] = ttyName
             PortScanner.shared.registerTTY(workspaceId: tab.id, panelId: surfaceId, ttyName: ttyName)
             AgentDetector.shared.registerTTY(workspaceId: tab.id, panelId: surfaceId, ttyName: ttyName)
+            // C11-25 fix DoD #5: install a Sendable PID provider so the
+            // per-surface CPU/MEM sampler can attribute usage to the
+            // foreground process running on this tty.
+            let capturedTTY = ttyName
+            SurfaceMetricsSampler.shared.setPidProvider(surfaceId: surfaceId) {
+                TerminalPIDResolver.foregroundPID(forTTYName: capturedTTY)
+            }
         }
         return result
     }
