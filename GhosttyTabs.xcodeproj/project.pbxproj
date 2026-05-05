@@ -50,6 +50,7 @@
 		D800CBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */; };
 		D800DBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */; };
 		D800EBF0A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800EBF1A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift */; };
+		D7C11260A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11261A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift */; };
 		D800FBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800FBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift */; };
 		D8010BF0A1B2C3D4E5F60718 /* WorkspacePlanCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8010BF1A1B2C3D4E5F60718 /* WorkspacePlanCapture.swift */; };
 		D8011BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8011BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift */; };
@@ -360,6 +361,7 @@
 		D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotCaptureTests.swift; sourceTree = "<group>"; };
 		D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotRoundTripAcceptanceTests.swift; sourceTree = "<group>"; };
 		D800EBF1A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceMetadataStoreValidationTests.swift; sourceTree = "<group>"; };
+		D7C11261A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceLifecycleTests.swift; sourceTree = "<group>"; };
 		D800FBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotStoreSecurityTests.swift; sourceTree = "<group>"; };
 		D8010BF1A1B2C3D4E5F60718 /* WorkspacePlanCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePlanCapture.swift; sourceTree = "<group>"; };
 		D8011BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintFile.swift; sourceTree = "<group>"; };
@@ -942,6 +944,7 @@
 					D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */,
 					D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */,
 					D800EBF1A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift */,
+					D7C11261A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift */,
 					D800FBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift */,
 				D8014BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift */,
 				D8015BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift */,
@@ -1330,6 +1333,7 @@
 					D800CBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift in Sources */,
 					D800DBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift in Sources */,
 					D800EBF0A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift in Sources */,
+					D7C11260A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift in Sources */,
 					D800FBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift in Sources */,
 					D8014BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift in Sources */,
 					D8015BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift in Sources */,
