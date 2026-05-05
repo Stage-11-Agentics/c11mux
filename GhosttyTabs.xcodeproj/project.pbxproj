@@ -263,6 +263,7 @@
 			C116000300A1B2C3D4E5F011 /* ChromeScaleSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C116000400A1B2C3D4E5F011 /* ChromeScaleSettingsTests.swift */; };
 			C116000500A1B2C3D4E5F012 /* ChromeScaleTokensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C116000600A1B2C3D4E5F012 /* ChromeScaleTokensTests.swift */; };
 			C116000700A1B2C3D4E5F013 /* ChromeScaleObserverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C116000800A1B2C3D4E5F013 /* ChromeScaleObserverTests.swift */; };
+			C116000900A1B2C3D4E5F014 /* WorkspaceApplyChromeScaleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C116000A00A1B2C3D4E5F014 /* WorkspaceApplyChromeScaleTests.swift */; };
 		/* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -568,6 +569,7 @@
 			C116000400A1B2C3D4E5F011 /* ChromeScaleSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromeScaleSettingsTests.swift; sourceTree = "<group>"; };
 			C116000600A1B2C3D4E5F012 /* ChromeScaleTokensTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromeScaleTokensTests.swift; sourceTree = "<group>"; };
 			C116000800A1B2C3D4E5F013 /* ChromeScaleObserverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromeScaleObserverTests.swift; sourceTree = "<group>"; };
+			C116000A00A1B2C3D4E5F014 /* WorkspaceApplyChromeScaleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceApplyChromeScaleTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -930,6 +932,7 @@
 					C116000400A1B2C3D4E5F011 /* ChromeScaleSettingsTests.swift */,
 					C116000600A1B2C3D4E5F012 /* ChromeScaleTokensTests.swift */,
 					C116000800A1B2C3D4E5F013 /* ChromeScaleObserverTests.swift */,
+					C116000A00A1B2C3D4E5F014 /* WorkspaceApplyChromeScaleTests.swift */,
 					D7016BF1A1B2C3D4E5F60718 /* TCCPrimerTests.swift */,
 					D8002BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlanCodableTests.swift */,
 					D8004BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutorAcceptanceTests.swift */,
@@ -1309,6 +1312,7 @@
 					C116000300A1B2C3D4E5F011 /* ChromeScaleSettingsTests.swift in Sources */,
 					C116000500A1B2C3D4E5F012 /* ChromeScaleTokensTests.swift in Sources */,
 					C116000700A1B2C3D4E5F013 /* ChromeScaleObserverTests.swift in Sources */,
+					C116000900A1B2C3D4E5F014 /* WorkspaceApplyChromeScaleTests.swift in Sources */,
 					D7016BF0A1B2C3D4E5F60718 /* TCCPrimerTests.swift in Sources */,
 					D7101BF0A1B2C3D4E5F60718 /* MailboxLayoutTests.swift in Sources */,
 					D7104BF0A1B2C3D4E5F60718 /* MailboxIOTests.swift in Sources */,

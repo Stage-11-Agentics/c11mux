@@ -5083,6 +5083,13 @@ final class Workspace: Identifiable, ObservableObject {
     /// already runs a no-op guard, so rapid changes are safe.
     let customColorDidChange = PassthroughSubject<String?, Never>()
 
+    /// KVO observer on `UserDefaults.standard.chromeScalePreset`. Keeps the
+    /// Bonsplit configuration in sync with the persisted App Chrome UI Scale
+    /// preset for any writer (Settings UI, `defaults write`, future migrations).
+    /// Workspace itself is `@MainActor final class : ObservableObject`, not an
+    /// NSObject subclass, so KVO has to live on this composed helper. (C11-6)
+    private var chromeScaleObserver: ChromeScaleObserver?
+
     /// Operator-authored workspace metadata (e.g. "description", "icon").
     /// Workspace-scoped; not to be confused with surface-scoped
     /// `SurfaceMetadataStore`. Persisted across restart via
@@ -5327,7 +5334,8 @@ final class Workspace: Identifiable, ObservableObject {
         bonsplitAppearance(
             from: config.backgroundColor,
             backgroundOpacity: config.backgroundOpacity,
-            context: nil
+            context: nil,
+            tokens: ChromeScaleTokens.resolved(from: .standard)
         )
     }
 
@@ -5382,11 +5390,12 @@ final class Workspace: Identifiable, ObservableObject {
     private static func bonsplitAppearance(
         from backgroundColor: NSColor,
         backgroundOpacity: Double,
-        context: ThemeContext?
+        context: ThemeContext?,
+        tokens: ChromeScaleTokens = .standard
     ) -> BonsplitConfiguration.Appearance {
         let divider = resolvedDividerPresentation(context: context)
         let activeIndicatorHex = resolvedActiveIndicatorHex(context: context)
-        return BonsplitConfiguration.Appearance(
+        var appearance = BonsplitConfiguration.Appearance(
             splitButtonTooltips: Self.currentSplitButtonTooltips(),
             enableAnimations: false,
             chromeColors: .init(
@@ -5399,6 +5408,30 @@ final class Workspace: Identifiable, ObservableObject {
             ),
             dividerStyle: .init(thicknessPt: divider.thicknessPt)
         )
+        Self.applyChromeScale(tokens, to: &appearance)
+        return appearance
+    }
+
+    /// Pure helper. No `GhosttyApp.shared`, no `UserDefaults`, no
+    /// `NotificationCenter` — just in/out value-type mutation. Both the static
+    /// factory and the live-update path call this so behavior is identical and
+    /// testable in isolation. (C11-6)
+    static func applyChromeScale(
+        _ tokens: ChromeScaleTokens,
+        to appearance: inout BonsplitConfiguration.Appearance
+    ) {
+        appearance.tabBarHeight              = tokens.surfaceTabBarHeight
+        appearance.tabTitleFontSize          = tokens.surfaceTabTitle
+        appearance.tabMinWidth               = tokens.surfaceTabMinWidth
+        appearance.tabMaxWidth               = tokens.surfaceTabMaxWidth
+        appearance.tabIconSize               = tokens.surfaceTabIcon
+        appearance.tabItemHeight             = tokens.surfaceTabItemHeight
+        appearance.tabHorizontalPadding      = tokens.surfaceTabHorizontalPadding
+        appearance.tabCloseIconSize          = tokens.surfaceTabCloseIconSize
+        appearance.tabContentSpacing         = tokens.surfaceTabContentSpacing
+        appearance.tabDirtyIndicatorSize     = tokens.surfaceTabDirtyIndicatorSize
+        appearance.tabNotificationBadgeSize  = tokens.surfaceTabNotificationBadgeSize
+        appearance.tabActiveIndicatorHeight  = tokens.surfaceTabActiveIndicatorHeight
     }
 
     func setTabBarVisible(_ visible: Bool) {
@@ -5406,6 +5439,34 @@ final class Workspace: Identifiable, ObservableObject {
         var next = bonsplitController.configuration
         next.appearance.showsTabBar = visible
         bonsplitController.configuration = next
+    }
+
+    /// Live-update path for chrome-scale changes. Mirrors `applyGhosttyChrome`'s
+    /// shape: pull current appearance, mutate via the pure helper, no-op guard
+    /// across every routed knob, then assign back. Called by the KVO observer
+    /// on `UserDefaults.standard.chromeScalePreset`. (C11-6)
+    func applyChromeScale(reason: String = "unspecified") {
+        let tokens = ChromeScaleTokens.resolved(from: .standard)
+        var next = bonsplitController.configuration.appearance
+        Workspace.applyChromeScale(tokens, to: &next)
+        let current = bonsplitController.configuration.appearance
+        let unchanged =
+            current.tabBarHeight              == next.tabBarHeight &&
+            current.tabTitleFontSize          == next.tabTitleFontSize &&
+            current.tabMinWidth               == next.tabMinWidth &&
+            current.tabMaxWidth               == next.tabMaxWidth &&
+            current.tabIconSize               == next.tabIconSize &&
+            current.tabItemHeight             == next.tabItemHeight &&
+            current.tabHorizontalPadding      == next.tabHorizontalPadding &&
+            current.tabCloseIconSize          == next.tabCloseIconSize &&
+            current.tabContentSpacing         == next.tabContentSpacing &&
+            current.tabDirtyIndicatorSize     == next.tabDirtyIndicatorSize &&
+            current.tabNotificationBadgeSize  == next.tabNotificationBadgeSize &&
+            current.tabActiveIndicatorHeight  == next.tabActiveIndicatorHeight
+        guard !unchanged else { return }
+        var nextConfiguration = bonsplitController.configuration
+        nextConfiguration.appearance = next
+        bonsplitController.configuration = nextConfiguration
     }
 
     func applyGhosttyChrome(from config: GhosttyConfig, reason: String = "unspecified") {
@@ -5536,7 +5597,8 @@ final class Workspace: Identifiable, ObservableObject {
         var appearance = Self.bonsplitAppearance(
             from: GhosttyApp.shared.defaultBackgroundColor,
             backgroundOpacity: GhosttyApp.shared.defaultBackgroundOpacity,
-            context: nil
+            context: nil,
+            tokens: ChromeScaleTokens.resolved(from: .standard)
         )
         let initialChromeState = TabBarChromeSettings.state(
             for: UserDefaults.standard.string(forKey: TabBarChromeSettings.stateKey)
@@ -5560,6 +5622,15 @@ final class Workspace: Identifiable, ObservableObject {
         )
         self.bonsplitController = BonsplitController(configuration: config)
         bonsplitController.contextMenuShortcuts = Self.buildContextMenuShortcuts()
+
+        // Subscribe to UserDefaults.standard.chromeScalePreset so chrome scale
+        // changes from any writer (Settings UI, `defaults write`, future
+        // migrations) propagate to this Workspace's Bonsplit configuration.
+        // The observer is constructed AFTER bonsplitController so its callback
+        // can safely read/write `bonsplitController.configuration`. (C11-6)
+        self.chromeScaleObserver = ChromeScaleObserver { [weak self] in
+            self?.applyChromeScale(reason: "userdefaults-change")
+        }
 
         // Remove the default "Welcome" tab that bonsplit creates
         let welcomeTabIds = bonsplitController.allTabIds
