@@ -10195,7 +10195,7 @@ struct CMUXCLI {
         let (workspaceOpt, rest1) = parseOption(args, name: "--workspace")
         let (surfaceOpt, _) = parseOption(rest1, name: "--surface")
         let workspaceHandle = try resolveWorkspaceColorTarget(workspaceOpt, client: client)
-        let resolvedWorkspaceId = workspaceHandle ?? (try resolveCurrentWorkspaceId(client: client))
+        let resolvedWorkspaceId = try workspaceHandle ?? resolveCurrentWorkspaceId(client: client)
         let surfaceRef = surfaceOpt ?? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"]
         let surfaceId = try resolveSurfaceId(
             surfaceRef,
