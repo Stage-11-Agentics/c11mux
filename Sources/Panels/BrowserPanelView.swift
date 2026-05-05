@@ -1187,7 +1187,21 @@ struct BrowserPanelView: View {
             isCurrentPaneOwner
 
         return Group {
-            if panel.shouldRenderWebView {
+            if panel.lifecycleState == .hibernated {
+                // C11-25 ARC-grade tier: the WebContent process has been
+                // released for this surface. Render the cached snapshot
+                // (or a neutral background if the snapshot is missing,
+                // e.g. after a c11 restart). The placeholder swaps back
+                // to the live WKWebView when the operator resumes the
+                // workspace and the lifecycle transitions back to
+                // `.active`. The state mirror is `@Published` on
+                // BrowserPanel so SwiftUI re-renders on transition.
+                BrowserHibernatedPlaceholderView(
+                    surfaceId: panel.id,
+                    backgroundColor: Color(nsColor: browserChromeBackgroundColor)
+                )
+                .accessibilityIdentifier("BrowserHibernatedPlaceholder")
+            } else if panel.shouldRenderWebView {
                 WebViewRepresentable(
                     panel: panel,
                     paneId: paneId,
@@ -6471,5 +6485,32 @@ struct WebViewRepresentable: NSViewRepresentable {
             panelId: panel.id,
             paneId: paneId
         )
+    }
+}
+
+// MARK: - C11-25 hibernated browser placeholder
+
+/// SwiftUI placeholder rendered in place of a live WKWebView when a
+/// browser surface is in the `.hibernated` lifecycle state. Pulls the
+/// captured NSImage snapshot from `BrowserSnapshotStore`; if the cache
+/// is empty (e.g. workspace restored from disk before a snapshot was
+/// re-captured), falls back to a neutral background tinted to the
+/// browser's current chrome color.
+private struct BrowserHibernatedPlaceholderView: View {
+    let surfaceId: UUID
+    let backgroundColor: Color
+
+    var body: some View {
+        ZStack {
+            backgroundColor
+            if let snapshot = BrowserSnapshotStore.shared.snapshot(forSurfaceId: surfaceId),
+               let image = snapshot.image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .clipped()
+            }
+        }
+        .contentShape(Rectangle())
     }
 }

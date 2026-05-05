@@ -1870,7 +1870,15 @@ final class BrowserPanel: Panel, ObservableObject {
     /// 6087 area) continues to be the implementation path; this
     /// controller adds the metadata seam and is the hook the ARC-grade
     /// hibernate path replaces in C11-25 commit 5.
+    ///
+    /// IUO because it's set at the end of `init` once all other stored
+    /// properties are assigned, so the handler can capture `[weak self]`.
     private(set) var lifecycle: SurfaceLifecycleController!
+
+    /// Published mirror of `lifecycle.state` so SwiftUI can re-render
+    /// (e.g. swap the live WKWebView for a placeholder NSImage when
+    /// hibernated). Updated by the lifecycle controller's handler.
+    @Published private(set) var lifecycleState: SurfaceLifecycleState = .active
 
     @Published private(set) var profileID: UUID
     @Published private(set) var historyStore: BrowserHistoryStore
@@ -2566,21 +2574,6 @@ final class BrowserPanel: Panel, ObservableObject {
     ) {
         self.id = id ?? UUID()
         self.workspaceId = workspaceId
-        let panelId = self.id
-        self.lifecycle = SurfaceLifecycleController(
-            workspaceId: workspaceId,
-            surfaceId: panelId,
-            initial: .active
-        ) { _, _ in
-            // Cheap-tier detach is auto-driven by the existing
-            // `WebViewRepresentable.shouldAttachWebView` gate in
-            // BrowserPanelView (~line 6087). The lifecycle controller
-            // mirrors the canonical `lifecycle_state` metadata key so
-            // the sidebar / `c11 tree --json` / snapshot can observe
-            // the state. C11-25 commit 5 replaces this handler with
-            // snapshot+terminate dispatch when the target is
-            // `.hibernated` (ARC-grade tier).
-        }
         let requestedProfileID = profileID ?? BrowserProfileStore.shared.effectiveLastUsedProfileID
         let resolvedProfileID = BrowserProfileStore.shared.profileDefinition(id: requestedProfileID) != nil
             ? requestedProfileID
@@ -2692,6 +2685,22 @@ final class BrowserPanel: Panel, ObservableObject {
         applyBrowserThemeModeIfNeeded()
         insecureHTTPAlertWindowProvider = { [weak self] in
             self?.webView.window ?? NSApp.keyWindow ?? NSApp.mainWindow
+        }
+
+        // Initialize the per-surface lifecycle controller AFTER all stored
+        // properties are set so the handler can capture `self` weakly.
+        // C11-25: cheap-tier detach is auto-driven by the existing
+        // `WebViewRepresentable.shouldAttachWebView` gate in BrowserPanelView
+        // (~line 6087). The controller mirrors the canonical `lifecycle_state`
+        // metadata key and updates `lifecycleState` for SwiftUI re-render.
+        // The C11-25 commit 5 hibernate path extends this handler with
+        // snapshot+terminate dispatch when the target is `.hibernated`.
+        self.lifecycle = SurfaceLifecycleController(
+            workspaceId: workspaceId,
+            surfaceId: self.id,
+            initial: .active
+        ) { [weak self] _, target in
+            self?.lifecycleState = target
         }
 
         // Navigate to initial URL if provided
