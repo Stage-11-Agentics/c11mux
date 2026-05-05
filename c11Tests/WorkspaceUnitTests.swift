@@ -2070,4 +2070,77 @@ final class WorkspacePanelCustomColorTests: XCTestCase {
             "panelCustomColors must be cleared by teardownAllPanels (via pruneSurfaceMetadata)"
         )
     }
+
+    func testSetPanelCustomColorPropagatesToBonsplitTab() {
+        let workspace = Workspace()
+        guard let panelId = workspace.focusedPanelId,
+              let tabId = workspace.surfaceIdFromPanelId(panelId) else {
+            XCTFail("Expected initial panel and bonsplit tab mapping")
+            return
+        }
+
+        XCTAssertNil(workspace.bonsplitController.tab(tabId)?.customColorHex)
+
+        workspace.setPanelCustomColor(panelId: panelId, color: "#1565C0")
+        XCTAssertEqual(
+            workspace.bonsplitController.tab(tabId)?.customColorHex, "#1565C0",
+            "Setting a panel custom color must mirror through to the bonsplit tab"
+        )
+
+        workspace.setPanelCustomColor(panelId: panelId, color: nil)
+        XCTAssertNil(
+            workspace.bonsplitController.tab(tabId)?.customColorHex,
+            "Clearing a panel custom color must clear the bonsplit tab's value"
+        )
+    }
+
+    func testDetachAttachAcrossWorkspacesPreservesPanelCustomColor() {
+        let source = Workspace()
+        guard let panelId = source.focusedPanelId else {
+            XCTFail("Expected source focused panel")
+            return
+        }
+
+        source.setPanelCustomColor(panelId: panelId, color: "#7B3F00")
+
+        guard let detached = source.detachSurface(panelId: panelId) else {
+            XCTFail("Expected detach to succeed")
+            return
+        }
+
+        XCTAssertEqual(
+            detached.customColor, "#7B3F00",
+            "DetachedSurfaceTransfer must carry the surface tab color"
+        )
+        XCTAssertNil(
+            source.panelCustomColor(panelId: panelId),
+            "Source workspace cleanup paths must drop panelCustomColors entry on detach"
+        )
+
+        let destination = Workspace()
+        guard let destinationPane = destination.bonsplitController.allPaneIds.first else {
+            XCTFail("Expected destination pane")
+            return
+        }
+
+        let attachedPanelId = destination.attachDetachedSurface(
+            detached,
+            inPane: destinationPane,
+            focus: false
+        )
+        XCTAssertEqual(attachedPanelId, panelId)
+        XCTAssertEqual(
+            destination.panelCustomColor(panelId: panelId), "#7B3F00",
+            "Destination workspace must restore the surface tab color from the transfer"
+        )
+
+        guard let attachedTabId = destination.surfaceIdFromPanelId(panelId) else {
+            XCTFail("Expected attached tab mapping")
+            return
+        }
+        XCTAssertEqual(
+            destination.bonsplitController.tab(attachedTabId)?.customColorHex, "#7B3F00",
+            "Bonsplit tab in the destination must render the migrated color"
+        )
+    }
 }
