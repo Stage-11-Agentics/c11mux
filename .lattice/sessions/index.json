@@ -9,6 +9,7 @@
   },
   "serial_counters": {
     "Argus": 1,
+    "BacklogScribe": 1,
     "c11-12-impl": 1,
     "c11-8-orchestrator": 1,
     "cc-opus-cmux9-kickoff": 1,
