@@ -18940,6 +18940,17 @@
         }
       }
     },
+    "contextMenu.hibernateWorkspaceTooltip": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suspends browser surfaces in this workspace. Terminals stay on auto-throttle (already low-CPU when the workspace isn't focused)."
+          }
+        }
+      }
+    },
     "contextMenu.markWorkspaceRead": {
       "extractionState": "manual",
       "localizations": {

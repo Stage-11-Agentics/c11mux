@@ -1406,6 +1406,10 @@ struct cmuxApp: App {
                 workspace?.hibernate()
             }
             .disabled(workspace == nil)
+            .help(String(
+                localized: "contextMenu.hibernateWorkspaceTooltip",
+                defaultValue: "Suspends browser surfaces in this workspace. Terminals stay on auto-throttle (already low-CPU when the workspace isn't focused)."
+            ))
         }
 
         Divider()
