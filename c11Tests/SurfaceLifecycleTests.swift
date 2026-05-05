@@ -78,7 +78,9 @@ final class SurfaceLifecycleTests: XCTestCase {
         let store = SurfaceMetadataStore.shared
         defer { store.removeSurface(workspaceId: workspace, surfaceId: surface) }
 
-        for state in SurfaceLifecycleState.allCases {
+        // C11-25 review fix I4: `.suspended` is reserved-only and rejected
+        // at the validator. Walk only the runtime-acceptable set here.
+        for state in SurfaceLifecycleState.allCases where state != .suspended {
             let result = try store.setMetadata(
                 workspaceId: workspace,
                 surfaceId: surface,
@@ -91,6 +93,28 @@ final class SurfaceLifecycleTests: XCTestCase {
                 true,
                 "expected \(state.rawValue) to be accepted"
             )
+        }
+    }
+
+    func testStoreRejectsSuspendedAsReservedOnly() {
+        let workspace = UUID()
+        let surface = UUID()
+        let store = SurfaceMetadataStore.shared
+        defer { store.removeSurface(workspaceId: workspace, surfaceId: surface) }
+
+        XCTAssertThrowsError(
+            try store.setMetadata(
+                workspaceId: workspace,
+                surfaceId: surface,
+                partial: [MetadataKey.lifecycleState: SurfaceLifecycleState.suspended.rawValue],
+                mode: .merge,
+                source: .explicit
+            )
+        ) { error in
+            guard let writeError = error as? SurfaceMetadataStore.WriteError else {
+                return XCTFail("expected WriteError, got \(error)")
+            }
+            XCTAssertEqual(writeError.code, "reserved_key_invalid_type")
         }
     }
 
@@ -204,18 +228,6 @@ final class SurfaceLifecycleTests: XCTestCase {
         XCTAssertEqual(calls.count, 1)
         XCTAssertEqual(calls[0].0, .active)
         XCTAssertEqual(calls[0].1, .throttled)
-    }
-
-    @MainActor
-    func testSeedDoesNotFireHandler() {
-        var fired = false
-        let controller = SurfaceLifecycleController(
-            workspaceId: UUID(),
-            surfaceId: UUID()
-        ) { _, _ in fired = true }
-        controller.seed(from: .hibernated)
-        XCTAssertEqual(controller.state, .hibernated)
-        XCTAssertFalse(fired)
     }
 
     @MainActor

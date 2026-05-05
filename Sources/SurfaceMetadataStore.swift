@@ -191,6 +191,15 @@ final class SurfaceMetadataStore: @unchecked Sendable {
             // anything outside that vocabulary so a stale snapshot or a
             // typo can't leak into the runtime path. Length cap matches
             // `SurfaceLifecycleState.metadataMaxLength`.
+            //
+            // Review fix I4: `.suspended` is reserved-only — the runtime
+            // dispatcher rejects every transition into and out of it
+            // (`SurfaceLifecycleState.canTransition`). Allowing the
+            // metadata write here would let an external writer park a
+            // value the runtime cannot consume, splitting the metadata
+            // mirror from the state machine. Reject at the validator
+            // until a future PR (C11-25c / SIGSTOP terminal hibernate)
+            // lands a real consumer.
             guard let s = value as? String else {
                 return .reservedKeyInvalidType(key, "expected string")
             }
@@ -200,10 +209,16 @@ final class SurfaceMetadataStore: @unchecked Sendable {
                     "exceeds max length \(SurfaceLifecycleState.metadataMaxLength)"
                 )
             }
-            if SurfaceLifecycleState(rawValue: s) == nil {
+            guard let parsed = SurfaceLifecycleState(rawValue: s) else {
                 return .reservedKeyInvalidType(
                     key,
-                    "must be one of: active, throttled, suspended, hibernated"
+                    "must be one of: active, throttled, hibernated"
+                )
+            }
+            if parsed == .suspended {
+                return .reservedKeyInvalidType(
+                    key,
+                    "'suspended' is reserved and not yet a runtime target; use 'hibernated' for operator-pinned surfaces"
                 )
             }
             return nil

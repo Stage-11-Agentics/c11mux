@@ -4,8 +4,9 @@
 Validates that the canonical `lifecycle_state` metadata key is wired
 through the surface.set_metadata / surface.get_metadata socket path:
 
-  - Accepted values: active, throttled, suspended, hibernated.
-  - Rejected values: anything else, including any non-string.
+  - Accepted values: active, throttled, hibernated.
+  - Rejected values: 'suspended' (reserved-only per review fix I4),
+    anything else outside the enum, and any non-string.
   - Round-trips through the metadata store and is readable via
     surface.get_metadata.
 
@@ -31,7 +32,11 @@ from cmux import cmux, cmuxError
 
 SOCKET_PATH = os.environ.get("CMUX_SOCKET", "/tmp/cmux-debug.sock")
 
-LEGAL_STATES = ["active", "throttled", "suspended", "hibernated"]
+# `suspended` is defined in the enum but rejected at the validator
+# (review fix I4) — it has no runtime consumer in C11-25 and accepting
+# it would let an external writer park a value the runtime ignores.
+LEGAL_STATES = ["active", "throttled", "hibernated"]
+RESERVED_STATES = ["suspended"]
 
 
 def _must(cond: bool, msg: str) -> None:
@@ -137,11 +142,43 @@ def _run_rejects_non_string(c) -> None:
         c.close_workspace(workspace_id)
 
 
+def _run_rejects_suspended(c) -> None:
+    """Review fix I4: 'suspended' is reserved-only — defined in the enum
+    but rejected at the validator until a runtime consumer exists."""
+    for state in RESERVED_STATES:
+        workspace_id, surface_id = _fresh_surface(c)
+        try:
+            try:
+                c._call(
+                    "surface.set_metadata",
+                    {
+                        "surface_id": surface_id,
+                        "mode": "merge",
+                        "source": "explicit",
+                        "metadata": {"lifecycle_state": state},
+                    },
+                )
+            except cmuxError as err:
+                msg = str(err)
+                _must(
+                    "reserved_key_invalid_type" in msg or "lifecycle_state" in msg,
+                    f"reserved value {state!r} should be rejected, got: {msg!r}",
+                )
+            else:
+                raise cmuxError(
+                    f"lifecycle_state={state!r} was accepted; "
+                    f"reserved-only validator (I4) is not wired"
+                )
+        finally:
+            c.close_workspace(workspace_id)
+
+
 def main() -> int:
     with cmux(SOCKET_PATH) as client:
         _run_legal_values(client)
         _run_rejects_unknown_value(client)
         _run_rejects_non_string(client)
+        _run_rejects_suspended(client)
     print("OK c11-25 surface lifecycle metadata roundtrip")
     return 0
 

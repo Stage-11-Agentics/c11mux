@@ -9,14 +9,18 @@ import Foundation
 ///
 /// State semantics (per the C11-25 plan):
 ///
-/// - `active` — workspace selected, full-rate render, full input.
-/// - `throttled` — workspace deselected. Terminals: libghostty CVDisplayLink
-///   paused via `ghostty_surface_set_occlusion(false)`; PTY drains.
-///   Browsers: WKWebView detached from the host view hierarchy
-///   (cheap-tier suspension).
-/// - `suspended` — reserved. Not entered in C11-25; defined in the enum so
-///   the metadata key has an upgrade path for C11-25b (browser ARC-grade
-///   tier) and future SIGSTOP-tier terminal hibernation.
+/// - `active` — workspace selected, full-rate render, full input. The
+///   surface is occluded=false / not-visible=false; libghostty drives
+///   CVDisplayLink at full rate.
+/// - `throttled` — workspace deselected. Terminals: surface is marked
+///   occluded (`ghostty_surface_set_occlusion(visible=false)` →
+///   libghostty pauses CVDisplayLink wakeups while the PTY continues
+///   to drain). Browsers: WKWebView detached from the host view
+///   hierarchy (cheap-tier suspension).
+/// - `suspended` — reserved-only metadata value with NO accepting
+///   transitions. The metadata validator rejects writes of this value
+///   (see I4 review fix); kept in the enum so future PRs can wire it
+///   without a schema migration but never enters runtime in C11-25.
 /// - `hibernated` — operator-explicit. Browsers: WKWebView snapshot to
 ///   NSImage placeholder + WebContent process termination (ARC-grade).
 ///   Terminals: same throttle behavior as `throttled` (PTY drains;
@@ -28,8 +32,8 @@ import Foundation
 ///     active        → throttled, hibernated
 ///     throttled     → active,    hibernated
 ///     hibernated    → active
-///     suspended     → (none — reserved in C11-25)
-///     * → suspended → (none — reserved in C11-25)
+///     suspended     → (none — reserved; rejected at validator)
+///     * → suspended → (none — reserved; rejected at validator)
 ///
 /// Self-transitions (X → X) are accepted as a no-op so dispatchers can
 /// idempotently call `transition(to:)` on every workspace-visibility tick
@@ -97,6 +101,11 @@ final class SurfaceLifecycleController {
     let surfaceId: UUID
     private(set) var state: SurfaceLifecycleState
     private let onTransition: Handler
+    /// Reentrancy guard. The current dispatch graph is shallow — handlers
+    /// run synchronously and don't loop back into `transition` — but if a
+    /// future handler does (e.g. a hibernate-fail rollback), recursive
+    /// re-entry would be hard to diagnose. Cheap insurance.
+    private var isTransitioning = false
 
     init(
         workspaceId: UUID,
@@ -126,8 +135,17 @@ final class SurfaceLifecycleController {
     /// - On a real transition, writes the new state to
     ///   `SurfaceMetadataStore` under `lifecycle_state` (default source
     ///   `.explicit` — operator/agent intent), then invokes the handler.
+    /// - Reentrant calls from inside the handler are rejected (returns
+    ///   `false`); a debug `assertionFailure` flags them in DEBUG so they
+    ///   surface in tests.
     @discardableResult
     func transition(to target: SurfaceLifecycleState, source: MetadataSource = .explicit) -> Bool {
+        if isTransitioning {
+            assertionFailure(
+                "SurfaceLifecycleController.transition reentered while a prior transition is in flight"
+            )
+            return false
+        }
         guard state.canTransition(to: target) else { return false }
         if state == target { return true }
         let prior = state
@@ -139,15 +157,9 @@ final class SurfaceLifecycleController {
             value: target.rawValue,
             source: source
         )
+        isTransitioning = true
+        defer { isTransitioning = false }
         onTransition(prior, target)
         return true
-    }
-
-    /// Seed the controller's state from the metadata mirror without firing
-    /// the handler. Used at restore time (cold path) so a snapshot's
-    /// `hibernated` value carries forward without re-running detach/etc.
-    /// during workspace mount.
-    func seed(from state: SurfaceLifecycleState) {
-        self.state = state
     }
 }
