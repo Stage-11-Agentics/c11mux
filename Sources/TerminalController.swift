@@ -6136,6 +6136,9 @@ class TerminalController {
         if !clear && hex == nil {
             return .err(code: "invalid_params", message: "Provide either 'hex' or 'clear=true'", data: nil)
         }
+        if clear && hex != nil {
+            return .err(code: "invalid_params", message: "'clear' and 'hex' are mutually exclusive", data: nil)
+        }
         if !clear, let hex, WorkspaceTabColorSettings.normalizedHex(hex) == nil {
             return .err(code: "invalid_params", message: "Invalid hex color (use #RRGGBB)", data: ["hex": hex])
         }
