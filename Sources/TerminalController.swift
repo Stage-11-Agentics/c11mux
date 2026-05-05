@@ -8944,13 +8944,21 @@ class TerminalController {
     ///
     /// Bounded timeout (2 s); the actor never blocks on I/O so a hang
     /// here would mean a deadlock somewhere unrelated.
-    private func conversationStoreSync<T>(
-        _ body: @escaping (ConversationStore) async -> T
+    private func conversationStoreSync<T: Sendable>(
+        _ body: @escaping @Sendable (ConversationStore) async -> T
     ) -> T? {
+        // C11-24: `Task.detached` so the spawned task does not inherit
+        // `@MainActor` isolation from `TerminalController` (declared
+        // `@MainActor` at line 18). Without this, the task body cannot
+        // run while main is blocked on `sema.wait`, the actor call
+        // never completes, and every `v2ConversationList`,
+        // `v2ConversationGet`, etc. silently returns the `?? [:]`
+        // fallback even when the actor has data. Verified by
+        // reproducer at `notes/c11-24-snapshot-capture-bug.md`.
         let store = ConversationStore.shared
-        var result: T?
+        nonisolated(unsafe) var result: T?
         let sema = DispatchSemaphore(value: 0)
-        Task {
+        Task.detached(priority: .userInitiated) {
             result = await body(store)
             sema.signal()
         }

@@ -60,8 +60,13 @@ enum WorkspaceSnapshotConversationBridge {
             #endif
             return
         }
+        // C11-24: `Task.detached` so the spawned task does not inherit
+        // the caller's `@MainActor` isolation. Without it, the task body
+        // cannot run while main is blocked on `sema.wait` and the seed
+        // never lands. (`prepareStartupSessionSnapshotIfNeeded` calls
+        // this from `AppDelegate`, which is `@MainActor`.)
         let sema = DispatchSemaphore(value: 0)
-        Task { [seedMap] in
+        Task.detached(priority: .userInitiated) { [seedMap] in
             await ConversationStore.shared.seed(from: seedMap)
             sema.signal()
         }

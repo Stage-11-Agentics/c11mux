@@ -171,9 +171,22 @@ extension Workspace {
             allPanelIds.append(panelId)
         }
 
+        // C11-24: bulk-read conversation refs once from the actor before
+        // building any panel snapshots. Replaces the per-panel sync-bridge
+        // that deadlocked because the spawned `Task` inherited
+        // `@MainActor` isolation from this `@MainActor` class and could
+        // not run while main was blocked on the semaphore wait. Single
+        // `Task.detached` breaks the isolation inheritance; one
+        // round-trip per save instead of N.
+        let conversationsByPanelId = Workspace.readConversationsByPanelIdSync()
+
         let panelSnapshots = allPanelIds
             .prefix(SessionPersistencePolicy.maxPanelsPerWorkspace)
-            .compactMap { sessionPanelSnapshot(panelId: $0, includeScrollback: includeScrollback) }
+            .compactMap { sessionPanelSnapshot(
+                panelId: $0,
+                includeScrollback: includeScrollback,
+                conversationsByPanelId: conversationsByPanelId
+            ) }
 
         let statusSnapshots = statusEntries.values
             .sorted { lhs, rhs in lhs.key < rhs.key }
@@ -393,6 +406,36 @@ extension Workspace {
         }
     }
 
+    /// C11-24: synchronous bulk read of the `ConversationStore` for use
+    /// from `@MainActor` contexts (snapshot capture, restore, dirty-boot
+    /// transitions). Uses `Task.detached` so the spawned task does NOT
+    /// inherit `@MainActor` isolation from the caller — otherwise the
+    /// task body could not run while the calling thread blocks on the
+    /// semaphore wait, deadlocking until the timeout. The previous
+    /// pattern (`Task { await actor.method(); sema.signal() }`) was
+    /// buggy in every `@MainActor` call site; per-panel snapshot capture
+    /// hit it once per panel per save and produced empty conversation
+    /// state in every persisted snapshot. Verified by reproducer at
+    /// `notes/c11-24-snapshot-capture-bug.md`.
+    ///
+    /// `nonisolated` so it can be called without an actor hop and
+    /// without inheriting the caller's isolation. The actor call inside
+    /// `Task.detached` still hops to `ConversationStore`'s executor in
+    /// the normal way.
+    nonisolated static func readConversationsByPanelIdSync(
+        timeout: TimeInterval = 2.0
+    ) -> [String: SurfaceConversations] {
+        guard !ConversationStorePolicy.isDisabled else { return [:] }
+        let sema = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var captured: [String: SurfaceConversations] = [:]
+        Task.detached(priority: .userInitiated) {
+            captured = await ConversationStore.shared.snapshot()
+            sema.signal()
+        }
+        _ = sema.wait(timeout: .now() + timeout)
+        return captured
+    }
+
     /// C11-24: collect ResumeActions for terminal panels by consulting the
     /// `ConversationStore`. Reads via the strategy registry: each panel's
     /// active ref is handed to its strategy's `resume(ref:)`; the action
@@ -406,18 +449,13 @@ extension Workspace {
     ) -> [(panelId: UUID, action: ResumeAction)] {
         guard SessionPersistencePolicy.agentRestartOnRestoreEnabled else { return [] }
         var result: [(panelId: UUID, action: ResumeAction)] = []
-        // Synchronous bridge into the actor — this runs once per restore,
-        // not on a hot path.
-        let storeSnapshot: [String: SurfaceConversations] = {
-            var out: [String: SurfaceConversations] = [:]
-            let sema = DispatchSemaphore(value: 0)
-            Task {
-                out = await ConversationStore.shared.snapshot()
-                sema.signal()
-            }
-            _ = sema.wait(timeout: .now() + 1.0)
-            return out
-        }()
+        // C11-24: bulk-read the actor via the shared sync helper. The
+        // previous inline `Task { ... }` deadlocked from `@MainActor`
+        // contexts because the unstructured Task inherited that
+        // isolation and could not run while main was blocked on the
+        // semaphore. `readConversationsByPanelIdSync` uses
+        // `Task.detached` to break the inheritance.
+        let storeSnapshot = Workspace.readConversationsByPanelIdSync(timeout: 1.0)
         for panelSnapshot in snapshot.panels {
             guard panelSnapshot.type == .terminal else { continue }
             let key = panelSnapshot.id.uuidString
@@ -618,7 +656,11 @@ extension Workspace {
         return decoded.id
     }
 
-    private func sessionPanelSnapshot(panelId: UUID, includeScrollback: Bool) -> SessionPanelSnapshot? {
+    private func sessionPanelSnapshot(
+        panelId: UUID,
+        includeScrollback: Bool,
+        conversationsByPanelId: [String: SurfaceConversations]
+    ) -> SessionPanelSnapshot? {
         guard let panel = panels[panelId] else { return nil }
 
         let panelTitle = panelTitle(panelId: panelId)
@@ -709,26 +751,21 @@ extension Workspace {
             }
         }
 
-        // C11-24: capture the surface's ConversationRefs into the panel
-        // snapshot. Sync bridge from the actor — capture is rare and
-        // bounded. SurfaceConversations(active: nil, history: []) for
-        // surfaces with no captured conversation; the empty history is
-        // written explicitly so downstream tooling has a stable shape.
+        // C11-24: lookup the surface's ConversationRefs from the
+        // pre-built map (bulk-read once at the workspace level — see
+        // `readConversationsByPanelIdSync` in `sessionSnapshot`). The
+        // previous implementation did a per-panel sync-bridge here, which
+        // deadlocked: this method is `@MainActor`-isolated, the spawned
+        // `Task { ... }` inherited that isolation and could not run while
+        // main was blocked on `sema.wait`. Every call timed out and the
+        // resulting snapshot wrote `.empty` for every panel, regardless of
+        // what the live store actually held. Empty `SurfaceConversations`
+        // (`active: nil, history: []`) is still written for terminal
+        // surfaces with no captured conversation — the empty shape is part
+        // of the v1 JSON contract.
         var surfaceConversations: SurfaceConversations? = nil
-        if !ConversationStorePolicy.isDisabled {
-            let sema = DispatchSemaphore(value: 0)
-            var captured: SurfaceConversations = .empty
-            Task {
-                captured = await ConversationStore.shared
-                    .conversations(for: panelId.uuidString)
-                sema.signal()
-            }
-            _ = sema.wait(timeout: .now() + 0.5)
-            // Always emit the field for terminal surfaces — empty history
-            // is part of the v1 contract.
-            if panel.panelType == .terminal {
-                surfaceConversations = captured
-            }
+        if !ConversationStorePolicy.isDisabled, panel.panelType == .terminal {
+            surfaceConversations = conversationsByPanelId[panelId.uuidString] ?? .empty
         }
         return SessionPanelSnapshot(
             id: panelId,

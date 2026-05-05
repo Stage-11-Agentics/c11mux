@@ -2833,8 +2833,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // C11-24: suspendAllAlive transitions every alive ConversationRef
         // to .suspended so resume on next launch is gated. Synchronous
         // bridge into the actor (bounded — store has no I/O).
+        // `Task.detached` so the task does not inherit `@MainActor`
+        // isolation from this method (`AppDelegate` is `@MainActor`);
+        // without it, the body cannot run while main is blocked on
+        // `sema.wait` and the suspend never lands.
         let suspendDone = DispatchSemaphore(value: 0)
-        Task {
+        Task.detached(priority: .userInitiated) {
             await ConversationStore.shared.suspendAllAlive()
             suspendDone.signal()
         }
@@ -2988,8 +2992,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // observable to subsequent restore work on the same dispatch
         // queue (no Task race against pendingRestartPlans).
         if case .dirty = priorShutdownAtLaunch, !ConversationStorePolicy.isDisabled {
+            // C11-24: `Task.detached` so the spawned task does not
+            // inherit `@MainActor` isolation from this method. Without
+            // it, the body could not run while main is blocked on
+            // `sema.wait` and the dirty-recovery transition would never
+            // fire. (`AppDelegate` is `@MainActor`.)
             let sema = DispatchSemaphore(value: 0)
-            Task {
+            Task.detached(priority: .userInitiated) {
                 await ConversationStore.shared.markAllUnknown()
                 sema.signal()
             }
@@ -3655,6 +3664,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 Self.hashFrame(window.frame, into: &hasher)
             } else {
                 hasher.combine(-1)
+            }
+        }
+
+        // C11-24: include conversation state in the fingerprint so that
+        // wrapper-claim, hook-push, and tombstone events trigger an
+        // autosave write. Without this, conversation activity alone never
+        // changes the fingerprint, the autosave path skips with
+        // `unchanged_autosave_fingerprint`, and the only persisted
+        // snapshot is the one written at clean shutdown — losing every
+        // ref captured in a session that ended any other way.
+        if !ConversationStorePolicy.isDisabled {
+            let conversations = Workspace.readConversationsByPanelIdSync(timeout: 0.5)
+            // Order-independent: sort surface ids before hashing.
+            for surfaceId in conversations.keys.sorted() {
+                guard let surface = conversations[surfaceId],
+                      let active = surface.active else { continue }
+                hasher.combine(surfaceId)
+                hasher.combine(active.kind)
+                hasher.combine(active.id)
+                hasher.combine(active.state.rawValue)
+                hasher.combine(active.capturedVia.rawValue)
             }
         }
 

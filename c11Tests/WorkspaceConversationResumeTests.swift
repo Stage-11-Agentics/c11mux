@@ -158,4 +158,64 @@ final class WorkspaceConversationResumeTests: XCTestCase {
             metadata: nil
         )
     }
+
+    // MARK: - readConversationsByPanelIdSync (regression: sync-bridge deadlock)
+
+    /// Regression for the snapshot-capture deadlock. `Workspace` is
+    /// `@MainActor`-isolated, and the original capture path used
+    /// `Task { ... }` (which inherits caller isolation) while blocking
+    /// main on a `DispatchSemaphore`. The task body could never run
+    /// while main was blocked — every call timed out and the resulting
+    /// snapshot wrote `.empty` for every panel even when the live store
+    /// held a confirmed `.alive` ref. Verified end-to-end against a
+    /// tagged build: alive ref pre-quit, empty `surface_conversations`
+    /// post-quit, see `notes/c11-24-snapshot-capture-bug.md`.
+    /// `readConversationsByPanelIdSync` uses `Task.detached` so the
+    /// spawned task does not inherit `@MainActor`; this test exercises
+    /// it from `@MainActor` (the deadlock-prone caller context) and
+    /// asserts the actor's data is observable inside the timeout.
+    func testReadConversationsByPanelIdSyncReturnsLiveData() async throws {
+        let surfaceA = "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"
+        let surfaceB = "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"
+
+        await ConversationStore.shared.push(
+            surfaceId: surfaceA,
+            kind: "claude-code",
+            id: claudeSessionId,
+            source: .hook,
+            state: .alive
+        )
+        await ConversationStore.shared.push(
+            surfaceId: surfaceB,
+            kind: "codex",
+            id: codexSessionId,
+            source: .wrapperClaim,
+            state: .unknown
+        )
+
+        // Call the helper from a `@MainActor` context (the same context
+        // `sessionSnapshot` and `sessionAutosaveFingerprint` use at
+        // runtime). With the original `Task { ... }` pattern, this
+        // would deadlock against the test's main-actor wait and the
+        // returned dict would be empty.
+        let captured: [String: SurfaceConversations] = await MainActor.run {
+            Workspace.readConversationsByPanelIdSync(timeout: 2.0)
+        }
+
+        XCTAssertEqual(captured[surfaceA]?.active?.id, claudeSessionId)
+        XCTAssertEqual(captured[surfaceA]?.active?.kind, "claude-code")
+        XCTAssertEqual(captured[surfaceA]?.active?.state, .alive)
+        XCTAssertEqual(captured[surfaceB]?.active?.id, codexSessionId)
+        XCTAssertEqual(captured[surfaceB]?.active?.kind, "codex")
+    }
+
+    /// Sanity check the empty-store contract.
+    func testReadConversationsByPanelIdSyncEmptyStoreReturnsEmpty() async throws {
+        // setUp clears the store; nothing else pushed.
+        let captured: [String: SurfaceConversations] = await MainActor.run {
+            Workspace.readConversationsByPanelIdSync(timeout: 1.0)
+        }
+        XCTAssertTrue(captured.isEmpty,
+                      "expected empty dict from empty store; got \(captured.count) entries")
+    }
 }
