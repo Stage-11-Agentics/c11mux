@@ -674,6 +674,9 @@ struct BrowserPanelView: View {
             }
         }
         .onChange(of: isVisibleInUI) { visibleInUI in
+            // C11-25: drive per-surface lifecycle (active ↔ throttled) from
+            // the same flag the rest of the panel reads. Edge-event only.
+            panel.applyVisibility(visibleInUI)
             if visibleInUI {
                 panel.cancelPendingDeveloperToolsVisibilityLossCheck()
                 return
@@ -682,6 +685,12 @@ struct BrowserPanelView: View {
             // final host settles. Only treat a stable hide as a signal to consume
             // an attached-inspector X-close.
             panel.scheduleDeveloperToolsVisibilityLossCheck()
+        }
+        .onAppear {
+            // C11-25: seed the lifecycle state from the initial visibility at
+            // panel mount. Workspaces created in the background mount with
+            // `isVisibleInUI == false` and want to start in `.throttled`.
+            panel.applyVisibility(isVisibleInUI)
         }
         .onChange(of: isFocused) { focused in
 #if DEBUG

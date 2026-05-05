@@ -1862,6 +1862,16 @@ final class BrowserPanel: Panel, ObservableObject {
     /// The workspace ID this panel belongs to
     private(set) var workspaceId: UUID
 
+    /// Per-surface lifecycle controller (C11-25). Owns the canonical
+    /// `lifecycle_state` metadata mirror. Cheap-tier detach (when a
+    /// workspace is deselected, `isVisibleInUI` flips false and the
+    /// existing `WebViewRepresentable.shouldAttachWebView` gate calls
+    /// `BrowserWindowPortalRegistry.hide` — see BrowserPanelView line
+    /// 6087 area) continues to be the implementation path; this
+    /// controller adds the metadata seam and is the hook the ARC-grade
+    /// hibernate path replaces in C11-25 commit 5.
+    private(set) var lifecycle: SurfaceLifecycleController!
+
     @Published private(set) var profileID: UUID
     @Published private(set) var historyStore: BrowserHistoryStore
 
@@ -2556,6 +2566,21 @@ final class BrowserPanel: Panel, ObservableObject {
     ) {
         self.id = id ?? UUID()
         self.workspaceId = workspaceId
+        let panelId = self.id
+        self.lifecycle = SurfaceLifecycleController(
+            workspaceId: workspaceId,
+            surfaceId: panelId,
+            initial: .active
+        ) { _, _ in
+            // Cheap-tier detach is auto-driven by the existing
+            // `WebViewRepresentable.shouldAttachWebView` gate in
+            // BrowserPanelView (~line 6087). The lifecycle controller
+            // mirrors the canonical `lifecycle_state` metadata key so
+            // the sidebar / `c11 tree --json` / snapshot can observe
+            // the state. C11-25 commit 5 replaces this handler with
+            // snapshot+terminate dispatch when the target is
+            // `.hibernated` (ARC-grade tier).
+        }
         let requestedProfileID = profileID ?? BrowserProfileStore.shared.effectiveLastUsedProfileID
         let resolvedProfileID = BrowserProfileStore.shared.profileDefinition(id: requestedProfileID) != nil
             ? requestedProfileID
@@ -2737,6 +2762,19 @@ final class BrowserPanel: Panel, ObservableObject {
 
     func updateWorkspaceId(_ newWorkspaceId: UUID) {
         workspaceId = newWorkspaceId
+        lifecycle.updateWorkspaceId(newWorkspaceId)
+    }
+
+    // MARK: - Lifecycle dispatch
+
+    /// Translate the panel's `isVisibleInUI` from SwiftUI into a lifecycle
+    /// transition. Idempotent; called on workspace-selection edge events
+    /// (`.onChange`) and at panel mount (`.onAppear`). Operator-pinned
+    /// `hibernated` is preserved — only `active ↔ throttled` flips on
+    /// auto-visibility changes.
+    func applyVisibility(_ isVisibleInUI: Bool) {
+        if lifecycle.state.isOperatorPinned { return }
+        lifecycle.transition(to: isVisibleInUI ? .active : .throttled)
     }
 
     func reattachToWorkspace(
@@ -2747,6 +2785,7 @@ final class BrowserPanel: Panel, ObservableObject {
         remoteStatus: BrowserRemoteWorkspaceStatus?
     ) {
         workspaceId = newWorkspaceId
+        lifecycle.updateWorkspaceId(newWorkspaceId)
         usesRemoteWorkspaceProxy = isRemoteWorkspace
         let targetStore = isRemoteWorkspace
             ? WKWebsiteDataStore(forIdentifier: remoteWebsiteDataStoreIdentifier ?? newWorkspaceId)
