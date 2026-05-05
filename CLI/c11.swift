@@ -10137,7 +10137,7 @@ struct CMUXCLI {
         let (surfaceOpt, rest2) = parseOption(rest1, name: "--surface")
         let positional = rest2.filter { !$0.hasPrefix("-") }
         guard let hex = positional.first else {
-            throw CLIError(message: "surface-color set <hex> [--workspace <ref>] [--surface <ref>]")
+            throw CLIError(message: "surface-color set <hex> [--workspace <ref>] [--surface <ref>] (quote hex starting with '#': c11 surface-color set \"#RRGGBB\")")
         }
 
         let workspaceHandle = try resolveWorkspaceColorTarget(workspaceOpt, client: client)
@@ -10161,7 +10161,11 @@ struct CMUXCLI {
 
     private func runSurfaceColorClear(args: [String], client: SocketClient, jsonOutput: Bool) throws {
         let (workspaceOpt, rest1) = parseOption(args, name: "--workspace")
-        let (surfaceOpt, _) = parseOption(rest1, name: "--surface")
+        let (surfaceOpt, rest2) = parseOption(rest1, name: "--surface")
+        let extras = rest2.filter { !$0.hasPrefix("-") }
+        if !extras.isEmpty {
+            throw CLIError(message: "surface-color clear takes no positional arguments. Use 'surface-color set <hex>' to set a color.")
+        }
         let workspaceHandle = try resolveWorkspaceColorTarget(workspaceOpt, client: client)
         let surfaceRef = surfaceOpt ?? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"]
         let surfaceId = try resolveSurfaceId(
