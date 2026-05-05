@@ -54,12 +54,18 @@ final class BrowserSnapshotStore {
     /// others. If the webview is in a degenerate state (zero bounds,
     /// no URL, JS bridge broken), the snapshot is still stored and the
     /// placeholder render path falls back to a neutral background.
+    ///
+    /// `fallbackURL` is used when `webView.url` is nil at capture time
+    /// (e.g. restore-time hibernate fires before the freshly-mounted
+    /// webview has finished its initial navigation). Without it, resume
+    /// would have no URL to navigate back to.
     func capture(
         surfaceId: UUID,
         webView: WKWebView,
+        fallbackURL: URL? = nil,
         completion: @escaping (BrowserSurfaceSnapshot) -> Void
     ) {
-        let url = webView.url
+        let url = webView.url ?? fallbackURL
         let group = DispatchGroup()
         var capturedImage: NSImage?
         var capturedScrollY: CGFloat?

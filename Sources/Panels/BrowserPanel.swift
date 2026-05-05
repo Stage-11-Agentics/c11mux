@@ -2845,13 +2845,28 @@ final class BrowserPanel: Panel, ObservableObject {
     /// then replaces the WKWebView with a fresh inert one and releases
     /// the prior reference so ARC reaps the WebContent process. The
     /// panel's body branches to placeholder via `lifecycleState`.
+    ///
+    /// `currentURL` is passed as `fallbackURL` so cold-restore
+    /// hibernate (where `webView.url` may still be nil because the
+    /// freshly-mounted webview's initial navigation hasn't completed)
+    /// still records a URL for resume to navigate back to.
     private func performHibernate() {
         let liveWebView = webView
         BrowserSnapshotStore.shared.capture(
             surfaceId: self.id,
-            webView: liveWebView
+            webView: liveWebView,
+            fallbackURL: currentURL
         ) { [weak self] _ in
             guard let self else { return }
+            // Lifecycle-state guard at completion time, not just identity.
+            // If the operator hit Resume between `performHibernate` kicking
+            // off the async capture and the completion firing, the live
+            // webview is still bound and the panel is back to `.active`.
+            // Identity (oldWebView === webView) would still hold, so the
+            // identity-only guard inside `replaceWebViewForHibernate` is
+            // not enough — it would tear down the freshly-resumed browser.
+            // Bail out here when the operator already raced past hibernate.
+            guard self.lifecycle.state == .hibernated else { return }
             self.replaceWebViewForHibernate(oldWebView: liveWebView)
         }
     }
@@ -2860,11 +2875,18 @@ final class BrowserPanel: Panel, ObservableObject {
     /// replaced during hibernate) — refire `navigate(to:)` with the
     /// snapshot's URL so the WebContent process spins back up. Drops
     /// the cached snapshot once the navigation is initiated.
+    ///
+    /// Falls back to `currentURL` when the snapshot's URL is nil
+    /// (cold-restore hibernate captures whatever `webView.url` was at
+    /// capture time, which is nil if the initial navigation hadn't
+    /// landed yet). Without the fallback the resumed panel renders an
+    /// empty page with no recovery short of typing into the omnibar.
     private func performResumeFromHibernate() {
         let snapshot = BrowserSnapshotStore.shared.snapshot(forSurfaceId: self.id)
         BrowserSnapshotStore.shared.clear(forSurfaceId: self.id)
-        if let url = snapshot?.url {
-            shouldRenderWebView = true
+        let resumeURL = snapshot?.url ?? currentURL
+        shouldRenderWebView = true
+        if let url = resumeURL {
             navigate(to: url)
         }
     }
@@ -2875,6 +2897,13 @@ final class BrowserPanel: Panel, ObservableObject {
     /// and installs a fresh inert webview in its place. Unlike the
     /// post-crash variant, the new webview is NOT loaded with the
     /// original URL — the panel renders a placeholder until resume.
+    ///
+    /// The replacement IS bound through `bindWebView` so navigation /
+    /// UI delegates, KVO observers, and context-menu callbacks are in
+    /// place when the operator resumes (resume calls `navigate(to:)`
+    /// against the already-bound webview, and the regular
+    /// `shouldAttachWebView` path handles portal attachment once
+    /// `lifecycleState` flips back to `.active`).
     private func replaceWebViewForHibernate(oldWebView: WKWebView) {
         guard oldWebView === webView else { return }
         webViewObservers.removeAll()
@@ -2890,12 +2919,8 @@ final class BrowserPanel: Panel, ObservableObject {
         )
         webViewInstanceID = UUID()
         webView = replacement
-        // Don't bind the replacement to the portal — the body branches
-        // to placeholder while hibernated, and binding would
-        // unnecessarily reach for portal hosts that the placeholder
-        // doesn't use. Resume calls navigate(to:) which sets up the
-        // attachment via the regular shouldAttachWebView path once
-        // lifecycleState flips back to .active.
+        bindWebView(replacement)
+        applyBrowserThemeModeIfNeeded()
     }
 
     func reattachToWorkspace(
