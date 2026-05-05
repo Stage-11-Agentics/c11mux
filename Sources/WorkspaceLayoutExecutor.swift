@@ -832,7 +832,7 @@ enum WorkspaceLayoutExecutor {
                     insertFirst: false,
                     url: url,
                     focus: false,
-                    pendingHibernate: Self.specRequestsHibernated(spec)
+                    pendingHibernate: WorkspaceLayoutExecutor.specRequestsHibernated(spec)
                 )?.id
             case .markdown:
                 if spec.workingDirectory != nil {
@@ -1044,7 +1044,7 @@ enum WorkspaceLayoutExecutor {
                     inPane: paneId,
                     url: url,
                     focus: focus,
-                    pendingHibernate: Self.specRequestsHibernated(spec)
+                    pendingHibernate: WorkspaceLayoutExecutor.specRequestsHibernated(spec)
                 )?.id
             case .markdown:
                 if spec.workingDirectory != nil {

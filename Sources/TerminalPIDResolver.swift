@@ -54,10 +54,11 @@ enum TerminalPIDResolver {
         guard written > 0 else { return nil }
         let count = min(capacity, Int(written) / stride)
 
-        // pbi_tdev is uint32_t; dev_t on Darwin is int32_t. Compare as
-        // bit-equal raw pattern via `truncatingIfNeeded` so a sign
-        // extension can't mismatch and a future Swift bridging change
-        // (dev_t → UInt32) wouldn't trap on negative-looking values.
+        // e_tdev is uint32_t (controlling tty dev on proc_bsdinfo); dev_t on
+        // Darwin is int32_t. Compare as bit-equal raw pattern via
+        // `truncatingIfNeeded` so a sign extension can't mismatch and a
+        // future Swift bridging change wouldn't trap on negative-looking
+        // values.
         let target = UInt32(truncatingIfNeeded: dev)
         var bestPID: pid_t = 0
         var info = proc_bsdinfo()
@@ -67,7 +68,7 @@ enum TerminalPIDResolver {
             guard pid > 0 else { continue }
             let rc = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, infoSize)
             guard rc == infoSize else { continue }
-            if info.pbi_tdev == target && pid > bestPID {
+            if info.e_tdev == target && pid > bestPID {
                 bestPID = pid
             }
         }
