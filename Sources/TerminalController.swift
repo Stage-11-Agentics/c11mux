@@ -39,6 +39,18 @@ class TerminalController {
 
     static let shared = TerminalController()
 
+    /// Set by `AppDelegate.applicationShouldTerminate` /
+    /// `applicationWillTerminate` / `persistSessionForUpdateRelaunch` and
+    /// read by `system.ping`. The `c11 claude-hook session-end` CLI queries
+    /// this to decide whether to skip the surface-metadata clear during a
+    /// c11 shutdown — see `SessionEndShutdownPolicy` for the rationale.
+    /// Plain `var`: read and write are both on the main actor.
+    private var isTerminatingApp: Bool = false
+
+    func setIsTerminatingApp(_ value: Bool) {
+        isTerminatingApp = value
+    }
+
     private nonisolated(unsafe) var socketPath = SocketControlSettings.stableDefaultSocketPath
     private nonisolated(unsafe) var serverSocket: Int32 = -1
     private nonisolated(unsafe) var isRunning = false
@@ -2156,7 +2168,14 @@ class TerminalController {
         return withSocketCommandPolicy(commandKey: method, isV2: true) {
             switch method {
         case "system.ping":
-            return v2Ok(id: id, result: ["pong": true])
+            // `is_terminating_app` is the SessionEnd-during-shutdown signal —
+            // the `c11 claude-hook session-end` CLI reads it to skip the
+            // metadata clear that would otherwise race the snapshot capture
+            // in `applicationShouldTerminate`. See `SessionEndShutdownPolicy`.
+            return v2Ok(id: id, result: [
+                "pong": true,
+                "is_terminating_app": isTerminatingApp
+            ])
         case "system.capabilities":
             return v2Ok(id: id, result: v2Capabilities())
 

@@ -23,6 +23,9 @@
 		D70B3BF0A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3BF1A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift */; };
 		D70B3BF0A1B2C3D4E5F60719 /* CLIAdvisoryConnectivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3BF1A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift */; };
 		D70B3BF0A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3BF1A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift */; };
+		D70B3CF0A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3CF1A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift */; };
+		D70B3CF0A1B2C3D4E5F60719 /* SessionEndShutdownPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3CF1A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift */; };
+		D70B3CF0A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3CF1A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift */; };
 		D70A4BF0A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */; };
 		D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */; };
 		D7010BF0A1B2C3D4E5F60718 /* PaneMetadataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */; };
@@ -330,6 +333,8 @@
 		D70A3BF1A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataKeys.swift; sourceTree = "<group>"; };
 		D70B3BF1A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIAdvisoryConnectivity.swift; sourceTree = "<group>"; };
 		D70B3BF1A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIAdvisoryConnectivityTests.swift; sourceTree = "<group>"; };
+		D70B3CF1A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionEndShutdownPolicy.swift; sourceTree = "<group>"; };
+		D70B3CF1A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionEndShutdownPolicyTests.swift; sourceTree = "<group>"; };
 		D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataValidatorTests.swift; sourceTree = "<group>"; };
 		D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedMetadata.swift; sourceTree = "<group>"; };
 		D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneMetadataStore.swift; sourceTree = "<group>"; };
@@ -699,6 +704,7 @@
 				A5001543 /* SurfaceMetadataStore.swift */,
 				D70A3BF1A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift */,
 				D70B3BF1A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift */,
+				D70B3CF1A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift */,
 				D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */,
 				D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */,
 				D8001BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift */,
@@ -940,6 +946,7 @@
 				D8019BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift */,
 				D801BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift */,
 					D70B3BF1A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift */,
+					D70B3CF1A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift */,
 					A5C36031 /* StatusBarButtonDisplayTests.swift */,
 					D7101BF1A1B2C3D4E5F60718 /* MailboxLayoutTests.swift */,
 					D7104BF1A1B2C3D4E5F60718 /* MailboxIOTests.swift */,
@@ -1113,6 +1120,7 @@
 				A5001542 /* SurfaceMetadataStore.swift in Sources */,
 				D70A3BF0A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift in Sources */,
 				D70B3BF0A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift in Sources */,
+				D70B3CF0A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift in Sources */,
 				D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */,
 				D7010BF0A1B2C3D4E5F60718 /* PaneMetadataStore.swift in Sources */,
 				D8001BF0A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift in Sources */,
@@ -1325,6 +1333,7 @@
 					D8019BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift in Sources */,
 					D801BBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift in Sources */,
 					D70B3BF0A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift in Sources */,
+					D70B3CF0A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
@@ -1342,6 +1351,7 @@
 				D7206BF0A1B2C3D4E5F60719 /* MailboxEnvelope.swift in Sources */,
 				D70A3BF0A1B2C3D4E5F60719 /* WorkspaceMetadataKeys.swift in Sources */,
 				D70B3BF0A1B2C3D4E5F60719 /* CLIAdvisoryConnectivity.swift in Sources */,
+				D70B3CF0A1B2C3D4E5F60719 /* SessionEndShutdownPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

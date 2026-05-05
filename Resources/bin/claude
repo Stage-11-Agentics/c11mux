@@ -56,34 +56,52 @@ find_real_claude() {
     return 1
 }
 
-# Return 0 only when CMUX_SOCKET_PATH points to a live cmux socket.
-cmux_socket_available() {
+# Resolve the c11 binary the wrapper will use to talk to the running app.
+# Bundle-relative `c11` first (so dev-tagged builds always hit the binary
+# they shipped with, never a PATH shim that points at a different build),
+# then `command -v c11` as a last resort for development environments
+# where the bundle layout has shifted. Mirrors the codex wrapper.
+find_c11_bin() {
+    local self_dir
+    self_dir="$(cd "$(dirname "$0")" && pwd)"
+    local candidate="$self_dir/c11"
+    if [[ -x "$candidate" ]]; then
+        printf '%s' "$candidate"
+        return 0
+    fi
+    candidate="$(command -v c11 || true)"
+    if [[ -n "$candidate" ]]; then
+        printf '%s' "$candidate"
+        return 0
+    fi
+    return 1
+}
+
+# Return 0 only when CMUX_SOCKET_PATH points to a live c11 socket.
+c11_socket_available() {
     local socket="${CMUX_SOCKET_PATH:-}"
     [[ -n "$socket" && -S "$socket" ]] || return 1
 
-    local self_dir cmux_bin
-    self_dir="$(cd "$(dirname "$0")" && pwd)"
-    cmux_bin="$self_dir/cmux"
-    [[ -x "$cmux_bin" ]] || cmux_bin="$(command -v cmux || true)"
-    [[ -n "$cmux_bin" ]] || return 1
+    local c11_bin
+    c11_bin="$(find_c11_bin)" || return 1
 
     # Keep stale/hung socket checks bounded so claude startup does not block
     # behind the CLI default timeout (15s).
     CMUXTERM_CLI_RESPONSE_TIMEOUT_SEC=0.75 \
-        "$cmux_bin" --socket "$socket" ping >/dev/null 2>&1
+        "$c11_bin" --socket "$socket" ping >/dev/null 2>&1
 }
 
-# Pass through if not in a cmux terminal, hooks are disabled, or the cmux
+# Pass through if not in a c11 terminal, hooks are disabled, or the c11
 # socket is unavailable (stale env / app not running).
-IN_CMUX=0
-if [[ -n "$CMUX_SURFACE_ID" ]]; then
-    IN_CMUX=1
+IN_C11=0
+if [[ -n "${CMUX_SURFACE_ID:-}" ]]; then
+    IN_C11=1
 fi
 
-if [[ "$IN_CMUX" == "0" || "$CMUX_CLAUDE_HOOKS_DISABLED" == "1" ]] || ! cmux_socket_available; then
-    # In cmux-launched shells, preserve old behavior and always clear nested
+if [[ "$IN_C11" == "0" || "${CMUX_CLAUDE_HOOKS_DISABLED:-}" == "1" ]] || ! c11_socket_available; then
+    # In c11-launched shells, preserve old behavior and always clear nested
     # Claude session markers, even when we must pass through due to stale socket.
-    if [[ "$IN_CMUX" == "1" ]]; then
+    if [[ "$IN_C11" == "1" ]]; then
         unset CLAUDECODE
     fi
     REAL_CLAUDE="$(find_real_claude)" || { echo "Error: claude not found in PATH" >&2; exit 127; }
@@ -98,7 +116,7 @@ case "${1:-}" in
     mcp|config|api-key|rc|remote-control) exec "$REAL_CLAUDE" "$@" ;;
 esac
 
-# Unset CLAUDECODE to avoid "nested session" detection — cmux terminals are
+# Unset CLAUDECODE to avoid "nested session" detection — c11 terminals are
 # independent sessions even when the parent shell was launched from Claude Code.
 unset CLAUDECODE
 
@@ -118,15 +136,15 @@ done
 # the actual claude process PID, which hooks use for stale-session detection.
 export CMUX_CLAUDE_PID=$$
 
-# c11mux Module 1: declare agent identity via `cmux set-agent` (source=declare).
-# Runs in the background so startup latency is unaffected. Precedence at the
-# store level ensures a prior explicit value is not overwritten.
+# Declare agent identity via `c11 set-agent` (source=declare). Runs in the
+# background so startup latency is unaffected. Precedence at the store level
+# ensures a prior explicit value is not overwritten.
 #
 # Default --type to "claude-code" since this is the claude wrapper; callers may
 # override by exporting CMUX_AGENT_TYPE. Optional --model / --task / --role
 # forward from matching CMUX_AGENT_* vars if present.
-cmux_set_agent_bg() {
-    local cmux_bin="$1"
+c11_set_agent_bg() {
+    local c11_bin="$1"
     local agent_type="${CMUX_AGENT_TYPE:-claude-code}"
     [[ -n "$agent_type" ]] || return 0
     local args=(--type "$agent_type")
@@ -134,13 +152,12 @@ cmux_set_agent_bg() {
     [[ -n "${CMUX_AGENT_TASK:-}" ]] && args+=(--task "$CMUX_AGENT_TASK")
     [[ -n "${CMUX_AGENT_ROLE:-}" ]] && args+=(--role "$CMUX_AGENT_ROLE")
     (CMUXTERM_CLI_RESPONSE_TIMEOUT_SEC=0.75 \
-        "$cmux_bin" --socket "${CMUX_SOCKET_PATH}" set-agent "${args[@]}" \
+        "$c11_bin" --socket "${CMUX_SOCKET_PATH}" set-agent "${args[@]}" \
         >/dev/null 2>&1) &
     disown 2>/dev/null || true
 }
-cmux_set_agent_bin="$(cd "$(dirname "$0")" && pwd)/cmux"
-[[ -x "$cmux_set_agent_bin" ]] || cmux_set_agent_bin="$(command -v cmux || true)"
-[[ -n "$cmux_set_agent_bin" ]] && cmux_set_agent_bg "$cmux_set_agent_bin"
+C11_SET_AGENT_BIN="$(find_c11_bin || true)"
+[[ -n "$C11_SET_AGENT_BIN" ]] && c11_set_agent_bg "$C11_SET_AGENT_BIN"
 
 # Build hooks settings JSON.
 # Claude Code merges --settings additively with the user's own settings.json.

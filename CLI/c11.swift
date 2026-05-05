@@ -34,6 +34,32 @@ func isAdvisoryHookConnectivityError(_ error: CLIError) -> Bool {
     CLIAdvisoryConnectivity.isAdvisoryHookConnectivity(message: error.message)
 }
 
+/// Probe c11's terminating state via `system.ping` for the
+/// `claude-hook session-end` shutdown guard. The bounded 250ms timeout
+/// keeps the hook (timeout-budgeted at 1s by Claude Code's settings) from
+/// stalling on a slow or partially-torn-down socket. Any failure (timeout,
+/// socket gone, malformed payload) collapses to `.failure` — the policy
+/// above treats that as "preserve metadata," matching the
+/// "never tombstone on socket-uncertainty" rule from synthesis-action B4.
+func queryC11ShutdownState(client: SocketClient) -> SessionEndShutdownPolicy.PingOutcome {
+    do {
+        let response = try client.sendV2(
+            method: "system.ping",
+            deadline: .custom(0.25)
+        )
+        if let result = response["result"] as? [String: Any],
+           let isTerminating = result["is_terminating_app"] as? Bool {
+            return .success(isTerminating: isTerminating)
+        }
+        // Old c11 binary without the field: the response is a successful
+        // `{pong: true}`. Report `isTerminating: false` so the existing
+        // clear-always behavior is preserved against pre-fix c11 builds.
+        return .success(isTerminating: false)
+    } catch {
+        return .failure
+    }
+}
+
 // Mirrors CMUX_* ↔ C11_* env vars so callers can use either prefix.
 // Why: binary rename from `cmux` to `c11` keeps both namespaces live during transition.
 func mirrorC11CmuxEnv() {
@@ -14114,6 +14140,23 @@ struct CMUXCLI {
 
         case "session-end":
             telemetry.breadcrumb("claude-hook.session-end")
+            // SessionEnd-during-shutdown race: c11 kills its terminals when
+            // the app is quitting, claude exits, this hook fires while c11
+            // is still tearing down. Without the guard below we'd clear
+            // `claude.session_id` from surface metadata and race the
+            // snapshot capture in `applicationShouldTerminate`, losing the
+            // per-pane id and breaking auto-resume on next launch (the
+            // registry's resolver returns nil with no session id, so the
+            // wrapper just launches a fresh claude). See
+            // `SessionEndShutdownPolicy` for the policy and PR #95
+            // (conversation-store) for the architecture that supersedes
+            // this rail.
+            let pingOutcome = queryC11ShutdownState(client: client)
+            if SessionEndShutdownPolicy.shouldPreserve(outcome: pingOutcome) {
+                telemetry.breadcrumb("claude-hook.session-end.preserved-during-shutdown")
+                print("OK")
+                return
+            }
             // Final cleanup when Claude process exits.
             // Only clear when we are the primary cleanup path (Stop didn't fire first).
             // If Stop already consumed the session, consumedSession is nil and we skip

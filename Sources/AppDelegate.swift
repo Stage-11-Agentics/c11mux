@@ -2776,12 +2776,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         isTerminatingApp = true
+        // Surface to the socket so the `c11 claude-hook session-end` CLI
+        // (fired from claude's SessionEnd hook as terminals get killed)
+        // skips the surface-metadata clear that would race this same
+        // shutdown's snapshot capture. See `SessionEndShutdownPolicy`.
+        TerminalController.shared.setIsTerminatingApp(true)
         _ = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
         return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         isTerminatingApp = true
+        TerminalController.shared.setIsTerminatingApp(true)
         _ = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
         stopSessionAutosaveTimer()
         TerminalController.shared.stop()
@@ -2802,6 +2808,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func persistSessionForUpdateRelaunch() {
         isTerminatingApp = true
+        TerminalController.shared.setIsTerminatingApp(true)
         _ = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
     }
 
