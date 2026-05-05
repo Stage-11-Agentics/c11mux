@@ -4254,6 +4254,50 @@
         }
       }
     },
+    "alert.tabColor.apply": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply"
+          }
+        }
+      }
+    },
+    "alert.tabColor.cancel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "alert.tabColor.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a hex color in the format #RRGGBB."
+          }
+        }
+      }
+    },
+    "alert.tabColor.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom Tab Color"
+          }
+        }
+      }
+    },
     "alert.renameWorkspace.cancel": {
       "extractionState": "manual",
       "localizations": {

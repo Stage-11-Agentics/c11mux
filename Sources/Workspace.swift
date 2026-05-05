@@ -5566,6 +5566,7 @@ final class Workspace: Identifiable, ObservableObject {
         )
         self.bonsplitController = BonsplitController(configuration: config)
         bonsplitController.contextMenuShortcuts = Self.buildContextMenuShortcuts()
+        bonsplitController.tabColorPalette = Self.bonsplitTabColorPalette()
 
         // Remove the default "Welcome" tab that bonsplit creates
         let welcomeTabIds = bonsplitController.allTabIds
@@ -8844,6 +8845,21 @@ final class Workspace: Identifiable, ObservableObject {
         return shortcuts
     }
 
+    /// Snapshot of the workspace tab color palette mapped into the Bonsplit
+    /// menu shape. Built once at workspace init; the user-defaults-backed
+    /// palette can grow during a session, but we accept the slight staleness
+    /// here in exchange for not adding a defaults observer in slice 4. A
+    /// follow-up can refresh this on UserDefaults change if needed.
+    static func bonsplitTabColorPalette() -> [BonsplitTabColorMenuItem] {
+        WorkspaceTabColorSettings.palette().map { entry in
+            BonsplitTabColorMenuItem(
+                id: entry.id,
+                label: entry.name,
+                hex: entry.hex
+            )
+        }
+    }
+
     // MARK: - Flash/Notification Support
 
     /// Single fan-out for a focus flash. Drives, in order:
@@ -11113,9 +11129,78 @@ extension Workspace: BonsplitDelegate {
         case .toggleZoom:
             guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
             toggleSplitZoom(panelId: panelId)
+        case .clearColor:
+            guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
+            setPanelCustomColor(panelId: panelId, color: nil)
+        case .chooseCustomColor:
+            guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
+            promptCustomTabColor(panelId: panelId)
         @unknown default:
             break
         }
+    }
+
+    func splitTabBar(_ controller: BonsplitController, didSelectTabColorPaletteEntry hex: String, for tab: Bonsplit.Tab, inPane pane: PaneID) {
+        guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
+        setPanelCustomColor(panelId: panelId, color: hex)
+    }
+
+    private func promptCustomTabColor(panelId: UUID) {
+        let seed = panelCustomColors[panelId] ?? "#1565C0"
+        let alert = NSAlert()
+        alert.messageText = String(
+            localized: "alert.tabColor.title",
+            defaultValue: "Custom Tab Color"
+        )
+        alert.informativeText = String(
+            localized: "alert.tabColor.message",
+            defaultValue: "Enter a hex color in the format #RRGGBB."
+        )
+
+        let input = NSTextField(string: seed)
+        input.placeholderString = "#1565C0"
+        input.frame = NSRect(x: 0, y: 0, width: 240, height: 22)
+        alert.accessoryView = input
+        alert.addButton(withTitle: String(
+            localized: "alert.tabColor.apply",
+            defaultValue: "Apply"
+        ))
+        alert.addButton(withTitle: String(
+            localized: "alert.tabColor.cancel",
+            defaultValue: "Cancel"
+        ))
+
+        let alertWindow = alert.window
+        alertWindow.initialFirstResponder = input
+        DispatchQueue.main.async {
+            alertWindow.makeFirstResponder(input)
+            input.selectText(nil)
+        }
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else { return }
+        let raw = input.stringValue
+        guard let normalized = WorkspaceTabColorSettings.addCustomColor(raw) else {
+            // Reuse the existing invalid-color path; mirror messaging used by
+            // the workspace color flow so users see a consistent explanation.
+            let invalid = NSAlert()
+            invalid.alertStyle = .warning
+            invalid.messageText = String(
+                localized: "alert.invalidColor.title",
+                defaultValue: "Invalid Color"
+            )
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            invalid.informativeText = trimmed.isEmpty
+                ? String(localized: "alert.invalidColor.emptyMessage", defaultValue: "Enter a hex color in the format #RRGGBB.")
+                : String(localized: "alert.invalidColor.invalidMessage", defaultValue: "\"\(trimmed)\" is not a valid hex color. Use #RRGGBB.")
+            invalid.addButton(withTitle: String(localized: "alert.invalidColor.ok", defaultValue: "OK"))
+            _ = invalid.runModal()
+            return
+        }
+        setPanelCustomColor(panelId: panelId, color: normalized)
+        // Refresh the bonsplit palette so newly-added custom colors are
+        // immediately visible in subsequent submenu opens.
+        bonsplitController.tabColorPalette = Self.bonsplitTabColorPalette()
     }
 
     func splitTabBar(_ controller: BonsplitController, didChangeGeometry snapshot: LayoutSnapshot) {
