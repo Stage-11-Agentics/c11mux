@@ -173,13 +173,74 @@ def _run_rejects_suspended(c) -> None:
             c.close_workspace(workspace_id)
 
 
+def _surface_for_id(surfaces: list, surface_id: str) -> dict | None:
+    for s in surfaces:
+        if str(s.get("id") or "") == surface_id:
+            return s
+    return None
+
+
+def _run_metrics_in_surface_list(c) -> None:
+    """C11-25 fix DoD #5: a freshly-spawned terminal surface must expose
+    a `metrics` block with cpu_pct + rss_mb in surface.list once the
+    sampler converges. surface.list is the wire source `c11 tree --json`
+    decorates from, so this covers the tree-json contract too.
+    """
+    workspace_id, surface_id = _fresh_surface(c)
+    try:
+        # Sampler runs at 2 Hz by default; pid provider refreshes every
+        # 2s. Allow up to 8 s for: provider tick → proc_listpids resolve
+        # → first sample → next sample carrying CPU% delta.
+        deadline = time.monotonic() + 8.0
+        last_metrics: dict | None = None
+        while time.monotonic() < deadline:
+            res = c._call("surface.list", {"workspace_id": workspace_id}) or {}
+            surfaces = res.get("surfaces") or []
+            surface = _surface_for_id(surfaces, surface_id)
+            _must(surface is not None, f"surface.list missing surface {surface_id}: {res}")
+            assert surface is not None
+            _must(
+                surface.get("type") == "terminal",
+                f"expected terminal surface, got {surface.get('type')!r}: {surface}",
+            )
+            metrics = surface.get("metrics")
+            _must(
+                isinstance(metrics, dict),
+                f"terminal surface.list payload missing `metrics` block: {surface}",
+            )
+            assert isinstance(metrics, dict)
+            _must(
+                "cpu_pct" in metrics and "rss_mb" in metrics,
+                f"metrics block missing cpu_pct/rss_mb keys: {metrics}",
+            )
+            last_metrics = metrics
+            if metrics.get("cpu_pct") is not None and metrics.get("rss_mb") is not None:
+                _must(
+                    isinstance(metrics["cpu_pct"], (int, float)) and metrics["cpu_pct"] >= 0,
+                    f"cpu_pct should be a non-negative number once sampled: {metrics}",
+                )
+                _must(
+                    isinstance(metrics["rss_mb"], (int, float)) and metrics["rss_mb"] > 0,
+                    f"rss_mb should be a positive number once sampled: {metrics}",
+                )
+                return
+            time.sleep(0.5)
+        raise cmuxError(
+            f"sampler never produced non-null metrics for surface {surface_id} "
+            f"within 8s; last metrics: {last_metrics}"
+        )
+    finally:
+        c.close_workspace(workspace_id)
+
+
 def main() -> int:
     with cmux(SOCKET_PATH) as client:
         _run_legal_values(client)
         _run_rejects_unknown_value(client)
         _run_rejects_non_string(client)
         _run_rejects_suspended(client)
-    print("OK c11-25 surface lifecycle metadata roundtrip")
+        _run_metrics_in_surface_list(client)
+    print("OK c11-25 surface lifecycle metadata roundtrip + metrics surface.list exposure")
     return 0
 
 
