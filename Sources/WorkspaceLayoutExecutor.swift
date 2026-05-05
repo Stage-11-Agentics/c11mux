@@ -266,6 +266,15 @@ enum WorkspaceLayoutExecutor {
             ))
         }
 
+        // C11-25 commit 8 — rehydrate per-panel + workspace-level
+        // lifecycle from the canonical `lifecycle_state` metadata that
+        // has been applied above. For hibernated browsers this fires
+        // the snapshot+terminate path so the restored workspace
+        // matches the pre-snapshot operator intent. Cheap-tier
+        // throttled state is implicit from workspace-selection and
+        // does not need rehydration here.
+        workspace.restoreLifecycleStateFromMetadata()
+
         // Step 8 — assemble refs. The executor mints refs for every surface
         // and pane that was successfully created; plan-local surface ids map
         // 1:1 to live `surface:N` / `pane:N` refs via the injected minters.

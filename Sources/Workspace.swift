@@ -5981,6 +5981,46 @@ final class Workspace: Identifiable, ObservableObject {
         panels[panelId] as? BrowserPanel
     }
 
+    /// C11-25 commit 8: rehydrate workspace + panel lifecycle state from
+    /// `lifecycle_state` canonical metadata after a `c11 restore` /
+    /// blueprint apply. Called by `WorkspaceLayoutExecutor` once all
+    /// surfaces and metadata are materialized.
+    ///
+    /// For browser panels with `lifecycle_state == "hibernated"`:
+    ///   `setHibernated(true)` re-triggers the snapshot+terminate path
+    ///   so the restored panel ends up in the same operator-pinned
+    ///   state. Snapshots are in-memory only in C11-25, so the
+    ///   placeholder will render a neutral background until the
+    ///   operator resumes — operator accepted in §0a.
+    ///
+    /// For terminals/markdown the canonical metadata is preserved but
+    /// no runtime change is dispatched (auto-throttle handles
+    /// visibility; explicit terminal hibernate is deferred).
+    ///
+    /// `isHibernated` is rebuilt from "any browser panel hibernated".
+    func restoreLifecycleStateFromMetadata() {
+        var anyHibernated = false
+        for (panelId, panel) in panels {
+            let snapshot = SurfaceMetadataStore.shared.getMetadata(
+                workspaceId: id,
+                surfaceId: panelId
+            )
+            guard let stateStr = snapshot.metadata[MetadataKey.lifecycleState] as? String,
+                  let state = SurfaceLifecycleState(rawValue: stateStr) else {
+                continue
+            }
+            if state == .hibernated {
+                anyHibernated = true
+                if let browser = panel as? BrowserPanel {
+                    browser.setHibernated(true)
+                }
+            }
+        }
+        if isHibernated != anyHibernated {
+            isHibernated = anyHibernated
+        }
+    }
+
     /// C11-25: hibernate every browser panel in the workspace and flip
     /// the workspace-level flag. Terminals stay on the auto-throttle
     /// path (workspace deselect already pauses libghostty rendering;
