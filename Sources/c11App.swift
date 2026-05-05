@@ -191,6 +191,7 @@ struct cmuxApp: App {
     @AppStorage(KeyboardShortcutSettings.Action.closeWorkspace.defaultsKey) private var closeWorkspaceShortcutData = Data()
     @AppStorage(TabBarChromeSettings.stateKey) private var tabBarChromeStateRaw = TabBarChromeState.full.rawValue
     @AppStorage(KeyboardShortcutSettings.Action.toggleTabBarChrome.defaultsKey) private var toggleTabBarChromeShortcutData = Data()
+    @AppStorage(ChromeScaleSettings.presetKey) private var chromeScalePresetRaw = ChromeScaleSettings.defaultPreset.rawValue
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     private var browserToolbarAccessorySpacing: Int {
@@ -362,6 +363,7 @@ struct cmuxApp: App {
                 .environmentObject(notificationStore)
                 .environmentObject(sidebarState)
                 .environmentObject(sidebarSelectionState)
+                .environment(\.chromeScaleTokens, ChromeScaleTokens(multiplier: ChromeScaleSettings.multiplier(for: ChromeScaleSettings.preset(for: chromeScalePresetRaw))))
                 .onAppear {
 #if DEBUG
                     if ProcessInfo.processInfo.environment["CMUX_UI_TEST_MODE"] == "1" {
@@ -4375,6 +4377,8 @@ struct SettingsView: View {
     @AppStorage(SidebarBranchLayoutSettings.key) private var sidebarBranchVerticalLayout = SidebarBranchLayoutSettings.defaultVerticalLayout
     @AppStorage(SidebarActiveTabIndicatorSettings.styleKey)
     private var sidebarActiveTabIndicatorStyle = SidebarActiveTabIndicatorSettings.defaultStyle.rawValue
+    @AppStorage(ChromeScaleSettings.presetKey)
+    private var chromeScalePresetRaw = ChromeScaleSettings.defaultPreset.rawValue
     @AppStorage("sidebarShowBranchDirectory") private var sidebarShowBranchDirectory = true
     @AppStorage("sidebarShowPullRequest") private var sidebarShowPullRequest = true
     @AppStorage(BrowserLinkOpenSettings.openSidebarPullRequestLinksInCmuxBrowserKey)
@@ -5037,6 +5041,23 @@ struct SettingsView: View {
             SettingsCardDivider()
 
             SettingsCardNote(String(localized: "settings.appearance.c11Theme.note", defaultValue: "c11 theme changes app chrome only; Ghostty terminal themes stay untouched."))
+        }
+
+        SettingsSectionHeader(title: String(localized: "settings.section.chromeScale", defaultValue: "App Chrome UI Scale"))
+        SettingsCard {
+            SettingsPickerRow(
+                String(localized: "settings.chromeScale.title", defaultValue: "App Chrome UI Scale"),
+                subtitle: String(
+                    localized: "settings.chromeScale.subtitle",
+                    defaultValue: "Scale c11 sidebar text and surface tab strip without changing terminal font size."
+                ),
+                controlWidth: pickerColumnWidth,
+                selection: $chromeScalePresetRaw
+            ) {
+                ForEach(ChromeScaleSettings.Preset.allCases) { preset in
+                    Text(preset.displayName).tag(preset.rawValue)
+                }
+            }
         }
 
         SettingsSectionHeader(title: String(localized: "settings.section.workspaceColors", defaultValue: "Workspace Colors"))
