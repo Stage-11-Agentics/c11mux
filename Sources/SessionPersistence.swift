@@ -341,6 +341,10 @@ struct SessionPanelSnapshot: Codable, Sendable {
     var type: PanelType
     var title: String?
     var customTitle: String?
+    /// Per-surface tab color, normalized as `#RRGGBB`. Optional for
+    /// backwards compatibility with pre-C11-10 snapshots; old snapshots
+    /// decode with `customColor == nil` via `decodeIfPresent`.
+    var customColor: String? = nil
     var directory: String?
     var isPinned: Bool
     var isManuallyUnread: Bool
