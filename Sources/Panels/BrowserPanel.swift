@@ -2522,6 +2522,24 @@ final class BrowserPanel: Panel, ObservableObject {
         webView.navigationDelegate = navigationDelegate
         webView.uiDelegate = uiDelegate
         setupObservers(for: webView)
+        // C11-25: refresh the cached WebContent pid for the metrics sampler
+        // on the main actor. The pid may still be 0 at bind time (the
+        // WebContent process spins up on first navigation) — `didFinish`
+        // refreshes again to pick it up.
+        refreshCachedWebContentPid()
+    }
+
+    /// Read `webView.c11_webProcessIdentifier` on the main actor and
+    /// push the scalar into `SurfaceMetricsSampler`'s lock-protected
+    /// cache. Called from every webview-binding seam (bindWebView,
+    /// replaceWebViewPreservingState, replaceWebViewForHibernate) and
+    /// from `didFinish` so process-per-origin or post-crash pid changes
+    /// are picked up. The sampler's off-main `tick()` reads the scalar
+    /// without ever touching `WKWebView` itself.
+    @MainActor
+    func refreshCachedWebContentPid() {
+        let pid = webView.c11_webProcessIdentifier
+        SurfaceMetricsSampler.shared.setPid(surfaceId: self.id, pid: pid)
     }
 
     private func configureNavigationDelegateCallbacks() {
@@ -2537,6 +2555,10 @@ final class BrowserPanel: Panel, ObservableObject {
                 self.applyBrowserThemeModeIfNeeded()
                 // Keep find-in-page open through load completion and refresh matches for the new DOM.
                 self.restoreFindStateAfterNavigation(replaySearch: true)
+                // C11-25: refresh the cached WebContent pid for the metrics
+                // sampler. didFinish lands after the WebContent process is
+                // alive, and process-per-origin reloads can change the pid.
+                self.refreshCachedWebContentPid()
             }
         }
         navigationDelegate.didFailNavigation = { [weak self] failedWebView, failedURL in
@@ -2704,14 +2726,13 @@ final class BrowserPanel: Panel, ObservableObject {
             self.dispatchLifecycleTransition(from: from, to: target)
         }
 
-        // C11-25 commit 6: register with the per-surface CPU/RSS sampler.
-        // The provider reads `_webProcessIdentifier` (KVC SPI; safe to
-        // call off-main) at sample time so it always reflects the
-        // current WebContent process — including after process
-        // termination + auto-relaunch.
-        SurfaceMetricsSampler.shared.register(surfaceId: self.id) { [weak self] in
-            return self?.webView.c11_webProcessIdentifier
-        }
+        // C11-25 commit 6 (review fix B4): register with the per-surface
+        // CPU/RSS sampler. WebContent pid is cached on the main actor
+        // (in `bindWebView` and on `didFinish`) and read off-main as a
+        // scalar by the sampler's `tick()`. The sampler never touches
+        // `WKWebView` itself off-main — that would be a `@MainActor`
+        // isolation violation against an AppKit/WebKit object.
+        SurfaceMetricsSampler.shared.register(surfaceId: self.id)
 
         // Navigate to initial URL if provided
         if let url = initialURL {

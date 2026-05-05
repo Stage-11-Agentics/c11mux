@@ -21,13 +21,17 @@ import Darwin
 ///
 /// PID resolution differs by surface kind:
 ///
-/// - Browsers: `webView.c11_webProcessIdentifier` (the
-///   `_webProcessIdentifier` SPI). Cheap, in-process.
+/// - Browsers: cached scalar updated from the main actor whenever the
+///   panel binds a WKWebView or its WebContent process changes. The
+///   cache is a plain `pid_t` written under the sampler's existing
+///   `os_unfair_lock`; the off-main `tick()` reads it as a scalar.
+///   This avoids touching `WKWebView` (a `@MainActor` AppKit object)
+///   from the sampler's utility queue.
 /// - Terminals: NOT YET IMPLEMENTED in C11-25. The TTY → child PID
 ///   resolver requires either a libghostty surface accessor patch or a
 ///   `lsof`-style process-listing helper. Plan §2 row 5 acknowledges
 ///   this is a follow-up; for C11-25 commit 6 the terminal panel
-///   registers a provider that returns `nil`, the sidebar renders `—`
+///   registers without supplying a pid, and the sidebar renders `—`
 ///   for terminal CPU/RSS.
 final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
     static let shared = SurfaceMetricsSampler()
@@ -47,7 +51,14 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
 
     private let lock: UnsafeMutablePointer<os_unfair_lock_s>
     private var samples: [UUID: Sample] = [:]
-    private var pidProviders: [UUID: () -> pid_t?] = [:]
+    /// Per-surface registration set. Membership alone enables sampling;
+    /// `cachedPids` carries the pid when known. A surface in `registered`
+    /// without a `cachedPids` entry samples to nothing this tick.
+    private var registered: Set<UUID> = []
+    /// Cached WebContent / process pid for each registered surface, set
+    /// by callers from the main actor. The sampler reads the scalar
+    /// off-main without touching the source object (e.g. WKWebView).
+    private var cachedPids: [UUID: pid_t] = [:]
     private var lastCpuTimes: [pid_t: UInt64] = [:]
     private var lastSampleAt: Date?
 
@@ -96,21 +107,42 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
         t?.cancel()
     }
 
-    /// Register a surface + PID provider. The provider is invoked off-main
-    /// during sampling; it must be thread-safe (or read state that is).
-    /// Browser panels pass a closure that reads
-    /// `webView.c11_webProcessIdentifier` (KVC, safe off-main); terminal
-    /// panels pass `{ nil }` for C11-25.
-    func register(surfaceId: UUID, pidProvider: @escaping () -> pid_t?) {
+    /// Register a surface for sampling. Pid is updated separately via
+    /// `setPid(surfaceId:pid:)` — callers that already know the pid at
+    /// registration time may pass it through `initialPid`. A registered
+    /// surface with no cached pid yet samples to nothing this tick.
+    func register(surfaceId: UUID, initialPid: pid_t? = nil) {
         os_unfair_lock_lock(lock)
-        pidProviders[surfaceId] = pidProvider
+        registered.insert(surfaceId)
+        if let pid = initialPid, pid > 0 {
+            cachedPids[surfaceId] = pid
+        }
         os_unfair_lock_unlock(lock)
     }
 
-    /// Drop a surface's registration and any cached sample.
+    /// Update the cached pid for a registered surface. MUST be called
+    /// from the main actor (or any thread that owns the source object,
+    /// e.g. the @MainActor BrowserPanel reading `webView.c11_webProcessIdentifier`).
+    /// The sampler reads the cached scalar off-main without touching
+    /// the source object. Pass `nil` when the underlying process has
+    /// gone away or is unknown — the next tick samples to nothing for
+    /// this surface.
+    func setPid(surfaceId: UUID, pid: pid_t?) {
+        os_unfair_lock_lock(lock)
+        if let pid = pid, pid > 0 {
+            cachedPids[surfaceId] = pid
+        } else {
+            cachedPids.removeValue(forKey: surfaceId)
+            samples.removeValue(forKey: surfaceId)
+        }
+        os_unfair_lock_unlock(lock)
+    }
+
+    /// Drop a surface's registration and any cached sample / pid.
     func unregister(surfaceId: UUID) {
         os_unfair_lock_lock(lock)
-        pidProviders.removeValue(forKey: surfaceId)
+        registered.remove(surfaceId)
+        cachedPids.removeValue(forKey: surfaceId)
         samples.removeValue(forKey: surfaceId)
         os_unfair_lock_unlock(lock)
     }
@@ -142,7 +174,10 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
     private func tick() {
         let now = Date()
         os_unfair_lock_lock(lock)
-        let providers = pidProviders
+        // Snapshot the cached pids by surface. The off-main tick only
+        // ever reads scalars from this dictionary — never the underlying
+        // source objects (WKWebView, etc.) that produced the pid.
+        let pids = cachedPids
         let priorTimes = lastCpuTimes
         let prior = lastSampleAt
         os_unfair_lock_unlock(lock)
@@ -151,10 +186,9 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
         var newSamples: [UUID: Sample] = [:]
         var newTimes: [pid_t: UInt64] = [:]
 
-        for (surfaceId, provider) in providers {
-            guard let pid = provider() else { continue }
-            guard let cumulative = Self.proc_pid_cumulative_cpu_ns(pid) else { continue }
-            let rssBytes = Self.proc_pid_rss_bytes(pid) ?? 0
+        for (surfaceId, pid) in pids {
+            guard let usage = Self.proc_pid_rusage_v4(pid) else { continue }
+            let cumulative = usage.cpuNs
 
             let cpuPct: Double
             if dt > 0, let last = priorTimes[pid], cumulative >= last {
@@ -166,7 +200,7 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
             newTimes[pid] = cumulative
             newSamples[surfaceId] = Sample(
                 cpuPct: cpuPct,
-                rssMb: Double(rssBytes) / 1024.0 / 1024.0,
+                rssMb: Double(usage.rssBytes) / 1024.0 / 1024.0,
                 sampledAt: now
             )
         }
@@ -185,10 +219,9 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
 
     // MARK: - proc_pid_rusage helpers
 
-    /// Cumulative user+system CPU time in nanoseconds for `pid`, via
-    /// `proc_pid_rusage(RUSAGE_INFO_V4)`. Returns nil if the call fails
-    /// (e.g. the process exited).
-    private static func proc_pid_cumulative_cpu_ns(_ pid: pid_t) -> UInt64? {
+    /// Single-syscall reader for the two fields we need. Halves the
+    /// per-tick syscall load on the 2 Hz sampler.
+    private static func proc_pid_rusage_v4(_ pid: pid_t) -> (cpuNs: UInt64, rssBytes: UInt64)? {
         var ri = rusage_info_v4()
         let rc = withUnsafeMutablePointer(to: &ri) { ptr -> Int32 in
             ptr.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { boxPtr in
@@ -196,19 +229,6 @@ final class SurfaceMetricsSampler: ObservableObject, @unchecked Sendable {
             }
         }
         guard rc == 0 else { return nil }
-        return ri.ri_user_time &+ ri.ri_system_time
-    }
-
-    /// Resident set size in bytes for `pid`, via the same call. Returns
-    /// nil on failure.
-    private static func proc_pid_rss_bytes(_ pid: pid_t) -> UInt64? {
-        var ri = rusage_info_v4()
-        let rc = withUnsafeMutablePointer(to: &ri) { ptr -> Int32 in
-            ptr.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { boxPtr in
-                proc_pid_rusage(pid, RUSAGE_INFO_V4, boxPtr)
-            }
-        }
-        guard rc == 0 else { return nil }
-        return ri.ri_resident_size
+        return (ri.ri_user_time &+ ri.ri_system_time, ri.ri_resident_size)
     }
 }

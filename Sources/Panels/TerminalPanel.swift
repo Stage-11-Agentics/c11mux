@@ -113,10 +113,10 @@ final class TerminalPanel: Panel, ObservableObject {
         // C11-25 commit 6: register with the per-surface CPU/RSS sampler.
         // Terminal child PID resolution is a follow-up (plan §2 row 5
         // notes the TTY → PID lookup needs a libghostty accessor or an
-        // lsof-style helper). For now we register a nil-returning
-        // provider so the surface is known to the sampler; the sidebar
-        // renders `—` for terminal CPU/RSS until the resolver lands.
-        SurfaceMetricsSampler.shared.register(surfaceId: surface.id) { nil }
+        // lsof-style helper). For now we register without a pid so the
+        // surface is known to the sampler; the sidebar renders `—` for
+        // terminal CPU/RSS until the resolver lands.
+        SurfaceMetricsSampler.shared.register(surfaceId: surface.id)
 
         // Subscribe to surface's search state changes
         surface.$searchState
