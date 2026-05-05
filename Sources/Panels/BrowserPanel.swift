@@ -3327,6 +3327,11 @@ final class BrowserPanel: Panel, ObservableObject {
         faviconTask?.cancel()
         faviconTask = nil
         SurfaceMetricsSampler.shared.unregister(surfaceId: self.id)
+        // C11-25 review fix I2: drop any cached hibernate snapshot. Without
+        // this, an operator who closes a hibernated panel without resuming
+        // first leaks the captured NSImage indefinitely (snapshots are 2-8
+        // MB each; the store is unbounded).
+        BrowserSnapshotStore.shared.clear(forSurfaceId: self.id)
     }
 
     // MARK: - Popup window management

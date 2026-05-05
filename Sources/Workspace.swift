@@ -266,6 +266,17 @@ extension Workspace {
         prunePaneMetadata(validPaneIds: Set(bonsplitController.allPaneIds.map { $0.id }))
 
         pruneSurfaceMetadata(validSurfaceIds: Set(panels.keys))
+
+        // C11-25 review fix I1: rehydrate per-surface lifecycle from the
+        // canonical metadata mirror. The blueprint-apply restore path
+        // (`WorkspaceLayoutExecutor.apply`) already calls this; the
+        // session-snapshot restore path used by `TabManager` /
+        // `TerminalController` / `AppDelegate` did not, so a hibernated
+        // browser restored on app relaunch landed with
+        // `lifecycle_state == "hibernated"` in metadata but was running
+        // as `.active` in runtime. Operator intent was silently dropped.
+        restoreLifecycleStateFromMetadata()
+
         applySessionDividerPositions(snapshotNode: snapshot.layout, liveNode: bonsplitController.treeSnapshot())
 
         let restoredStableDefaultTitle = snapshot.stableDefaultTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
