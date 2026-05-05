@@ -4,6 +4,20 @@ All notable changes to c11 (and, before the fork, cmux) are documented here.
 
 Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the 0.38.0 section for the rename.
 
+## [0.45.2] - 2026-05-04
+
+### Fixed
+
+- **Silent c11 crashes from socket-handler self-deadlock (4× on 2026-05-04).** After C11-26 ([#112](https://github.com/Stage-11-Agentics/c11/pull/112)), the new socket dispatcher routes default-policy commands through `DispatchQueue.main.sync { MainActor.assumeIsolated { … } }` from the worker thread. About 100 v1 handlers in `TerminalController.swift` and 12 in `ThemeSocketMethods.swift` were written for the *pre*-C11-26 assumption that they were already on the worker, and each did its own `DispatchQueue.main.sync { … }` to hop to main. Post-C11-26 that hop is reentrant: libdispatch's self-deadlock guard (`__DISPATCH_WAIT_FOR_QUEUE__`) trapped with `EXC_BREAKPOINT` and the c11 window vanished silently. Apple's UI never saw it; only ghostty's bundled sentry-native breakpad in `~/.local/state/ghostty/crash/` recorded the dump. Operator hit this 4× on 2026-05-04 alone (builds 95/96/97). The earlier 14:26 IPS hang on 0.44.1 was the same class of bug pre-detection, on an older libdispatch that hung indefinitely (1673 s unresponsive) rather than trapping. Fix swaps the 99+12 bare `DispatchQueue.main.sync` sites for the existing `v2MainSync` helper (which short-circuits when already on main), and adds a parallel `Self.mainSync` to `ThemeSocketMethods`. Both helpers are correct under either dispatcher path. Two intentional bare-sync sites kept (the dispatcher itself and `v2MainSync`'s own implementation). New regression test `tests_v2/test_v1_handler_main_self_deadlock.py` exercises 30 successive `set_progress` calls plus a spread of 7 v1 handlers; all return `OK`. ([#121](https://github.com/Stage-11-Agentics/c11/pull/121))
+
+### Changed
+
+- **CMUX-37 final push: blueprint markdown, `snapshot --all` manifests, CLI ergonomics.** Closes the five gaps from the 2026-05-03 smoke-test of CMUX-37. Workspace blueprints now have a markdown parser/writer and default to `~/.config/c11/blueprints/` (legacy paths still read). `c11 workspace snapshot --all` writes a manifest envelope and `restore <set-id>` is polymorphic on the id, rebuilding all workspaces in one shot. Clean restores no longer emit redundant `failure:` lines (expected restore diagnostics are reclassified as info). `c11 workspace <subcommand> --help` routes through a two-level dispatch instead of dumping the top-level help. The CLI honors `C11_SOCKET` (legacy `CMUX_SOCKET` still works), with auto-discovery logged to stderr. ([#118](https://github.com/Stage-11-Agentics/c11/pull/118))
+
+### Built and shipped by
+
+Stage 11 Agentics. Operator:agent, fused.
+
 ## [0.45.1] - 2026-05-04
 
 ### Fixed
