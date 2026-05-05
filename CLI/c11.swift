@@ -10084,6 +10084,13 @@ struct CMUXCLI {
         }
     }
 
+    private func resolveCurrentWorkspaceId(client: SocketClient) throws -> String {
+        if let id = try normalizeWorkspaceHandle(nil, client: client, allowCurrent: true) {
+            return id
+        }
+        throw CLIError(message: "No current workspace available")
+    }
+
     private func resolveWorkspaceColorTarget(_ raw: String?, client: SocketClient) throws -> String? {
         let value = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
         if value == "@current" || value == "@focused" {
