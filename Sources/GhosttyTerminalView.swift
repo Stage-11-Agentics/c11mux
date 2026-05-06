@@ -8066,6 +8066,38 @@ final class GhosttySurfaceScrollView: NSView {
             let phase4aEnsureKeyMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureKeyT0) * 1000.0
             dlog("ensureFocus.step.notKeyWindow.makeKeyAndOrderFront surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureKeyMs))")
 #endif
+            // Phase 8c (C11-32): window.makeFirstResponder synchronously costs
+            // 100-250 ms when the window isn't yet key (vs 67 ms once it is) —
+            // A3 / PR #134 measured this directly. After makeKeyAndOrderFront,
+            // the window-server hasn't completed its key transition yet, so
+            // calling safeMakeTerminalFirstResponder right now blocks the
+            // workspace-switch runloop iteration on AppKit's responder-chain
+            // validation against a not-yet-key window.
+            //
+            // Defer the apply: scheduleAutomaticFirstResponderApply queues a
+            // DispatchQueue.main.async that runs applyFirstResponderIfNeeded.
+            // It will retry — its own isKeyWindow guard skips quietly if the
+            // transition still hasn't completed, and the AppDelegate's
+            // didBecomeKey observer (line 7028) re-invokes scheduleAutomatic
+            // FirstResponderApply once the window actually becomes key, at
+            // which point makeFirstResponder takes the cheap path. Honour
+            // the existing TextBox intent guard so a TextBox the user is
+            // typing into doesn't get its focus stolen by the deferred apply.
+            if !(window.firstResponder is InputTextView) {
+#if DEBUG
+                let phase8cSurfaceShort = surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
+                let phase8cEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+                dlog("focus.ensure.deferUntilKey surface=\(phase8cSurfaceShort) tab=\(tabId.uuidString.prefix(5)) panel=\(surfaceId.uuidString.prefix(5)) ms=\(String(format: "%.2f", phase8cEnsureDtMs))")
+                dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=defer path=windowJustBecameKey ms=\(String(format: "%.2f", phase8cEnsureDtMs))")
+#endif
+                scheduleAutomaticFirstResponderApply(reason: "ensureFocus.windowJustBecameKey")
+            } else {
+#if DEBUG
+                let phase8cEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+                dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=skip path=windowJustBecameKey.textBoxFocused ms=\(String(format: "%.2f", phase8cEnsureDtMs))")
+#endif
+            }
+            return
         }
         // [TextBox] Do not steal focus from an active TextBox. ensureFocus
         // runs on tab switches, socket focus commands, and session restore.
