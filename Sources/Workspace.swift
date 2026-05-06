@@ -5146,6 +5146,14 @@ final class Workspace: Identifiable, ObservableObject {
     /// row pulse together. Visual-only; never affects selection.
     @Published private(set) var sidebarFlashToken: Int = 0
 
+    /// CMUX-10: hex color (sRGB w/ alpha) used by the sidebar workspace row
+    /// pulse. Set in `runFlashPulse` from the per-call `FlashAppearance` so
+    /// `c11 trigger-flash --color "#FF00FF"` tints the sidebar pulse, not
+    /// just the terminal pane ring. Stored as a hex string so it can fold
+    /// cleanly into `TabItemView.==` without touching `NSColor` reference
+    /// equality. nil → fall back to the default sidebar-fill color.
+    @Published private(set) var sidebarFlashColorHex: String?
+
     /// CMUX-10: state for in-flight persistent flashes (one entry per panel).
     /// The Timer is process-local; the manifest is not abused for per-frame
     /// state (per Plan note: write `flash_state=persistent` once on start,
@@ -9191,6 +9199,11 @@ final class Workspace: Identifiable, ObservableObject {
         if let tabId = surfaceIdFromPanelId(panelId) {
             bonsplitController.flashTab(tabId)
         }
+        // CMUX-10: thread the per-call appearance into the sidebar pulse so
+        // `--color` tints the workspace row, not just the terminal pane ring.
+        // Stored as a hex string so `TabItemView.==` can fold it in without
+        // tripping NSColor reference equality.
+        sidebarFlashColorHex = appearance.color.hexString(includeAlpha: true)
         sidebarFlashToken &+= 1
     }
 

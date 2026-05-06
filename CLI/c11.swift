@@ -8360,7 +8360,11 @@ struct CMUXCLI {
               --surface <id|ref>     Target surface (default: $CMUX_SURFACE_ID)
               --panel <id|ref>       Alias for --surface
               --color <#hex>         One-shot color override (e.g. "#F5C518" or "#F5C518FF").
-                                     Defaults to the c11 yellow signal color.
+                                     Defaults to the c11 yellow signal color. Tints the
+                                     terminal pane ring and the sidebar workspace-row pulse.
+                                     Browser and Markdown panel overlays and the Bonsplit
+                                     tab pulse keep their default accent — color override
+                                     for those surfaces is a follow-up.
               --persistent           Keep pulsing until the operator clicks the surface or
                                      `c11 cancel-flash` is called. Auto-degrades to a single
                                      one-shot when the target is the focused surface in the
