@@ -1,0 +1,14 @@
+{
+  "agent_type": "plan",
+  "base_name": "c11d-cloud-host-design",
+  "framework": "claude-code",
+  "last_active": "2026-05-06T18:52:57Z",
+  "model": "claude-opus-4-7",
+  "name": "c11d-cloud-host-design-1",
+  "parent": "human:atin",
+  "prompt": "design+ticket for c11d cloud host evolution",
+  "serial": 1,
+  "session": "sess_01KQZA3W4N1R5A4M2MWSCB76SP",
+  "started_at": "2026-05-06T18:51:59Z",
+  "status": "active"
+}

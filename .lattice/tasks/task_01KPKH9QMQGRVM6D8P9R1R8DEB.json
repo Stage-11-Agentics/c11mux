@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": null,
   "created_at": "2026-04-19T18:50:56Z",
   "created_by": "agent:claude-opus-4-7",
@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01KPKH9QMQGRVM6D8P9R1R8DEB",
-  "last_event_id": "ev_01KPKH9Y91ZRGJB1JKHJVJ7V8A",
-  "last_status_changed_at": "2026-04-19T18:50:56Z",
+  "last_event_id": "ev_01KQXMW35QRDJXCMC9HGVQFMDF",
+  "last_status_changed_at": "2026-05-06T03:21:29Z",
   "linked_files": [],
   "priority": "low",
   "relationships_out": [
@@ -33,7 +33,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "CMUX-26",
-  "status": "backlog",
+  "status": "cancelled",
   "tags": [
     "cmux-16",
     "multi-display",
@@ -42,6 +42,6 @@
   ],
   "title": "Multi-window c11mux v2: display hotplug + affinity + auto-reconnect",
   "type": "task",
-  "updated_at": "2026-04-19T18:51:02Z",
+  "updated_at": "2026-05-06T03:21:29Z",
   "urgency": null
 }

@@ -1,0 +1,1 @@
+Done with reduced scope per operator triage 2026-05-05. stage11.ai/index.html links to https://github.com/Stage-11-Agentics/c11 (verified). Original asks (dedicated c11 landing page + 60s demo video) deliberately not pursued; the link from the company site is sufficient.

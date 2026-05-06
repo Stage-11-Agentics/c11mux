@@ -37,3 +37,5 @@ RISKS:
 - Typing latency: any SwiftUI view added to the pane host is hot-path risk. Mitigation: strict hot-path review in Phase 1; view is equatable and only re-evaluates when title metadata changes.
 - Chrome proliferation: multi-surface panes stack pane title + surface titles + tabs. Mitigation: decisions 2 (optional) and 4 (dismissible) let operators trim to taste.
 - Theming plan churn: Phase 3 depends on theming plan's final token shape. Mitigation: Phase 1 ships with ad-hoc parity to surface title bars; Phase 3 migrates to formal tokens when they land.
+
+## Reset 2026-05-06 by agent:claude-opus-4-7-cmux-12

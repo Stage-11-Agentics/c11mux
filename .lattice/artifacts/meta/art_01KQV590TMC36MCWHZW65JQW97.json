@@ -1,0 +1,21 @@
+{
+  "created_at": "2026-05-05T04:10:27Z",
+  "created_by": "agent:claude-opus-4-7-c11-25",
+  "custom_fields": {
+    "url": "https://github.com/Stage-11-Agentics/c11/pull/125"
+  },
+  "id": "art_01KQV590TMC36MCWHZW65JQW97",
+  "model": null,
+  "payload": {
+    "content_type": null,
+    "file": null,
+    "size_bytes": null
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": null,
+  "tags": [],
+  "title": "PR #125",
+  "token_usage": null,
+  "type": "reference"
+}

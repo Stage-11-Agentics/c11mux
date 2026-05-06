@@ -1,7 +1,7 @@
 {
-  "assigned_to": null,
+  "assigned_to": "agent:claude-opus-4-7-cmux-12",
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 4,
   "complexity": null,
   "created_at": "2026-04-18T23:26:46Z",
   "created_by": "agent:claude-opus-4-7",
@@ -16,8 +16,8 @@
     }
   ],
   "id": "task_01KPHEP3C31TW8SP5N245X8XHW",
-  "last_event_id": "ev_01KPHEQ0TVXBX9SD9NH5DSSM7Q",
-  "last_status_changed_at": "2026-04-18T23:26:46Z",
+  "last_event_id": "ev_01KQZ8RMDYRTE3W4WF8VP7W8P4",
+  "last_status_changed_at": "2026-05-06T18:28:22Z",
   "linked_files": [],
   "priority": "medium",
   "relationships_out": [
@@ -29,10 +29,10 @@
       "type": "depends_on"
     }
   ],
-  "reopened_count": 0,
+  "reopened_count": 1,
   "schema_version": 1,
   "short_id": "CMUX-12",
-  "status": "backlog",
+  "status": "in_progress",
   "tags": [
     "ui",
     "chrome",
@@ -41,6 +41,6 @@
   ],
   "title": "Pane title bar chrome & theming",
   "type": "task",
-  "updated_at": "2026-04-18T23:27:16Z",
+  "updated_at": "2026-05-06T18:28:22Z",
   "urgency": null
 }

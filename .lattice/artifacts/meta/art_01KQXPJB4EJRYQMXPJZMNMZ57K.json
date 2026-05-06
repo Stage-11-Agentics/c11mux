@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-05-06T03:51:07Z",
+  "created_by": "agent:claude-opus-4-7-triage",
+  "custom_fields": {},
+  "id": "art_01KQXPJB4EJRYQMXPJZMNMZ57K",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KQXPJB4EJRYQMXPJZMNMZ57K.md",
+    "size_bytes": 271
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "Done with reduced scope per operator triage 2026-05-05. stage11.ai/index.html links to https://github.com/Stage-11-Agentics/c11 (verified). Original asks (dedicated c11 landing page + 60s demo video) ",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

@@ -1,0 +1,1 @@
+PR #124 approved and merged. Per-surface tab colors inside panes; review fixes I3/I4/I5/M1/M2 and bonsplit pointer bump landed.

@@ -1,0 +1,31 @@
+{
+  "assigned_to": null,
+  "branch_links": [],
+  "comment_count": 0,
+  "complexity": null,
+  "created_at": "2026-05-05T04:08:54Z",
+  "created_by": "human:atin",
+  "custom_fields": {},
+  "description": "Follow-up to C11-25 review (synthesis-action.md Surface-to-user items S2 and S3, deferred per operator scope decision).\n\n## S2 \u2014 In-place Resume affordance on hibernated placeholder\n\nWhen a workspace is hibernated, its browser surfaces show a static NSImage placeholder. Right now the only way to resume is right-clicking the workspace tab in the sidebar (or using the App menu bar's Workspace \u2192 Resume Workspace). There's no in-place \"click to resume\" affordance on the placeholder itself.\n\nRecommended: a tap target overlay on the placeholder NSImageView. ~5 LoC of overlay; the design (icon vs. full card; size; hover state) needs operator input.\n\n## S3 \u2014 Workspace-level Hibernate doesn't honor multi-selection\n\nSibling sidebar commands (Close Workspace, Mark Read/Unread) operate on the selected set when multiple workspaces are selected. Hibernate Workspace currently operates only on the right-clicked workspace.\n\nReasonable people can disagree on whether this should change \u2014 flagging for operator preference.\n\n## Background\n\nBoth items surfaced in C11-25's trident-code-review (synthesis-action.md, 2026-05-05). Operator deferred to follow-up ticket so C11-25 could ship.",
+  "done_at": null,
+  "evidence_refs": [],
+  "id": "task_01KQV566J9W5TSCZ3ZF4C0W6KC",
+  "last_event_id": "ev_01KQV566JAYKYQ1WBW30Y4PN65",
+  "last_status_changed_at": "2026-05-05T04:08:54Z",
+  "linked_files": [],
+  "priority": "low",
+  "relationships_out": [],
+  "reopened_count": 0,
+  "schema_version": 1,
+  "short_id": "C11-27",
+  "status": "backlog",
+  "tags": [
+    "ux",
+    "hibernate",
+    "workspace"
+  ],
+  "title": "C11-25 follow-up: Hibernate workspace UX (S2+S3)",
+  "type": "task",
+  "updated_at": "2026-05-05T04:08:54Z",
+  "urgency": null
+}

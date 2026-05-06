@@ -1,0 +1,1 @@
+PR #125 approved and merged. Surface lifecycle perf: webview suspension, off-screen terminal throttling, per-surface frame budget, sidebar metrics, Hibernate Workspace; review fixes B1-B4/I1-I4/M1-M3 and DoD #5/#6 gaps closed.
