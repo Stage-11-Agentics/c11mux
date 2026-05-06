@@ -2518,6 +2518,14 @@ final class BrowserPanel: Panel, ObservableObject {
         webView.onContextMenuOpenLinkInNewTab = { [weak self] url in
             self?.openLinkInNewTab(url: url)
         }
+        webView.onShowSurfaceManifest = { [weak self] in
+            guard let self else { return }
+            SurfaceManifestViewerWindowController.show(
+                workspaceId: self.workspaceId,
+                surfaceId: self.id,
+                kind: .browser
+            )
+        }
         configureNavigationDelegateCallbacks()
         webView.navigationDelegate = navigationDelegate
         webView.uiDelegate = uiDelegate
