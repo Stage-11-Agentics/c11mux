@@ -108,8 +108,63 @@ final class WorkspaceFlashTests: XCTestCase {
         XCTAssertNotNil(firstTimer)
         XCTAssertNotNil(secondTimer)
         XCTAssertFalse(firstTimer === secondTimer, "Re-trigger should replace the timer instance")
+        // CMUX-10: identity-difference alone does not prove the previous
+        // timer was invalidated. Without explicit `isValid == false`, a
+        // regression that replaced the entry without calling
+        // `existing.timer.invalidate()` would still pass.
+        XCTAssertEqual(firstTimer?.isValid, false, "Re-trigger must invalidate the previous timer")
 
         workspace.cancelPersistentFlash(panelId: panelId)
+    }
+
+    func testTeardownAllPanelsCancelsEveryPersistentFlash() {
+        let workspace = Workspace(title: "flash-test")
+        let panelA = UUID()
+        let panelB = UUID()
+
+        workspace.triggerFocusFlash(
+            panelId: panelA,
+            appearance: FlashAppearance.current(envelope: .paneRing),
+            persistent: true
+        )
+        workspace.triggerFocusFlash(
+            panelId: panelB,
+            appearance: FlashAppearance.current(envelope: .paneRing),
+            persistent: true
+        )
+        let timerA = workspace.persistentFlashPanels[panelA]?.timer
+        let timerB = workspace.persistentFlashPanels[panelB]?.timer
+        XCTAssertEqual(workspace.persistentFlashPanels.count, 2)
+
+        workspace.teardownAllPanels()
+
+        XCTAssertTrue(workspace.persistentFlashPanels.isEmpty)
+        XCTAssertEqual(timerA?.isValid, false, "teardown must invalidate persistent timers")
+        XCTAssertEqual(timerB?.isValid, false, "teardown must invalidate persistent timers")
+    }
+
+    func testDeinitInvalidatesPersistentFlashTimers() {
+        // Capture timers from a workspace that is allowed to deallocate.
+        // Without `cancelPersistentFlash` cleanup in `deinit`, the run loop
+        // would keep firing the timer forever after `[weak self]` resolves nil.
+        weak var weakRef: Workspace?
+        var capturedTimer: Timer?
+        autoreleasepool {
+            let workspace = Workspace(title: "flash-test")
+            weakRef = workspace
+            let panelId = UUID()
+            workspace.triggerFocusFlash(
+                panelId: panelId,
+                appearance: FlashAppearance.current(envelope: .paneRing),
+                persistent: true
+            )
+            capturedTimer = workspace.persistentFlashPanels[panelId]?.timer
+            XCTAssertNotNil(capturedTimer)
+        }
+        // After the autoreleasepool drains, `Workspace` should deallocate;
+        // `deinit` must invalidate the timer so the run loop drops its retain.
+        XCTAssertNil(weakRef, "Workspace should deallocate")
+        XCTAssertEqual(capturedTimer?.isValid, false, "deinit must invalidate persistent timers")
     }
 
     func testPaneFlashDisabledGuardSilencesAllChannels() {

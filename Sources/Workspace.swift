@@ -5766,6 +5766,19 @@ final class Workspace: Identifiable, ObservableObject {
         activeRemoteSessionControllerID = nil
         remoteSessionController?.stop()
         mailboxDispatcher?.stop()
+        // CMUX-10: invalidate any in-flight persistent-flash timers so the
+        // run loop drops its retain on them. Direct invalidate here rather
+        // than `cancelAllPersistentFlashes()` — the panel/pane/teardown paths
+        // already remove surface metadata, and routing through the metadata
+        // store during deallocation is unnecessary noise. `Workspace` is
+        // `@MainActor` so the last release must run on main; `assumeIsolated`
+        // lets the iso-checker see that.
+        MainActor.assumeIsolated {
+            for state in persistentFlashPanels.values {
+                state.timer.invalidate()
+            }
+            persistentFlashPanels.removeAll()
+        }
     }
 
     /// Creates a per-workspace mailbox dispatcher bound to this workspace's
@@ -8147,6 +8160,12 @@ final class Workspace: Identifiable, ObservableObject {
         paneInteractionRuntime.clearAll()
         paneCloseInteractionRuntime.clearAll()
         paneCloseOverlayController.cleanup()
+
+        // CMUX-10: cancel every persistent-flash timer + manifest entry so
+        // teardown does not leak repeating timers or stale `flash_state`
+        // metadata. Must precede `panels.removeAll` since the cancel path
+        // is keyed on panel id.
+        cancelAllPersistentFlashes()
 
         let panelEntries = Array(panels)
         for (panelId, panel) in panelEntries {
@@ -10776,6 +10795,11 @@ extension Workspace: BonsplitDelegate {
         // still resolves against a consistent view.
         paneInteractionRuntime.clear(panelId: panelId)
 
+        // CMUX-10: clear any persistent-flash timer + manifest entry before
+        // removing the panel. Without this, the repeating timer keeps firing
+        // and increments `sidebarFlashToken` for a panel that no longer exists.
+        cancelPersistentFlash(panelId: panelId)
+
         panels.removeValue(forKey: panelId)
         untrackRemoteTerminalSurface(panelId)
         surfaceIdToPanelId.removeValue(forKey: tabId)
@@ -10940,6 +10964,10 @@ extension Workspace: BonsplitDelegate {
                 // with .dismissed. Matches the cleanup invariant in
                 // teardownAllPanels (synthesis-standard §1.1).
                 paneInteractionRuntime.clear(panelId: panelId)
+                // CMUX-10: drop any persistent-flash timer + manifest entry
+                // before the panel disappears. Same invariant as the
+                // single-panel close path above.
+                cancelPersistentFlash(panelId: panelId)
                 panels[panelId]?.close()
                 panels.removeValue(forKey: panelId)
                 untrackRemoteTerminalSurface(panelId)
