@@ -6532,11 +6532,14 @@ final class GhosttySurfaceScrollView: NSView {
         setDropZoneOverlay(zone: nil)
         return (before, after, bounds.size)
     }
+#endif
 
+    /// Reachable from always-on `WorkspaceSwitchSignpost` events that fire
+    /// in both Debug and Release. Body has no DEBUG-only dependencies, so
+    /// keep it outside `#if DEBUG`.
     var debugSurfaceId: UUID? {
         surfaceView.terminalSurface?.id
     }
-#endif
 
     func portalBindingGuardState() -> (surfaceId: UUID?, generation: UInt64?, state: String) {
         guard let terminalSurface = surfaceView.terminalSurface else {

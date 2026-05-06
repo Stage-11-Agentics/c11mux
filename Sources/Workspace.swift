@@ -9184,7 +9184,9 @@ final class Workspace: Identifiable, ObservableObject {
                 source: .declare
             )
         } catch {
+#if DEBUG
             dlog("flash.manifest.set workspace=\(id.uuidString.prefix(8)) panel=\(panelId.uuidString.prefix(8)) error=\(error)")
+#endif
         }
     }
 
@@ -9201,7 +9203,9 @@ final class Workspace: Identifiable, ObservableObject {
                 source: .declare
             )
         } catch {
+#if DEBUG
             dlog("flash.manifest.clear workspace=\(id.uuidString.prefix(8)) panel=\(panelId.uuidString.prefix(8)) error=\(error)")
+#endif
         }
     }
 
