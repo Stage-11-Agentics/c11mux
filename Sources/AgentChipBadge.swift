@@ -20,8 +20,8 @@ struct AgentChipBadge: View {
         if let chip {
             HStack(spacing: 4) {
                 iconView(for: chip)
-                    .frame(width: chromeTokens.sidebarWorkspaceDetail * 1.4,
-                           height: chromeTokens.sidebarWorkspaceDetail * 1.4)
+                    .frame(width: chromeTokens.sidebarWorkspaceDetail * 1.5,
+                           height: chromeTokens.sidebarWorkspaceDetail * 1.5)
                 if showsLabel, let label = chip.displayLabel, !label.isEmpty {
                     Text(label)
                         .font(.system(size: chromeTokens.sidebarWorkspaceDetail, weight: .medium))
@@ -49,7 +49,7 @@ struct AgentChipBadge: View {
                 .foregroundColor(foreground)
         } else {
             Image(systemName: sfFallback)
-                .font(.system(size: chromeTokens.sidebarWorkspaceDetail * 1.1, weight: .medium))
+                .font(.system(size: chromeTokens.sidebarWorkspaceDetail * 1.2, weight: .medium))
                 .foregroundColor(foreground)
         }
     }

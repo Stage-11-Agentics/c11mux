@@ -51,6 +51,25 @@ final class ChromeScaleObserverTests: XCTestCase {
         wait(for: [expectation], timeout: 2.0)
     }
 
+    func testObserverFiresOnCustomMultiplierChange() {
+        let suite = "ChromeScaleObserverTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let expectation = expectation(description: "onChange fires for custom multiplier")
+        expectation.expectedFulfillmentCount = 1
+        expectation.assertForOverFulfill = false
+
+        let observer = ChromeScaleObserver(defaults: defaults) {
+            expectation.fulfill()
+        }
+        defer { _ = observer }
+
+        defaults.set(1.75, forKey: ChromeScaleSettings.customMultiplierKey)
+
+        wait(for: [expectation], timeout: 2.0)
+    }
+
     func testObserverDeinitDoesNotCrashOnSubsequentMutation() {
         // After the observer is released, KVO is removed in deinit. Subsequent
         // mutations to the same defaults must not crash (which they would if the

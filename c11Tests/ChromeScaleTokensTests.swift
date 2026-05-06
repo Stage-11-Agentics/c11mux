@@ -23,7 +23,7 @@ final class ChromeScaleTokensTests: XCTestCase {
         XCTAssertEqual(tokens.sidebarWorkspaceBranchDot,      3.0,  accuracy: 0.001)
 
         XCTAssertEqual(tokens.surfaceTabTitle,                  11.0,  accuracy: 0.001)
-        XCTAssertEqual(tokens.surfaceTabIcon,                   14.0,  accuracy: 0.001)
+        XCTAssertEqual(tokens.surfaceTabIcon,                   15.0,  accuracy: 0.001)
         XCTAssertEqual(tokens.surfaceTabBarHeight,              30.0,  accuracy: 0.001)
         XCTAssertEqual(tokens.surfaceTabItemHeight,             30.0,  accuracy: 0.001)
         XCTAssertEqual(tokens.surfaceTabHorizontalPadding,       6.0,  accuracy: 0.001)
@@ -35,6 +35,10 @@ final class ChromeScaleTokensTests: XCTestCase {
         XCTAssertEqual(tokens.surfaceTabNotificationBadgeSize,   6.0,  accuracy: 0.001)
         XCTAssertEqual(tokens.surfaceTabActiveIndicatorHeight,   3.0,  accuracy: 0.001)
 
+        XCTAssertEqual(tokens.splitToolbarButtonIcon,           12.0,  accuracy: 0.001)
+        XCTAssertEqual(tokens.splitToolbarButtonFrame,          22.0,  accuracy: 0.001)
+        XCTAssertEqual(tokens.splitToolbarSeparatorHeight,      18.0,  accuracy: 0.001)
+
         XCTAssertEqual(tokens.surfaceTitleBarTitle,             12.0,  accuracy: 0.001)
         XCTAssertEqual(tokens.surfaceTitleBarAccessory,         10.0,  accuracy: 0.001)
     }
@@ -42,35 +46,36 @@ final class ChromeScaleTokensTests: XCTestCase {
     // MARK: - Multiplier scaling
 
     func testLargeMultipliesEveryToken() {
-        let tokens = ChromeScaleTokens(multiplier: 1.12)
-        XCTAssertEqual(tokens.sidebarWorkspaceTitle,    12.5 * 1.12, accuracy: 0.001)
-        XCTAssertEqual(tokens.sidebarWorkspaceDetail,   10.0 * 1.12, accuracy: 0.001)
-        XCTAssertEqual(tokens.surfaceTabTitle,          11.0 * 1.12, accuracy: 0.001)
-        XCTAssertEqual(tokens.surfaceTabIcon,           14.0 * 1.12, accuracy: 0.001)
-        XCTAssertEqual(tokens.surfaceTabBarHeight,      30.0 * 1.12, accuracy: 0.001)
-        XCTAssertEqual(tokens.surfaceTabMinWidth,      112.0 * 1.12, accuracy: 0.001)
-        XCTAssertEqual(tokens.surfaceTabMaxWidth,      220.0 * 1.12, accuracy: 0.001)
-        XCTAssertEqual(tokens.surfaceTabCloseIconSize,   9.0 * 1.12, accuracy: 0.001)
+        let tokens = ChromeScaleTokens(multiplier: 1.25)
+        XCTAssertEqual(tokens.sidebarWorkspaceTitle,    12.5 * 1.25, accuracy: 0.001)
+        XCTAssertEqual(tokens.sidebarWorkspaceDetail,   10.0 * 1.25, accuracy: 0.001)
+        XCTAssertEqual(tokens.surfaceTabTitle,          11.0 * 1.25, accuracy: 0.001)
+        XCTAssertEqual(tokens.surfaceTabIcon,           15.0 * 1.25, accuracy: 0.001)
+        XCTAssertEqual(tokens.surfaceTabBarHeight,      30.0 * 1.25, accuracy: 0.001)
+        XCTAssertEqual(tokens.surfaceTabMinWidth,      112.0 * 1.25, accuracy: 0.001)
+        XCTAssertEqual(tokens.surfaceTabMaxWidth,      220.0 * 1.25, accuracy: 0.001)
+        XCTAssertEqual(tokens.surfaceTabCloseIconSize,   9.0 * 1.25, accuracy: 0.001)
     }
 
     func testCompactScalesDown() {
-        let tokens = ChromeScaleTokens(multiplier: 0.90)
-        XCTAssertEqual(tokens.surfaceTabBarHeight,      30.0 * 0.90, accuracy: 0.001)
-        XCTAssertEqual(tokens.sidebarWorkspaceTitle,    12.5 * 0.90, accuracy: 0.001)
+        let tokens = ChromeScaleTokens(multiplier: 0.85)
+        XCTAssertEqual(tokens.surfaceTabBarHeight,      30.0 * 0.85, accuracy: 0.001)
+        XCTAssertEqual(tokens.sidebarWorkspaceTitle,    12.5 * 0.85, accuracy: 0.001)
     }
 
     func testExtraLargeScalesUp() {
-        let tokens = ChromeScaleTokens(multiplier: 1.25)
-        XCTAssertEqual(tokens.surfaceTabBarHeight,      30.0 * 1.25, accuracy: 0.001)
-        XCTAssertEqual(tokens.sidebarWorkspaceTitle,    12.5 * 1.25, accuracy: 0.001)
+        let tokens = ChromeScaleTokens(multiplier: 1.55)
+        XCTAssertEqual(tokens.surfaceTabBarHeight,      30.0 * 1.55, accuracy: 0.001)
+        XCTAssertEqual(tokens.sidebarWorkspaceTitle,    12.5 * 1.55, accuracy: 0.001)
+        XCTAssertEqual(tokens.surfaceTabIcon,           15.0 * 1.55, accuracy: 0.001)
     }
 
     // MARK: - Active-indicator floor
 
     func testActiveIndicatorFloorAtTwo() {
-        // At the four ship presets the floor is inert (3*0.90 = 2.7 ≥ 2.0).
-        // The floor protects future Custom-multiplier <= 0.66.
-        XCTAssertEqual(ChromeScaleTokens(multiplier: 0.90).surfaceTabActiveIndicatorHeight, 3.0 * 0.90, accuracy: 0.001)
+        // At the four ship presets the floor is inert (3*0.85 = 2.55 ≥ 2.0).
+        // The floor protects Custom-multiplier values ≤ 0.66.
+        XCTAssertEqual(ChromeScaleTokens(multiplier: 0.85).surfaceTabActiveIndicatorHeight, 3.0 * 0.85, accuracy: 0.001)
         XCTAssertEqual(ChromeScaleTokens(multiplier: 0.50).surfaceTabActiveIndicatorHeight, 2.0,        accuracy: 0.001)
         XCTAssertEqual(ChromeScaleTokens(multiplier: 0.66).surfaceTabActiveIndicatorHeight, 2.0,        accuracy: 0.001)
     }
@@ -82,8 +87,8 @@ final class ChromeScaleTokensTests: XCTestCase {
     }
 
     func testTokensEqualWhenMultipliersMatch() {
-        XCTAssertEqual(ChromeScaleTokens(multiplier: 0.90), ChromeScaleTokens(multiplier: 0.90))
-        XCTAssertNotEqual(ChromeScaleTokens(multiplier: 0.90), ChromeScaleTokens(multiplier: 1.0))
+        XCTAssertEqual(ChromeScaleTokens(multiplier: 0.85), ChromeScaleTokens(multiplier: 0.85))
+        XCTAssertNotEqual(ChromeScaleTokens(multiplier: 0.85), ChromeScaleTokens(multiplier: 1.0))
     }
 
     // MARK: - resolved(from:)
@@ -96,9 +101,13 @@ final class ChromeScaleTokensTests: XCTestCase {
         XCTAssertEqual(ChromeScaleTokens.resolved(from: defaults).multiplier, 1.0, accuracy: 0.001)
 
         defaults.set("compact", forKey: ChromeScaleSettings.presetKey)
-        XCTAssertEqual(ChromeScaleTokens.resolved(from: defaults).multiplier, 0.90, accuracy: 0.001)
+        XCTAssertEqual(ChromeScaleTokens.resolved(from: defaults).multiplier, 0.85, accuracy: 0.001)
 
         defaults.set("extraLarge", forKey: ChromeScaleSettings.presetKey)
-        XCTAssertEqual(ChromeScaleTokens.resolved(from: defaults).multiplier, 1.25, accuracy: 0.001)
+        XCTAssertEqual(ChromeScaleTokens.resolved(from: defaults).multiplier, 1.55, accuracy: 0.001)
+
+        defaults.set("custom", forKey: ChromeScaleSettings.presetKey)
+        defaults.set(1.80, forKey: ChromeScaleSettings.customMultiplierKey)
+        XCTAssertEqual(ChromeScaleTokens.resolved(from: defaults).multiplier, 1.80, accuracy: 0.001)
     }
 }

@@ -192,6 +192,7 @@ struct cmuxApp: App {
     @AppStorage(TabBarChromeSettings.stateKey) private var tabBarChromeStateRaw = TabBarChromeState.full.rawValue
     @AppStorage(KeyboardShortcutSettings.Action.toggleTabBarChrome.defaultsKey) private var toggleTabBarChromeShortcutData = Data()
     @AppStorage(ChromeScaleSettings.presetKey) private var chromeScalePresetRaw = ChromeScaleSettings.defaultPreset.rawValue
+    @AppStorage(ChromeScaleSettings.customMultiplierKey) private var chromeScaleCustomMultiplier: Double = Double(ChromeScaleSettings.defaultCustomMultiplier)
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     private var browserToolbarAccessorySpacing: Int {
@@ -363,7 +364,12 @@ struct cmuxApp: App {
                 .environmentObject(notificationStore)
                 .environmentObject(sidebarState)
                 .environmentObject(sidebarSelectionState)
-                .environment(\.chromeScaleTokens, ChromeScaleTokens(multiplier: ChromeScaleSettings.multiplier(for: ChromeScaleSettings.preset(for: chromeScalePresetRaw))))
+                .environment(\.chromeScaleTokens, ChromeScaleTokens(
+                    multiplier: ChromeScaleSettings.multiplier(
+                        presetRaw: chromeScalePresetRaw,
+                        customMultiplier: chromeScaleCustomMultiplier
+                    )
+                ))
                 .onAppear {
 #if DEBUG
                     if ProcessInfo.processInfo.environment["CMUX_UI_TEST_MODE"] == "1" {
@@ -4402,6 +4408,8 @@ struct SettingsView: View {
     private var sidebarActiveTabIndicatorStyle = SidebarActiveTabIndicatorSettings.defaultStyle.rawValue
     @AppStorage(ChromeScaleSettings.presetKey)
     private var chromeScalePresetRaw = ChromeScaleSettings.defaultPreset.rawValue
+    @AppStorage(ChromeScaleSettings.customMultiplierKey)
+    private var chromeScaleCustomMultiplier: Double = Double(ChromeScaleSettings.defaultCustomMultiplier)
     @AppStorage("sidebarShowBranchDirectory") private var sidebarShowBranchDirectory = true
     @AppStorage("sidebarShowPullRequest") private var sidebarShowPullRequest = true
     @AppStorage(BrowserLinkOpenSettings.openSidebarPullRequestLinksInCmuxBrowserKey)
@@ -5079,6 +5087,31 @@ struct SettingsView: View {
             ) {
                 ForEach(ChromeScaleSettings.Preset.allCases) { preset in
                     Text(preset.displayName).tag(preset.rawValue)
+                }
+            }
+
+            if ChromeScaleSettings.preset(for: chromeScalePresetRaw) == .custom {
+                SettingsCardDivider()
+                SettingsCardRow(
+                    String(localized: "settings.chromeScale.custom.label", defaultValue: "Custom Multiplier"),
+                    subtitle: String(
+                        localized: "settings.chromeScale.custom.subtitle",
+                        defaultValue: "Drag to fine-tune scale. Range 0.50× to 3.00×."
+                    )
+                ) {
+                    HStack(spacing: 8) {
+                        Slider(
+                            value: $chromeScaleCustomMultiplier,
+                            in: Double(ChromeScaleSettings.customMultiplierRange.lowerBound)
+                                ... Double(ChromeScaleSettings.customMultiplierRange.upperBound),
+                            step: 0.05
+                        )
+                        Text(String(format: "%.2f×", chromeScaleCustomMultiplier))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .frame(width: 56, alignment: .trailing)
+                    }
+                    .frame(width: pickerColumnWidth)
                 }
             }
         }

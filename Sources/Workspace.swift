@@ -5477,6 +5477,9 @@ final class Workspace: Identifiable, ObservableObject {
         appearance.tabDirtyIndicatorSize     = tokens.surfaceTabDirtyIndicatorSize
         appearance.tabNotificationBadgeSize  = tokens.surfaceTabNotificationBadgeSize
         appearance.tabActiveIndicatorHeight  = tokens.surfaceTabActiveIndicatorHeight
+        appearance.splitToolbarButtonIconSize  = tokens.splitToolbarButtonIcon
+        appearance.splitToolbarButtonFrameSize = tokens.splitToolbarButtonFrame
+        appearance.splitToolbarSeparatorHeight = tokens.splitToolbarSeparatorHeight
     }
 
     func setTabBarVisible(_ visible: Bool) {
@@ -5507,7 +5510,10 @@ final class Workspace: Identifiable, ObservableObject {
             current.tabContentSpacing         == next.tabContentSpacing &&
             current.tabDirtyIndicatorSize     == next.tabDirtyIndicatorSize &&
             current.tabNotificationBadgeSize  == next.tabNotificationBadgeSize &&
-            current.tabActiveIndicatorHeight  == next.tabActiveIndicatorHeight
+            current.tabActiveIndicatorHeight  == next.tabActiveIndicatorHeight &&
+            current.splitToolbarButtonIconSize  == next.splitToolbarButtonIconSize &&
+            current.splitToolbarButtonFrameSize == next.splitToolbarButtonFrameSize &&
+            current.splitToolbarSeparatorHeight == next.splitToolbarSeparatorHeight
         guard !unchanged else { return }
         var nextConfiguration = bonsplitController.configuration
         nextConfiguration.appearance = next
