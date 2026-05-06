@@ -316,6 +316,39 @@ c11 clear-status task
 
 **Constraint**: these only work from a direct c11 child process. Headless `claude -p` subprocesses are reparented to `launchd` and lose the auth chain — they cannot call any `c11` command. Interactive `claude` keeps the chain intact.
 
+## Surface flash — asynchronous attention
+
+Flash is c11's per-surface attention primitive: a brief or persistent visual pulse on the pane content and the sidebar workspace row. Reach for it when an agent produces something the operator should look at but the agent does not want to steal focus.
+
+```bash
+# One-shot pulse on a non-focused surface
+c11 trigger-flash --surface <ref>
+
+# Persistent pulse — keeps repeating until dismissed
+c11 trigger-flash --surface <ref> --persistent
+
+# Per-call color override (6- or 8-digit sRGB hex; default #F5C518)
+c11 trigger-flash --surface <ref> --persistent --color "#FF5C5C"
+
+# Programmatic cancel — clears any in-flight persistent pulse
+c11 cancel-flash --surface <ref>
+```
+
+**`--persistent`** repeats the pulse until *either* the operator dismisses it (clicking the pane content or the sidebar workspace row) *or* an agent calls `c11 cancel-flash`. Use it for "look at this eventually," not "look right now": the operator may be deep in another workspace, and the recurring pulse is what makes the surface findable later. A `--persistent` call on a surface that is already focused degrades to a one-shot pulse — persisting where the operator is already looking would be noise.
+
+**`--color`** distinguishes signals from different agents on the same workspace. Default is `#F5C518` (Stage 11 warm yellow). Validation accepts `#RRGGBB` or `#RRGGBBAA` (case-insensitive, optional `#`); anything else errors. The override tints the pane ring and the sidebar row pulse; the Bonsplit tab-strip pulse keeps its internal accent.
+
+**`flash_state` metadata key.** When a persistent flash starts, c11 writes `flash_state=persistent` into the surface manifest; cancellation clears it. Other agents can poll the manifest instead of subscribing to per-frame visual state:
+
+```bash
+c11 get-metadata --surface <ref> --key flash_state
+# → "persistent" if a persistent flash is live; empty otherwise
+```
+
+Treat `flash_state` as a forward-compatible enum — future c11 versions may add states. Match the value you care about; don't assume the field is binary. Cancel when the signal is stale: an agent that triggered a persistent flash to wait on a long-running task should call `c11 cancel-flash` if the task completes by another path.
+
+**Flash Duration is operator-tuned.** Settings → Notifications → Flash Duration ranges 500–4000ms (default 1500ms) and scales every channel together (pane ring, sidebar row, persistent ticks). Agents do not need to read it — fire the signal, c11 paces it.
+
 ## Launching sub-agents
 
 Use **`claude --dangerously-skip-permissions`** — never bare `claude` (stalls on approvals) or `claude -p` (headless, breaks the auth chain):
