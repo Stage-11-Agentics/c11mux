@@ -32,11 +32,12 @@ public enum FlashEnvelope: Equatable {
         }
     }
 
-    /// Duration of one flash pulse in seconds. Until commit 5 wires the
-    /// configurable Flash Duration setting, this resolves to the historical
-    /// `FocusFlashPattern.duration` (0.9s). Commit 5 swaps the source to
-    /// `NotificationFlashDurationSettings.currentMs / 1000.0` without changing
-    /// the call shape.
+    /// Duration of one flash pulse in seconds. Sourced from the user-tunable
+    /// Flash Duration setting (Notifications panel, 500–4000ms, default 1500ms).
+    /// Pane and sidebar share this duration; the sidebar applies `peakScale`
+    /// to amplitude only, not time. Goes through `FocusFlashPattern.duration`
+    /// so every renderer (pane ring, sidebar fill, Browser/Markdown overlays)
+    /// scales together.
     public var duration: TimeInterval {
         FocusFlashPattern.duration
     }
