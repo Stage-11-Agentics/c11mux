@@ -2152,7 +2152,9 @@ enum TerminalWindowPortalRegistry {
            oldWindowId != windowId {
             portalsByWindowId[oldWindowId]?.detachHostedView(withId: hostedId)
         }
-
+#if DEBUG
+        let bindStart = CACurrentMediaTime()
+#endif
         nextPortal.bind(
             hostedView: hostedView,
             to: anchorView,
@@ -2162,6 +2164,15 @@ enum TerminalWindowPortalRegistry {
         )
         hostedToWindowId[hostedId] = windowId
         pruneHostedMappings(for: windowId, validHostedIds: nextPortal.hostedIds())
+#if DEBUG
+        let bindMs = (CACurrentMediaTime() - bindStart) * 1000
+        if bindMs > 5 {
+            dlog(
+                "portal.bind.timing hosted=\(portalDebugToken(hostedView)) " +
+                "bindMs=\(String(format: "%.2f", bindMs))"
+            )
+        }
+#endif
     }
 
     static func synchronizeForAnchor(_ anchorView: NSView) {
