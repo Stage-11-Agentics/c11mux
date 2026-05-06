@@ -6636,11 +6636,14 @@ final class GhosttySurfaceScrollView: NSView {
         flashOverlayView.layer?.masksToBounds = false
         flashOverlayView.autoresizingMask = [.width, .height]
         flashLayer.fillColor = NSColor.clear.cgColor
-        flashLayer.strokeColor = cmuxAccentNSColor().cgColor
+        // CMUX-10: color sourced via FlashAppearance seam (still gold here in
+        // commit 1; commit 2 swaps the default and adds per-call overrides).
+        let initialFlashColor = FlashAppearance.current(envelope: .paneRing).color
+        flashLayer.strokeColor = initialFlashColor.cgColor
         flashLayer.lineWidth = 3
         flashLayer.lineJoin = .round
         flashLayer.lineCap = .round
-        flashLayer.shadowColor = cmuxAccentNSColor().cgColor
+        flashLayer.shadowColor = initialFlashColor.cgColor
         flashLayer.shadowOpacity = 0.6
         flashLayer.shadowRadius = 6
         flashLayer.shadowOffset = .zero

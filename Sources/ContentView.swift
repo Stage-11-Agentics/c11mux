@@ -11594,8 +11594,9 @@ private struct TabItemView: View, Equatable {
                     // signals "a panel in this workspace was flashed" without
                     // shouting from the sidebar. Hit testing is disabled so
                     // the pulse never intercepts clicks/drags.
+                    // CMUX-10: color sourced via FlashAppearance seam.
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(cmuxAccentColor().opacity(sidebarFlashOpacity))
+                        .fill(FlashAppearance.current(envelope: .sidebarFill).swiftUIColor.opacity(sidebarFlashOpacity))
                         .allowsHitTesting(false)
                 }
         )

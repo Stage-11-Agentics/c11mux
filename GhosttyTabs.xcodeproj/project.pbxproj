@@ -162,6 +162,7 @@
 		A5001240 /* WindowDecorationsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001241 /* WindowDecorationsController.swift */; };
 		A5001610 /* SessionPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001611 /* SessionPersistence.swift */; };
 		A5005B02 /* BrandColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5005B01 /* BrandColors.swift */; };
+		A5FA5702 /* FlashAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5FA5701 /* FlashAppearance.swift */; };
 		A5001100 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A5001101 /* Assets.xcassets */; };
 		A5001230 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A5001231 /* Sparkle */; };
 		B9000002A1B2C3D4E5F60719 /* c11.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9000001A1B2C3D4E5F60719 /* c11.swift */; };
@@ -498,6 +499,7 @@
 		A5001241 /* WindowDecorationsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDecorationsController.swift; sourceTree = "<group>"; };
 		A5001611 /* SessionPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionPersistence.swift; sourceTree = "<group>"; };
 		A5005B01 /* BrandColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandColors.swift; sourceTree = "<group>"; };
+		A5FA5701 /* FlashAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlashAppearance.swift; sourceTree = "<group>"; };
 		818DBCD4AB69EB72573E8138 /* SidebarResizeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarResizeUITests.swift; sourceTree = "<group>"; };
 		B8F266256A1A3D9A45BD840F /* SidebarHelpMenuUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarHelpMenuUITests.swift; sourceTree = "<group>"; };
 		B8F266276A1A3D9A45BD840F /* DisplayResolutionRegressionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayResolutionRegressionUITests.swift; sourceTree = "<group>"; };
@@ -821,6 +823,7 @@
 				A5001222 /* WindowAccessor.swift */,
 				A5001611 /* SessionPersistence.swift */,
 				A5005B01 /* BrandColors.swift */,
+				A5FA5701 /* FlashAppearance.swift */,
 				CC401001A1B2C3D4E5F60719 /* SkillInstaller.swift */,
 				CC401004A1B2C3D4E5F60719 /* AgentSkillsView.swift */,
 				CC401006A1B2C3D4E5F60719 /* TCCPrimerView.swift */,
@@ -1247,6 +1250,7 @@
 				A500120C /* WindowAccessor.swift in Sources */,
 				A5001610 /* SessionPersistence.swift in Sources */,
 				A5005B02 /* BrandColors.swift in Sources */,
+				A5FA5702 /* FlashAppearance.swift in Sources */,
 				CC401002A1B2C3D4E5F60719 /* SkillInstaller.swift in Sources */,
 				CC401005A1B2C3D4E5F60719 /* AgentSkillsView.swift in Sources */,
 				CC401007A1B2C3D4E5F60719 /* TCCPrimerView.swift in Sources */,
