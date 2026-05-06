@@ -6999,8 +6999,14 @@ final class Workspace: Identifiable, ObservableObject {
             let persistedSources = panelSnapshot.metadataSources ?? [:]
             let newPanelId = oldToNewPanelIds[panelSnapshot.id] ?? panelSnapshot.id
             guard panels[newPanelId] != nil else { continue }
-            let values = PersistedMetadataBridge.decodeValues(persistedValues)
-            let sources = PersistedMetadataBridge.decodeSources(persistedSources)
+            var values = PersistedMetadataBridge.decodeValues(persistedValues)
+            var sources = PersistedMetadataBridge.decodeSources(persistedSources)
+            // CMUX-10: persistent-flash timers are process-local and never
+            // survive a restart. Drop any persisted `flash_state` entry on
+            // restore so external agents reading `surface.get_metadata`
+            // do not see an attention state with no live timer behind it.
+            values.removeValue(forKey: "flash_state")
+            sources.removeValue(forKey: "flash_state")
             SurfaceMetadataStore.shared.restoreFromSnapshot(
                 workspaceId: id,
                 surfaceId: newPanelId,
