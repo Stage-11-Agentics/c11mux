@@ -9157,14 +9157,21 @@ final class Workspace: Identifiable, ObservableObject {
 
         // Manifest overlay: write once on start so external agents asking
         // "is this surface still calling for attention?" can find out via
-        // get-metadata without subscribing to per-frame state.
-        _ = try? SurfaceMetadataStore.shared.setMetadata(
-            workspaceId: id,
-            surfaceId: panelId,
-            partial: ["flash_state": "persistent"],
-            mode: .merge,
-            source: .declare
-        )
+        // get-metadata without subscribing to per-frame state. Failure is
+        // non-fatal (the timer still drives the visual pulse) but the
+        // manifest contract is briefly out of sync, so log instead of
+        // silently swallowing.
+        do {
+            try SurfaceMetadataStore.shared.setMetadata(
+                workspaceId: id,
+                surfaceId: panelId,
+                partial: ["flash_state": "persistent"],
+                mode: .merge,
+                source: .declare
+            )
+        } catch {
+            dlog("flash.manifest.set workspace=\(id.uuidString.prefix(8)) panel=\(panelId.uuidString.prefix(8)) error=\(error)")
+        }
     }
 
     /// CMUX-10: clear a persistent flash on a single panel. Idempotent —
@@ -9172,12 +9179,16 @@ final class Workspace: Identifiable, ObservableObject {
     func cancelPersistentFlash(panelId: UUID) {
         guard let state = persistentFlashPanels.removeValue(forKey: panelId) else { return }
         state.timer.invalidate()
-        _ = try? SurfaceMetadataStore.shared.clearMetadata(
-            workspaceId: id,
-            surfaceId: panelId,
-            keys: ["flash_state"],
-            source: .declare
-        )
+        do {
+            try SurfaceMetadataStore.shared.clearMetadata(
+                workspaceId: id,
+                surfaceId: panelId,
+                keys: ["flash_state"],
+                source: .declare
+            )
+        } catch {
+            dlog("flash.manifest.clear workspace=\(id.uuidString.prefix(8)) panel=\(panelId.uuidString.prefix(8)) error=\(error)")
+        }
     }
 
     /// CMUX-10: clear all persistent flashes on this workspace. Used by the
