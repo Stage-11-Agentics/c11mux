@@ -2293,13 +2293,27 @@ struct CMUXCLI {
             if let colorArg, !isValidFlashColorHex(colorArg) {
                 throw CLIError(message: "--color must be a hex value like #F5C518.")
             }
+            let persistent = hasFlag(commandArgs, name: "--persistent")
             var params: [String: Any] = [:]
             let wsId = try normalizeWorkspaceHandle(workspaceArg, client: client)
             if let wsId { params["workspace_id"] = wsId }
             let sfId = try normalizeSurfaceHandle(surfaceArg, client: client, workspaceHandle: wsId)
             if let sfId { params["surface_id"] = sfId }
             if let colorArg { params["color"] = colorArg }
+            if persistent { params["persistent"] = true }
             let payload = try client.sendV2(method: "surface.trigger_flash", params: params)
+            printV2Payload(payload, jsonOutput: jsonOutput, idFormat: idFormat, fallbackText: v2OKSummary(payload, idFormat: idFormat))
+
+        case "cancel-flash":
+            let cfWsFlag = optionValue(commandArgs, name: "--workspace")
+            let workspaceArg = cfWsFlag ?? (windowId == nil ? ProcessInfo.processInfo.environment["CMUX_WORKSPACE_ID"] : nil)
+            let surfaceArg = optionValue(commandArgs, name: "--surface") ?? optionValue(commandArgs, name: "--panel") ?? (cfWsFlag == nil && windowId == nil ? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"] : nil)
+            var params: [String: Any] = [:]
+            let wsId = try normalizeWorkspaceHandle(workspaceArg, client: client)
+            if let wsId { params["workspace_id"] = wsId }
+            let sfId = try normalizeSurfaceHandle(surfaceArg, client: client, workspaceHandle: wsId)
+            if let sfId { params["surface_id"] = sfId }
+            let payload = try client.sendV2(method: "surface.cancel_flash", params: params)
             printV2Payload(payload, jsonOutput: jsonOutput, idFormat: idFormat, fallbackText: v2OKSummary(payload, idFormat: idFormat))
 
         case "list-panels":
@@ -8337,7 +8351,7 @@ struct CMUXCLI {
             """
         case "trigger-flash":
             return """
-            Usage: c11 trigger-flash [--workspace <id|ref>] [--surface <id|ref>] [--panel <id|ref>] [--color <#hex>]
+            Usage: c11 trigger-flash [--workspace <id|ref>] [--surface <id|ref>] [--panel <id|ref>] [--color <#hex>] [--persistent]
 
             Trigger the unread flash indicator for a surface.
 
@@ -8347,11 +8361,32 @@ struct CMUXCLI {
               --panel <id|ref>       Alias for --surface
               --color <#hex>         One-shot color override (e.g. "#F5C518" or "#F5C518FF").
                                      Defaults to the c11 yellow signal color.
+              --persistent           Keep pulsing until the operator clicks the surface or
+                                     `c11 cancel-flash` is called. Auto-degrades to a single
+                                     one-shot when the target is the focused surface in the
+                                     focused window.
 
             Example:
               c11 trigger-flash
               c11 trigger-flash --workspace workspace:2 --surface surface:3
               c11 trigger-flash --surface surface:3 --color "#FF00FF"
+              c11 trigger-flash --surface surface:3 --persistent
+            """
+        case "cancel-flash":
+            return """
+            Usage: c11 cancel-flash [--workspace <id|ref>] [--surface <id|ref>] [--panel <id|ref>]
+
+            Cancel any in-flight persistent flash on a surface. No-op for one-shot flashes
+            and for surfaces with no active persistent flash.
+
+            Flags:
+              --workspace <id|ref>   Workspace context (default: $CMUX_WORKSPACE_ID)
+              --surface <id|ref>     Target surface (default: $CMUX_SURFACE_ID)
+              --panel <id|ref>       Alias for --surface
+
+            Example:
+              c11 cancel-flash
+              c11 cancel-flash --workspace workspace:2 --surface surface:3
             """
         case "list-panels":
             return """
@@ -15085,7 +15120,8 @@ struct CMUXCLI {
           refresh-surfaces
           surface-health [--workspace <id|ref>]
           health [--since <duration> | --since-boot] [--rail <name>] [--json]
-          trigger-flash [--workspace <id|ref>] [--surface <id|ref>]
+          trigger-flash [--workspace <id|ref>] [--surface <id|ref>] [--color <#hex>] [--persistent]
+          cancel-flash [--workspace <id|ref>] [--surface <id|ref>]
           list-panels [--workspace <id|ref>]
           focus-panel --panel <id|ref> [--workspace <id|ref>]
           close-workspace --workspace <id|ref>

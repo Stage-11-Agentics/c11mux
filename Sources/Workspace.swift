@@ -5146,6 +5146,19 @@ final class Workspace: Identifiable, ObservableObject {
     /// row pulse together. Visual-only; never affects selection.
     @Published private(set) var sidebarFlashToken: Int = 0
 
+    /// CMUX-10: state for in-flight persistent flashes (one entry per panel).
+    /// The Timer is process-local; the manifest is not abused for per-frame
+    /// state (per Plan note: write `flash_state=persistent` once on start,
+    /// clear once on cancel). Operator/agent visibility comes from the
+    /// metadata key, not from persistent timers.
+    struct PersistentFlashState {
+        let appearance: FlashAppearance
+        let timer: Timer
+        let startedAt: Date
+    }
+
+    @Published private(set) var persistentFlashPanels: [UUID: PersistentFlashState] = [:]
+
     /// C11-25: workspace-level operator hibernate flag. True when the
     /// operator has explicitly hibernated this workspace via the
     /// "Hibernate Workspace" context menu (or socket equivalent). Survives
@@ -9073,13 +9086,99 @@ final class Workspace: Identifiable, ObservableObject {
     /// Bonsplit's `flashTab` does not accept a color callback, so the tab-
     /// strip pulse stays on the bonsplit-internal accent and is intentionally
     /// not retinted here.
-    func triggerFocusFlash(panelId: UUID, appearance: FlashAppearance) {
+    func triggerFocusFlash(panelId: UUID, appearance: FlashAppearance, persistent: Bool = false) {
         guard NotificationPaneFlashSettings.isEnabled() else { return }
+
+        // CMUX-10: persistent on the focused surface in the focused window
+        // degrades to a one-shot. Persistence is "look at this when you
+        // eventually look back" — meaningless when the operator is already
+        // looking. The color override is still honored.
+        if persistent && isFocusedTargetForPersistentFlash(panelId: panelId) {
+            runFlashPulse(panelId: panelId, appearance: appearance)
+            return
+        }
+
+        runFlashPulse(panelId: panelId, appearance: appearance)
+
+        guard persistent else { return }
+
+        // Replace any existing timer for this panel before installing a new one,
+        // so back-to-back persistent triggers don't leak timers.
+        if let existing = persistentFlashPanels[panelId] {
+            existing.timer.invalidate()
+        }
+
+        let interval = appearance.envelope.duration + 0.6
+        let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.persistentFlashPanels[panelId] != nil else { return }
+                self.runFlashPulse(panelId: panelId, appearance: appearance)
+            }
+        }
+        persistentFlashPanels[panelId] = PersistentFlashState(
+            appearance: appearance,
+            timer: timer,
+            startedAt: Date()
+        )
+
+        // Manifest overlay: write once on start so external agents asking
+        // "is this surface still calling for attention?" can find out via
+        // get-metadata without subscribing to per-frame state.
+        _ = try? SurfaceMetadataStore.shared.setMetadata(
+            workspaceId: id,
+            surfaceId: panelId,
+            partial: ["flash_state": "persistent"],
+            mode: .merge,
+            source: .declare
+        )
+    }
+
+    /// CMUX-10: clear a persistent flash on a single panel. Idempotent —
+    /// safe to call from click-to-dismiss handlers without checking state.
+    func cancelPersistentFlash(panelId: UUID) {
+        guard let state = persistentFlashPanels.removeValue(forKey: panelId) else { return }
+        state.timer.invalidate()
+        _ = try? SurfaceMetadataStore.shared.clearMetadata(
+            workspaceId: id,
+            surfaceId: panelId,
+            keys: ["flash_state"],
+            source: .declare
+        )
+    }
+
+    /// CMUX-10: clear all persistent flashes on this workspace. Used by the
+    /// sidebar-row tap-to-dismiss path so clicking a workspace clears any
+    /// pending persistent flashes inside it.
+    func cancelAllPersistentFlashes() {
+        guard !persistentFlashPanels.isEmpty else { return }
+        let panelIds = Array(persistentFlashPanels.keys)
+        for panelId in panelIds {
+            cancelPersistentFlash(panelId: panelId)
+        }
+    }
+
+    /// CMUX-10: shared fan-out used by both one-shot and persistent flash
+    /// pulses. Stays small to keep pulse-firing predictable; lifecycle and
+    /// timer management live in `triggerFocusFlash` / `cancelPersistentFlash`.
+    private func runFlashPulse(panelId: UUID, appearance: FlashAppearance) {
         panels[panelId]?.triggerFlash(appearance: appearance)
         if let tabId = surfaceIdFromPanelId(panelId) {
             bonsplitController.flashTab(tabId)
         }
         sidebarFlashToken &+= 1
+    }
+
+    /// CMUX-10: true when a persistent-flash request would target the panel
+    /// the operator is already looking at — i.e. this workspace is selected,
+    /// the panel is the focused panel, and the focused window owns the app.
+    /// Used to degrade `--persistent` to a one-shot pulse in that case.
+    private func isFocusedTargetForPersistentFlash(panelId: UUID) -> Bool {
+        guard let tabManager = AppDelegate.shared?.tabManager else { return false }
+        guard tabManager.selectedTabId == self.id else { return false }
+        guard self.focusedPanelId == panelId else { return false }
+        guard NSApp.isActive else { return false }
+        return true
     }
 
     func triggerNotificationFocusFlash(

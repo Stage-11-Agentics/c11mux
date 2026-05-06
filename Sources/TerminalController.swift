@@ -2350,6 +2350,8 @@ class TerminalController {
         // mis-routed request before it reaches this switch.
         case "surface.trigger_flash":
             return v2Result(id: id, self.v2SurfaceTriggerFlash(params: params))
+        case "surface.cancel_flash":
+            return v2Result(id: id, self.v2SurfaceCancelFlash(params: params))
         case "surface.set_metadata":
             return v2Result(id: id, self.v2SurfaceSetMetadata(params: params))
         case "surface.get_metadata":
@@ -2727,6 +2729,7 @@ class TerminalController {
             "surface.read_text",
             "surface.clear_history",
             "surface.trigger_flash",
+            "surface.cancel_flash",
             "surface.set_metadata",
             "surface.get_metadata",
             "surface.clear_metadata",
@@ -7743,6 +7746,7 @@ class TerminalController {
         } else {
             appearance = FlashAppearance.current(envelope: .paneRing)
         }
+        let persistent = (params["persistent"] as? Bool) ?? false
 
         var result: V2CallResult = .err(code: "internal_error", message: "Failed to trigger flash", data: nil)
         v2MainSync {
@@ -7764,8 +7768,52 @@ class TerminalController {
             v2MaybeFocusWindow(for: tabManager)
             v2MaybeSelectWorkspace(tabManager, workspace: ws)
 
-            ws.triggerFocusFlash(panelId: surfaceId, appearance: appearance)
-            result = .ok(["workspace_id": ws.id.uuidString, "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id), "surface_id": surfaceId.uuidString, "surface_ref": v2Ref(kind: .surface, uuid: surfaceId), "window_id": v2OrNull(v2ResolveWindowId(tabManager: tabManager)?.uuidString), "window_ref": v2Ref(kind: .window, uuid: v2ResolveWindowId(tabManager: tabManager))])
+            ws.triggerFocusFlash(panelId: surfaceId, appearance: appearance, persistent: persistent)
+            result = .ok([
+                "workspace_id": ws.id.uuidString,
+                "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id),
+                "surface_id": surfaceId.uuidString,
+                "surface_ref": v2Ref(kind: .surface, uuid: surfaceId),
+                "window_id": v2OrNull(v2ResolveWindowId(tabManager: tabManager)?.uuidString),
+                "window_ref": v2Ref(kind: .window, uuid: v2ResolveWindowId(tabManager: tabManager)),
+                "persistent": persistent
+            ])
+        }
+        return result
+    }
+
+    /// CMUX-10: cancel an in-flight persistent flash on a single surface.
+    /// Idempotent — succeeds even when no flash is registered (the operator
+    /// or agent doesn't need to know the current state to cancel).
+    private func v2SurfaceCancelFlash(params: [String: Any]) -> V2CallResult {
+        guard let tabManager = v2ResolveTabManager(params: params) else {
+            return .err(code: "unavailable", message: "TabManager not available", data: nil)
+        }
+
+        var result: V2CallResult = .err(code: "internal_error", message: "Failed to cancel flash", data: nil)
+        v2MainSync {
+            guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
+                result = .err(code: "not_found", message: "Workspace not found", data: nil)
+                return
+            }
+
+            let surfaceId = v2UUID(params, "surface_id") ?? ws.focusedPanelId
+            guard let surfaceId else {
+                result = .err(code: "not_found", message: "No focused surface", data: nil)
+                return
+            }
+            guard ws.panels[surfaceId] != nil else {
+                result = .err(code: "not_found", message: "Surface not found", data: ["surface_id": surfaceId.uuidString])
+                return
+            }
+
+            ws.cancelPersistentFlash(panelId: surfaceId)
+            result = .ok([
+                "workspace_id": ws.id.uuidString,
+                "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id),
+                "surface_id": surfaceId.uuidString,
+                "surface_ref": v2Ref(kind: .surface, uuid: surfaceId)
+            ])
         }
         return result
     }

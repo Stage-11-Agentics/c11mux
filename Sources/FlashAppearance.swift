@@ -31,6 +31,15 @@ public enum FlashEnvelope: Equatable {
         case .sidebarFill: return 0.6
         }
     }
+
+    /// Duration of one flash pulse in seconds. Until commit 5 wires the
+    /// configurable Flash Duration setting, this resolves to the historical
+    /// `FocusFlashPattern.duration` (0.9s). Commit 5 swaps the source to
+    /// `NotificationFlashDurationSettings.currentMs / 1000.0` without changing
+    /// the call shape.
+    public var duration: TimeInterval {
+        FocusFlashPattern.duration
+    }
 }
 
 public struct FlashAppearance: Equatable {

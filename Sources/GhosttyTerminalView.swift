@@ -5843,6 +5843,12 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
         requestPointerFocusRecovery()
         window?.makeFirstResponder(self)
         if let terminalSurface {
+            // CMUX-10: click cancels any persistent flash on this surface. Mouse-only
+            // path; the keyDown / typing hot path is not touched here.
+            if let workspace = AppDelegate.shared?.tabManager?.tabs.first(where: { $0.id == terminalSurface.tabId }),
+               workspace.persistentFlashPanels[terminalSurface.id] != nil {
+                workspace.cancelPersistentFlash(panelId: terminalSurface.id)
+            }
             AppDelegate.shared?.tabManager?.dismissNotificationOnDirectInteraction(
                 tabId: terminalSurface.tabId,
                 surfaceId: terminalSurface.id

@@ -11662,6 +11662,10 @@ private struct TabItemView: View, Equatable {
             lastSidebarSelectionIndex: $lastSidebarSelectionIndex
         ))
         .onTapGesture {
+            // CMUX-10: clicking the workspace row dismisses any persistent
+            // flash inside it (across all panels). The operator clicked,
+            // they're acknowledging — give them the surface clean.
+            tab.cancelAllPersistentFlashes()
             updateSelection()
         }
         .onHover { hovering in
