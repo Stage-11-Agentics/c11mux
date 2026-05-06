@@ -32,6 +32,7 @@ struct SurfaceTitleBarView: View {
 
     @ObservedObject private var themeManager = ThemeManager.shared
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.chromeScaleTokens) private var chromeTokens
     @AppStorage(ThemeAppStorage.Keys.m1bSurfaceTitleBarMigrated, store: ThemeAppStorage.defaults)
     private var m1bSurfaceTitleBarMigrated = false
 
@@ -136,7 +137,7 @@ struct SurfaceTitleBarView: View {
         HStack(spacing: 6) {
             Text(state.title ?? String(localized: "titlebar.empty_title",
                                        defaultValue: "Untitled"))
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: chromeTokens.surfaceTitleBarTitle, weight: .semibold))
                 .foregroundColor(resolvedForegroundColor)
                 .lineLimit(effectiveCollapsed ? 1 : nil)
                 .truncationMode(.tail)
@@ -144,7 +145,7 @@ struct SurfaceTitleBarView: View {
             Spacer(minLength: 0)
             Button(action: onToggleCollapsed) {
                 Image(systemName: effectiveCollapsed ? "chevron.right" : "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: chromeTokens.surfaceTitleBarAccessory, weight: .semibold))
                     .foregroundColor(resolvedSecondaryForegroundColor)
                     .frame(width: 14, height: 14)
                     .contentShape(Rectangle())
