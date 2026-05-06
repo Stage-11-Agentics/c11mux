@@ -489,6 +489,80 @@ struct BrowserPanelView: View {
         return currentPaneId.id == paneId.id
     }
 
+    // Each overlay extracted into its own computed property so the type-checker
+    // can resolve them independently. Inlining all five into `body` along with
+    // the .onChange chain pushes the expression past the type-checker's budget
+    // on hosted-runner CI ("unable to type-check this expression in reasonable
+    // time" at the body's opening brace).
+
+    @ViewBuilder
+    private var searchOverlayLayer: some View {
+        // Keep Cmd+F usable when the browser is still in the empty new-tab
+        // state (no WKWebView mounted yet). WebView-backed cases are hosted
+        // in AppKit by WindowBrowserPortal to avoid layering/clipping issues.
+        if !panel.shouldRenderWebView, let searchState = panel.searchState {
+            BrowserSearchOverlay(
+                panelId: panel.id,
+                searchState: searchState,
+                focusRequestGeneration: panel.searchFocusRequestGeneration,
+                canApplyFocusRequest: { generation in
+                    panel.canApplySearchFocusRequest(generation)
+                },
+                onNext: { panel.findNext() },
+                onPrevious: { panel.findPrevious() },
+                onClose: { panel.hideFind() },
+                onFieldDidFocus: { panel.noteFindFieldFocused() }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var paneInteractionOverlayLayer: some View {
+        // Pane-interaction overlay (empty-new-tab state only). WebView-backed
+        // cases mount the overlay from the AppKit portal host for the same
+        // layering reason that BrowserSearchOverlay above does.
+        if !panel.shouldRenderWebView,
+           let interaction = paneInteractionRuntime.active[panel.id] {
+            PaneInteractionCardView(
+                panelId: panel.id,
+                interaction: interaction,
+                runtime: paneInteractionRuntime
+            )
+        }
+    }
+
+    private var focusFlashRingLayer: some View {
+        RoundedRectangle(cornerRadius: FocusFlashPattern.ringCornerRadius)
+            .stroke(cmuxAccentColor().opacity(focusFlashOpacity), lineWidth: 3)
+            .shadow(color: cmuxAccentColor().opacity(focusFlashOpacity * 0.35), radius: 10)
+            .padding(FocusFlashPattern.ringInset)
+            .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private var omnibarSuggestionsLayer: some View {
+        if addressBarFocused, !omnibarState.suggestions.isEmpty, omnibarPillFrame.width > 0 {
+            OmnibarSuggestionsView(
+                engineName: searchEngine.displayName,
+                items: omnibarState.suggestions,
+                selectedIndex: omnibarState.selectedSuggestionIndex,
+                isLoadingRemoteSuggestions: isLoadingRemoteSuggestions,
+                searchSuggestionsEnabled: remoteSuggestionsEnabled,
+                onCommit: { item in
+                    commitSuggestion(item)
+                },
+                onHighlight: { idx in
+                    let effects = omnibarReduce(state: &omnibarState, event: .highlightIndex(idx))
+                    applyOmnibarEffects(effects)
+                }
+            )
+            .frame(width: omnibarPillFrame.width)
+            .offset(x: omnibarPillFrame.minX, y: omnibarPillFrame.maxY + 3)
+            .zIndex(1000)
+            .environment(\.colorScheme, browserChromeColorScheme)
+        }
+    }
+
     var body: some View {
         // Layering contract: browser Cmd+F UI is mounted in the portal-hosted AppKit
         // container. Rendering it here can hide it behind the portal-hosted WKWebView.
@@ -498,67 +572,10 @@ struct BrowserPanelView: View {
             webView
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .overlay {
-            // Keep Cmd+F usable when the browser is still in the empty new-tab
-            // state (no WKWebView mounted yet). WebView-backed cases are hosted
-            // in AppKit by WindowBrowserPortal to avoid layering/clipping issues.
-            if !panel.shouldRenderWebView, let searchState = panel.searchState {
-                BrowserSearchOverlay(
-                    panelId: panel.id,
-                    searchState: searchState,
-                    focusRequestGeneration: panel.searchFocusRequestGeneration,
-                    canApplyFocusRequest: { generation in
-                        panel.canApplySearchFocusRequest(generation)
-                    },
-                    onNext: { panel.findNext() },
-                    onPrevious: { panel.findPrevious() },
-                    onClose: { panel.hideFind() },
-                    onFieldDidFocus: { panel.noteFindFieldFocused() }
-                )
-            }
-        }
-        .overlay {
-            // Pane-interaction overlay (empty-new-tab state only). WebView-backed
-            // cases mount the overlay from the AppKit portal host for the same
-            // layering reason that BrowserSearchOverlay above does.
-            if !panel.shouldRenderWebView,
-               let interaction = paneInteractionRuntime.active[panel.id] {
-                PaneInteractionCardView(
-                    panelId: panel.id,
-                    interaction: interaction,
-                    runtime: paneInteractionRuntime
-                )
-            }
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: FocusFlashPattern.ringCornerRadius)
-                .stroke(cmuxAccentColor().opacity(focusFlashOpacity), lineWidth: 3)
-                .shadow(color: cmuxAccentColor().opacity(focusFlashOpacity * 0.35), radius: 10)
-                .padding(FocusFlashPattern.ringInset)
-                .allowsHitTesting(false)
-        }
-        .overlay(alignment: .topLeading) {
-            if addressBarFocused, !omnibarState.suggestions.isEmpty, omnibarPillFrame.width > 0 {
-                OmnibarSuggestionsView(
-                    engineName: searchEngine.displayName,
-                    items: omnibarState.suggestions,
-                    selectedIndex: omnibarState.selectedSuggestionIndex,
-                    isLoadingRemoteSuggestions: isLoadingRemoteSuggestions,
-                    searchSuggestionsEnabled: remoteSuggestionsEnabled,
-                    onCommit: { item in
-                        commitSuggestion(item)
-                    },
-                    onHighlight: { idx in
-                        let effects = omnibarReduce(state: &omnibarState, event: .highlightIndex(idx))
-                        applyOmnibarEffects(effects)
-                    }
-                )
-                .frame(width: omnibarPillFrame.width)
-                .offset(x: omnibarPillFrame.minX, y: omnibarPillFrame.maxY + 3)
-                .zIndex(1000)
-                .environment(\.colorScheme, browserChromeColorScheme)
-            }
-        }
+        .overlay { searchOverlayLayer }
+        .overlay { paneInteractionOverlayLayer }
+        .overlay { focusFlashRingLayer }
+        .overlay(alignment: .topLeading) { omnibarSuggestionsLayer }
         .coordinateSpace(name: "BrowserPanelViewSpace")
         .onPreferenceChange(OmnibarPillFramePreferenceKey.self) { frame in
             omnibarPillFrame = frame
