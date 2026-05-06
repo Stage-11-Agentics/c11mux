@@ -36800,6 +36800,39 @@
         }
       }
     },
+    "settings.notifications.flashDuration.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How long the flash pulse lasts before fading."
+          }
+        }
+      }
+    },
+    "settings.notifications.flashDuration.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flash Duration"
+          }
+        }
+      }
+    },
+    "settings.notifications.flashDuration.unit.ms": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d ms"
+          }
+        }
+      }
+    },
     "settings.notifications.paneFlash.subtitle": {
       "extractionState": "manual",
       "localizations": {

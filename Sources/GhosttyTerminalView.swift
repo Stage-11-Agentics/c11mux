@@ -5843,6 +5843,12 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
         requestPointerFocusRecovery()
         window?.makeFirstResponder(self)
         if let terminalSurface {
+            // CMUX-10: click cancels any persistent flash on this surface. Mouse-only
+            // path; the keyDown / typing hot path is not touched here.
+            if let workspace = AppDelegate.shared?.tabManager?.tabs.first(where: { $0.id == terminalSurface.tabId }),
+               workspace.persistentFlashPanels[terminalSurface.id] != nil {
+                workspace.cancelPersistentFlash(panelId: terminalSurface.id)
+            }
             AppDelegate.shared?.tabManager?.dismissNotificationOnDirectInteraction(
                 tabId: terminalSurface.tabId,
                 surfaceId: terminalSurface.id
@@ -6636,11 +6642,14 @@ final class GhosttySurfaceScrollView: NSView {
         flashOverlayView.layer?.masksToBounds = false
         flashOverlayView.autoresizingMask = [.width, .height]
         flashLayer.fillColor = NSColor.clear.cgColor
-        flashLayer.strokeColor = cmuxAccentNSColor().cgColor
+        // CMUX-10: color sourced via FlashAppearance seam (still gold here in
+        // commit 1; commit 2 swaps the default and adds per-call overrides).
+        let initialFlashColor = FlashAppearance.current(envelope: .paneRing).color
+        flashLayer.strokeColor = initialFlashColor.cgColor
         flashLayer.lineWidth = 3
         flashLayer.lineJoin = .round
         flashLayer.lineCap = .round
-        flashLayer.shadowColor = cmuxAccentNSColor().cgColor
+        flashLayer.shadowColor = initialFlashColor.cgColor
         flashLayer.shadowOpacity = 0.6
         flashLayer.shadowRadius = 6
         flashLayer.shadowOffset = .zero
@@ -7575,6 +7584,14 @@ final class GhosttySurfaceScrollView: NSView {
 #endif
 
     func triggerFlash(style: FlashStyle = .standardFocus) {
+        triggerFlash(style: style, appearance: FlashAppearance.current(envelope: .paneRing))
+    }
+
+    /// CMUX-10: variant that re-tints the flash layer with a per-call color
+    /// before firing the animation. Color is applied off the layer's
+    /// presentation tree (sublayer property), not via a redraw of the surface,
+    /// so this stays out of the typing hot path.
+    func triggerFlash(style: FlashStyle, appearance: FlashAppearance) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
 #if DEBUG
@@ -7585,6 +7602,8 @@ final class GhosttySurfaceScrollView: NSView {
             self.updateFlashPath(style: style)
             self.flashLayer.removeAllAnimations()
             self.flashLayer.opacity = 0
+            self.flashLayer.strokeColor = appearance.color.cgColor
+            self.flashLayer.shadowColor = appearance.color.cgColor
             let animation = CAKeyframeAnimation(keyPath: "opacity")
             animation.values = FocusFlashPattern.values.map { NSNumber(value: $0) }
             animation.keyTimes = FocusFlashPattern.keyTimes.map { NSNumber(value: $0) }

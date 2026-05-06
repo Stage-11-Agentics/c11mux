@@ -8512,6 +8512,7 @@ struct VerticalTabsSidebar: View {
                                     allRemoteContextMenuTargetsConnecting: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .connecting },
                                     allRemoteContextMenuTargetsDisconnected: !remoteContextMenuTargets.isEmpty && remoteContextMenuTargets.allSatisfy { $0.remoteConnectionState == .disconnected },
                                     sidebarFlashToken: tab.sidebarFlashToken,
+                                    sidebarFlashColorHex: tab.sidebarFlashColorHex,
                                     chromeTokens: chromeTokens
                                 )
                                 .equatable()
@@ -10959,6 +10960,7 @@ private struct TabItemView: View, Equatable {
         lhs.allRemoteContextMenuTargetsConnecting == rhs.allRemoteContextMenuTargetsConnecting &&
         lhs.allRemoteContextMenuTargetsDisconnected == rhs.allRemoteContextMenuTargetsDisconnected &&
         lhs.sidebarFlashToken == rhs.sidebarFlashToken &&
+        lhs.sidebarFlashColorHex == rhs.sidebarFlashColorHex &&
         lhs.chromeTokens == rhs.chromeTokens
     }
 
@@ -11032,6 +11034,23 @@ private struct TabItemView: View, Equatable {
     /// running a single, gentle pulse in the same accent color used for
     /// other workspace affordances. Visual-only; never selects.
     let sidebarFlashToken: Int
+    /// CMUX-10: hex color (#RRGGBBAA) for the sidebar pulse on the most
+    /// recent flash. Sourced from `--color` via `Workspace.runFlashPulse`
+    /// so a per-call color override tints the workspace row, not just the
+    /// terminal pane ring. nil → fall back to the default sidebar-fill
+    /// color.
+    let sidebarFlashColorHex: String?
+
+    /// CMUX-10: resolves `sidebarFlashColorHex` to a SwiftUI `Color`. Falls
+    /// back to the default `FlashAppearance` sidebar fill when the most
+    /// recent flash carried no per-call color.
+    private var sidebarFlashFillColor: Color {
+        if let hex = sidebarFlashColorHex,
+           let nsColor = FlashAppearance.parseHex(hex) {
+            return Color(nsColor: nsColor)
+        }
+        return FlashAppearance.current(envelope: .sidebarFill).swiftUIColor
+    }
     /// Chrome scale tokens (sidebar+tab strip font/sizing multipliers). Value-typed
     /// and Equatable so it folds into `==` as a single multiplier compare. (C11-6)
     let chromeTokens: ChromeScaleTokens
@@ -11594,8 +11613,10 @@ private struct TabItemView: View, Equatable {
                     // signals "a panel in this workspace was flashed" without
                     // shouting from the sidebar. Hit testing is disabled so
                     // the pulse never intercepts clicks/drags.
+                    // CMUX-10: color sourced via FlashAppearance seam, or
+                    // tinted by `--color` when the trigger carried one.
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(cmuxAccentColor().opacity(sidebarFlashOpacity))
+                        .fill(sidebarFlashFillColor.opacity(sidebarFlashOpacity))
                         .allowsHitTesting(false)
                 }
         )
@@ -11661,6 +11682,10 @@ private struct TabItemView: View, Equatable {
             lastSidebarSelectionIndex: $lastSidebarSelectionIndex
         ))
         .onTapGesture {
+            // CMUX-10: clicking the workspace row dismisses any persistent
+            // flash inside it (across all panels). The operator clicked,
+            // they're acknowledging — give them the surface clean.
+            tab.cancelAllPersistentFlashes()
             updateSelection()
         }
         .onHover { hovering in
@@ -11683,9 +11708,13 @@ private struct TabItemView: View, Equatable {
     }
 
     private func runSidebarFlashAnimation(token: Int) {
-        // Reset to the envelope start in case a prior flash is mid-flight.
-        sidebarFlashOpacity = SidebarFlashPattern.values.first ?? 0
-        for segment in SidebarFlashPattern.segments {
+        // CMUX-10: drive the sidebar pulse from the unified `FocusFlashPattern`
+        // envelope (same temporal shape as the pane ring), with the per-channel
+        // peak scalar applied so the row tint reads as a signal without
+        // overpowering the sidebar.
+        let peakScale = FlashEnvelope.sidebarFill.peakScale
+        sidebarFlashOpacity = (FocusFlashPattern.values.first ?? 0) * peakScale
+        for segment in FocusFlashPattern.segments {
             DispatchQueue.main.asyncAfter(deadline: .now() + segment.delay) {
                 // Bail if a newer flash superseded this run.
                 guard token == lastObservedSidebarFlashToken else { return }
@@ -11697,7 +11726,7 @@ private struct TabItemView: View, Equatable {
                     animation = .easeOut(duration: segment.duration)
                 }
                 withAnimation(animation) {
-                    sidebarFlashOpacity = segment.targetOpacity
+                    sidebarFlashOpacity = segment.targetOpacity * peakScale
                 }
             }
         }

@@ -4387,6 +4387,7 @@ struct SettingsView: View {
     @AppStorage(NotificationBadgeSettings.dockBadgeEnabledKey) private var notificationDockBadgeEnabled = NotificationBadgeSettings.defaultDockBadgeEnabled
     @AppStorage(NotificationPaneRingSettings.enabledKey) private var notificationPaneRingEnabled = NotificationPaneRingSettings.defaultEnabled
     @AppStorage(NotificationPaneFlashSettings.enabledKey) private var notificationPaneFlashEnabled = NotificationPaneFlashSettings.defaultEnabled
+    @AppStorage(NotificationFlashDurationSettings.storageKey) private var notificationFlashDurationMs: Int = NotificationFlashDurationSettings.defaultMs
     @AppStorage(MenuBarExtraSettings.showInMenuBarKey) private var showMenuBarExtra = MenuBarExtraSettings.defaultShowInMenuBar
     @AppStorage(QuitWarningSettings.warnBeforeQuitKey) private var warnBeforeQuitShortcut = QuitWarningSettings.defaultWarnBeforeQuit
     @AppStorage(CommandPaletteRenameSelectionSettings.selectAllOnFocusKey)
@@ -5760,6 +5761,40 @@ struct SettingsView: View {
                     .accessibilityLabel(
                         String(localized: "settings.notifications.paneFlash.title", defaultValue: "Pane Flash")
                     )
+            }
+
+            SettingsCardDivider()
+
+            SettingsCardRow(
+                String(localized: "settings.notifications.flashDuration.title", defaultValue: "Flash Duration"),
+                subtitle: String(localized: "settings.notifications.flashDuration.subtitle", defaultValue: "How long the flash pulse lasts before fading.")
+            ) {
+                HStack(spacing: 8) {
+                    Slider(
+                        value: Binding<Double>(
+                            get: { Double(notificationFlashDurationMs) },
+                            set: { newValue in
+                                let clamped = min(
+                                    Double(NotificationFlashDurationSettings.maxMs),
+                                    max(Double(NotificationFlashDurationSettings.minMs), newValue)
+                                )
+                                notificationFlashDurationMs = Int((clamped / 100.0).rounded()) * 100
+                            }
+                        ),
+                        in: Double(NotificationFlashDurationSettings.minMs)...Double(NotificationFlashDurationSettings.maxMs),
+                        step: 100
+                    )
+                    .controlSize(.small)
+                    .frame(width: 140)
+                    .accessibilityLabel(
+                        String(localized: "settings.notifications.flashDuration.title", defaultValue: "Flash Duration")
+                    )
+                    Text(String(format: String(localized: "settings.notifications.flashDuration.unit.ms", defaultValue: "%d ms"), notificationFlashDurationMs))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .frame(minWidth: 56, alignment: .trailing)
+                }
             }
         }
 
