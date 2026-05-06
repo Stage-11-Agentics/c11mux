@@ -4,10 +4,43 @@ import Foundation
 import Bonsplit
 import CoreVideo
 import Combine
+import os
 
 // MARK: - Tab Type Alias for Backwards Compatibility
 // The old Tab class is replaced by Workspace
 typealias Tab = Workspace
+
+/// Always-on signpost facade for workspace-switch perf instrumentation.
+///
+/// Wraps `os_signpost` with a single `OSLog` so Instruments.app can graph the
+/// switch path (Time Profiler → Points of Interest, or os_signpost lane).
+/// Operates in DEBUG and Release builds; user-facing perf regressions are
+/// observable from production traces.
+///
+/// Lifecycle: TabManager opens an interval at `selectedTabId.didSet` and closes
+/// it after the queued async side-effects complete. View-layer code emits phase
+/// events (`view.selectedChange`, `handoff.start`, `handoff.complete`,
+/// `mount.reconcile`, `swiftui.update`, `swiftui.dismantle`) attached to the
+/// same `OSSignpostID` so they appear nested under the interval.
+enum WorkspaceSwitchSignpost {
+    static let log = OSLog(subsystem: "com.stage11.c11", category: "WorkspaceSwitch")
+
+    static func makeID() -> OSSignpostID {
+        OSSignpostID(log: log)
+    }
+
+    static func begin(_ id: OSSignpostID, _ message: String) {
+        os_signpost(.begin, log: log, name: "Switch", signpostID: id, "%{public}s", message)
+    }
+
+    static func end(_ id: OSSignpostID, _ message: String) {
+        os_signpost(.end, log: log, name: "Switch", signpostID: id, "%{public}s", message)
+    }
+
+    static func event(_ id: OSSignpostID, _ name: StaticString, _ message: String) {
+        os_signpost(.event, log: log, name: name, signpostID: id, "%{public}s", message)
+    }
+}
 
 enum NewWorkspacePlacement: String, CaseIterable, Identifiable {
     case top
@@ -814,6 +847,21 @@ class TabManager: ObservableObject {
             sentryBreadcrumb("workspace.switch", data: [
                 "tabCount": tabs.count
             ])
+
+            // Phase 0 instrumentation: open a signpost interval spanning the
+            // entire switch (didSet → queued async block) so Instruments.app
+            // can graph it. Always-on, DEBUG and Release.
+            let switchSignpostID = WorkspaceSwitchSignpost.makeID()
+            self.currentSwitchSignpostID = switchSignpostID
+            let switchStartTime = CACurrentMediaTime()
+            self.currentSwitchStartTime = switchStartTime
+            WorkspaceSwitchSignpost.begin(
+                switchSignpostID,
+                "from=\(String(oldValue?.uuidString.prefix(5) ?? "nil")) " +
+                "to=\(String(selectedTabId?.uuidString.prefix(5) ?? "nil")) " +
+                "tabs=\(tabs.count)"
+            )
+
             let previousTabId = oldValue
             if let previousTabId,
                let previousPanelId = focusedPanelId(for: previousTabId) {
@@ -834,19 +882,70 @@ class TabManager: ObservableObject {
 #endif
             selectionSideEffectsGeneration &+= 1
             let generation = selectionSideEffectsGeneration
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.selectionSideEffectsGeneration == generation else { return }
+            DispatchQueue.main.async { [weak self, switchSignpostID, switchStartTime] in
+                guard let self, self.selectionSideEffectsGeneration == generation else {
+                    // Block was superseded by a newer switch. Close the signpost
+                    // so Instruments doesn't render an unbounded interval.
+                    WorkspaceSwitchSignpost.end(switchSignpostID, "superseded")
+                    return
+                }
+#if DEBUG
+                let asyncBlockStart = CACurrentMediaTime()
+                let switchDtAtAsyncEnter = self.debugWorkspaceSwitchStartTime > 0
+                    ? (asyncBlockStart - self.debugWorkspaceSwitchStartTime) * 1000
+                    : 0
+                dlog(
+                    "ws.select.asyncEnter id=\(self.debugWorkspaceSwitchId) " +
+                    "dt=\(Self.debugMsText(switchDtAtAsyncEnter))"
+                )
+#endif
                 self.focusSelectedTabPanel(previousTabId: previousTabId)
+#if DEBUG
+                let postFocusDt = (CACurrentMediaTime() - asyncBlockStart) * 1000
+                dlog(
+                    "ws.select.asyncPostFocusPanel id=\(self.debugWorkspaceSwitchId) " +
+                    "phaseDt=\(Self.debugMsText(postFocusDt))"
+                )
+#endif
                 self.updateWindowTitleForSelectedTab()
+#if DEBUG
+                let postTitleDt = (CACurrentMediaTime() - asyncBlockStart) * 1000
+                dlog(
+                    "ws.select.asyncPostTitleUpdate id=\(self.debugWorkspaceSwitchId) " +
+                    "phaseDt=\(Self.debugMsText(postTitleDt))"
+                )
+#endif
                 if let selectedTabId = self.selectedTabId {
                     self.markFocusedPanelReadIfActive(tabId: selectedTabId)
                 }
 #if DEBUG
-                let dtMs = self.debugWorkspaceSwitchStartTime > 0
+                let postMarkReadDt = (CACurrentMediaTime() - asyncBlockStart) * 1000
+                dlog(
+                    "ws.select.asyncPostMarkRead id=\(self.debugWorkspaceSwitchId) " +
+                    "phaseDt=\(Self.debugMsText(postMarkReadDt))"
+                )
+#endif
+
+                // Phase 0: close the signpost interval and post a release-safe
+                // Sentry breadcrumb with the duration so production traces
+                // capture user-facing slowness.
+                let dtMs = (CACurrentMediaTime() - switchStartTime) * 1000
+                let dtMsRounded = Int(dtMs.rounded())
+                WorkspaceSwitchSignpost.end(switchSignpostID, "dt=\(dtMsRounded)ms")
+                sentryBreadcrumb("workspace.switch.complete", category: "perf", data: [
+                    "dt_ms": dtMsRounded,
+                    "tabs": self.tabs.count
+                ])
+                if self.currentSwitchSignpostID == switchSignpostID {
+                    self.currentSwitchSignpostID = nil
+                }
+
+#if DEBUG
+                let debugDtMs = self.debugWorkspaceSwitchStartTime > 0
                     ? (CACurrentMediaTime() - self.debugWorkspaceSwitchStartTime) * 1000
                     : 0
                 dlog(
-                    "ws.select.asyncDone id=\(self.debugWorkspaceSwitchId) dt=\(Self.debugMsText(dtMs)) " +
+                    "ws.select.asyncDone id=\(self.debugWorkspaceSwitchId) dt=\(Self.debugMsText(debugDtMs)) " +
                     "selected=\(Self.debugShortWorkspaceId(self.selectedTabId))"
                 )
 #endif
@@ -891,6 +990,16 @@ class TabManager: ObservableObject {
         }
     }
     private var agentPIDSweepTimer: DispatchSourceTimer?
+
+    // Phase 0 instrumentation: always-on (DEBUG and Release) so Instruments.app
+    // and Sentry can both observe workspace-switch latency. The DEBUG-only
+    // counters above remain because the dlog timeline depends on them.
+    /// Signpost ID for the currently in-flight workspace switch, or nil. Set in
+    /// `selectedTabId.didSet` and cleared after the queued async block completes.
+    /// Read by ContentView and GhosttyTerminalView to attach phase events.
+    private(set) var currentSwitchSignpostID: OSSignpostID?
+    private var currentSwitchStartTime: CFTimeInterval = 0
+
 #if DEBUG
     private var debugWorkspaceSwitchCounter: UInt64 = 0
     private var debugWorkspaceSwitchId: UInt64 = 0
@@ -2842,6 +2951,21 @@ class TabManager: ObservableObject {
     }
 
     private func focusSelectedTabPanel(previousTabId: UUID?) {
+#if DEBUG
+        let phaseStart = CACurrentMediaTime()
+        func phaseDlog(_ marker: String) {
+            let dtMs = (CACurrentMediaTime() - phaseStart) * 1000
+            let switchDtMs = debugWorkspaceSwitchStartTime > 0
+                ? (CACurrentMediaTime() - debugWorkspaceSwitchStartTime) * 1000
+                : 0
+            dlog(
+                "ws.focusPanel.\(marker) id=\(debugWorkspaceSwitchId) " +
+                "phaseDt=\(Self.debugMsText(dtMs)) switchDt=\(Self.debugMsText(switchDtMs))"
+            )
+        }
+        phaseDlog("enter")
+        defer { phaseDlog("exit") }
+#endif
         guard let selectedTabId,
               let tab = tabs.first(where: { $0.id == selectedTabId }) else { return }
 
@@ -2866,12 +2990,21 @@ class TabManager: ObservableObject {
                 with: (tabId: previousTabId, panelId: previousPanelId)
             )
         }
+#if DEBUG
+        phaseDlog("preFocus")
+#endif
 
         panel.focus()
+#if DEBUG
+        phaseDlog("postPanelFocus")
+#endif
 
         // For terminal panels, ensure proper focus handling
         if let terminalPanel = panel as? TerminalPanel {
             terminalPanel.hostedView.ensureFocus(for: selectedTabId, surfaceId: panelId)
+#if DEBUG
+            phaseDlog("postEnsureFocus")
+#endif
         }
     }
 

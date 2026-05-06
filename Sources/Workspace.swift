@@ -9589,8 +9589,14 @@ final class Workspace: Identifiable, ObservableObject {
         guard layoutFollowUpTimeoutWorkItem != nil, !isAttemptingLayoutFollowUp else { return }
         isAttemptingLayoutFollowUp = true
         defer { isAttemptingLayoutFollowUp = false }
+#if DEBUG
+        let attemptStart = CACurrentMediaTime()
+#endif
 
         flushWorkspaceWindowLayouts()
+#if DEBUG
+        let postFlushMs = (CACurrentMediaTime() - attemptStart) * 1000
+#endif
 
         let geometryPendingBefore = layoutFollowUpNeedsGeometryPass
         let terminalPortalPendingBefore = terminalPortalVisibilityNeedsFollowUp()
@@ -9688,17 +9694,32 @@ final class Workspace: Identifiable, ObservableObject {
         } else {
             layoutFollowUpStalledAttemptCount += 1
         }
+#if DEBUG
+        let totalMs = (CACurrentMediaTime() - attemptStart) * 1000
+        dlog(
+            "ws.layoutFollowUp.attempt workspace=\(id.uuidString.prefix(5)) " +
+            "totalMs=\(String(format: "%.2f", totalMs)) " +
+            "flushMs=\(String(format: "%.2f", postFlushMs)) " +
+            "didMakeProgress=\(didMakeProgress ? 1 : 0) needsMoreWork=\(needsMoreWork ? 1 : 0) " +
+            "stalled=\(layoutFollowUpStalledAttemptCount) reason=\(layoutFollowUpReason ?? "nil")"
+        )
+#endif
     }
 
     /// Reconcile remaining terminal view geometries after split topology changes.
     /// This keeps AppKit bounds and Ghostty surface sizes in sync in the next runloop turn.
     private func reconcileTerminalGeometryPass() -> Bool {
         var needsFollowUpPass = false
+#if DEBUG
+        let passStart = CACurrentMediaTime()
+        var refreshedCount = 0
+        var skippedCount = 0
+#endif
 
-        // Flush pending AppKit layout first so terminal-host bounds reflect latest split topology.
-        for window in NSApp.windows {
-            window.contentView?.layoutSubtreeIfNeeded()
-        }
+        // `attemptEventDrivenLayoutFollowUp` already flushes all window layouts via
+        // `flushWorkspaceWindowLayouts()` before invoking this pass, so we do not re-flush
+        // here. Phase 3 — removing the duplicate `layoutSubtreeIfNeeded` loop saves a
+        // full-window layout pass on every reconcile attempt.
 
         for panel in panels.values {
             guard let terminalPanel = panel as? TerminalPanel else { continue }
@@ -9717,14 +9738,35 @@ final class Workspace: Identifiable, ObservableObject {
             hostedView.reconcileGeometryNow()
             // Re-check surface after reconcileGeometryNow() which can trigger AppKit
             // layout and view lifecycle changes that free surfaces (#432).
-            if terminalPanel.surface.surface != nil {
+            //
+            // Phase 3 — only refresh when the surface is actually attachable. The
+            // `forceRefresh()` body already early-returns on detached / zero-bounds
+            // views, but skipping the call entirely avoids the per-panel dlog
+            // emission and the entry into the Ghostty C bridge during the cascade
+            // of follow-up passes that fire on every workspace switch.
+            if terminalPanel.surface.surface != nil, isAttached, hasUsableBounds {
                 terminalPanel.surface.forceRefresh()
+#if DEBUG
+                refreshedCount += 1
+#endif
+            } else {
+#if DEBUG
+                skippedCount += 1
+#endif
             }
             if terminalPanel.surface.surface == nil, isAttached && hasUsableBounds {
                 terminalPanel.surface.requestBackgroundSurfaceStartIfNeeded()
                 needsFollowUpPass = true
             }
         }
+#if DEBUG
+        let passMs = (CACurrentMediaTime() - passStart) * 1000
+        dlog(
+            "ws.geometryReconcile.pass workspace=\(id.uuidString.prefix(5)) " +
+            "ms=\(String(format: "%.2f", passMs)) refreshed=\(refreshedCount) skipped=\(skippedCount) " +
+            "needsFollowUp=\(needsFollowUpPass ? 1 : 0)"
+        )
+#endif
 
         return needsFollowUpPass
     }

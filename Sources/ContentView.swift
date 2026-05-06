@@ -6,8 +6,47 @@ import SwiftUI
 import ObjectiveC
 import UniformTypeIdentifiers
 import WebKit
+import os
 
 private var initialMainWindowGeometryReconcileKey: UInt8 = 0
+
+/// `NSViewControllerRepresentable` that hosts SwiftUI content and toggles
+/// `isHidden` on the hosting view based on a Bool. When `isHidden = true`,
+/// AppKit's `_layoutSubtreeWithOldSize:` walk short-circuits the entire
+/// subtree, eliminating the layout cost of off-screen workspaces during
+/// workspace switches.
+///
+/// Phase 1 of the workspace-switch perf fix. The SwiftUI subtree is preserved
+/// (surfaces don't dismount/remount) — only the AppKit visibility flag toggles.
+/// `.opacity()` alone does not skip layout; AppKit recurses into transparent
+/// views just like opaque ones, so `.opacity(0)` workspaces still pay full
+/// Auto Layout cost on every switch.
+///
+/// SwiftUI environment propagates through `NSHostingController`, so
+/// `@EnvironmentObject` / `@Environment` reads in the hosted content continue
+/// to resolve from the parent view's environment.
+private struct AppKitHiddenWrapper<Content: View>: NSViewControllerRepresentable {
+    let isHidden: Bool
+    let content: Content
+
+    init(isHidden: Bool, @ViewBuilder content: () -> Content) {
+        self.isHidden = isHidden
+        self.content = content()
+    }
+
+    func makeNSViewController(context: Context) -> NSHostingController<Content> {
+        let host = NSHostingController(rootView: content)
+        host.view.isHidden = isHidden
+        return host
+    }
+
+    func updateNSViewController(_ host: NSHostingController<Content>, context: Context) {
+        if host.view.isHidden != isHidden {
+            host.view.isHidden = isHidden
+        }
+        host.rootView = content
+    }
+}
 
 private extension Color {
     init?(hex: String) {
@@ -2120,21 +2159,27 @@ struct ContentView: View {
                     // delay handoff completion and make browser returns feel laggy.
                     let isInputActive = isSelectedWorkspace
                     let portalPriority = isSelectedWorkspace ? 2 : (isRetiringWorkspace ? 1 : 0)
-                    WorkspaceContentView(
-                        workspace: tab,
-                        isWorkspaceVisible: presentation.isPanelVisible,
-                        isWorkspaceInputActive: isInputActive,
-                        workspacePortalPriority: portalPriority,
-                        onThemeRefreshRequest: { reason, eventId, source, payloadHex in
-                            scheduleTitlebarThemeRefreshFromWorkspace(
-                                workspaceId: tab.id,
-                                reason: reason,
-                                backgroundEventId: eventId,
-                                backgroundSource: source,
-                                notificationPayloadHex: payloadHex
-                            )
-                        }
-                    )
+                    // Phase 1: wrap in AppKitHiddenWrapper so off-screen workspaces
+                    // are isHidden=true at the AppKit level, which lets the
+                    // _layoutSubtreeWithOldSize: walk short-circuit their subtrees
+                    // entirely. .opacity(0) does not skip layout; isHidden does.
+                    AppKitHiddenWrapper(isHidden: !presentation.isRenderedVisible) {
+                        WorkspaceContentView(
+                            workspace: tab,
+                            isWorkspaceVisible: presentation.isPanelVisible,
+                            isWorkspaceInputActive: isInputActive,
+                            workspacePortalPriority: portalPriority,
+                            onThemeRefreshRequest: { reason, eventId, source, payloadHex in
+                                scheduleTitlebarThemeRefreshFromWorkspace(
+                                    workspaceId: tab.id,
+                                    reason: reason,
+                                    backgroundEventId: eventId,
+                                    backgroundSource: source,
+                                    notificationPayloadHex: payloadHex
+                                )
+                            }
+                        )
+                    }
                     .opacity(presentation.renderOpacity)
                     .allowsHitTesting(isSelectedWorkspace)
                     .accessibilityHidden(!presentation.isRenderedVisible)
@@ -2513,6 +2558,13 @@ struct ContentView: View {
                 dlog("ws.view.selectedChange id=none selected=\(debugShortWorkspaceId(newValue))")
             }
 #endif
+            if let signpostID = tabManager.currentSwitchSignpostID {
+                WorkspaceSwitchSignpost.event(
+                    signpostID,
+                    "view.selectedChange",
+                    "selected=\(String(newValue?.uuidString.prefix(5) ?? "nil"))"
+                )
+            }
             tabManager.applyWindowBackgroundForSelectedTab()
             startWorkspaceHandoffIfNeeded(newSelectedId: newValue)
             reconcileMountedWorkspaceIds(selectedId: newValue)
@@ -3003,10 +3055,10 @@ struct ContentView: View {
             isCycleHot: isCycleHot,
             maxMounted: maxMounted
         )
-#if DEBUG
         if mountedWorkspaceIds != previousMountedIds {
             let added = mountedWorkspaceIds.filter { !previousMountedIds.contains($0) }
             let removed = previousMountedIds.filter { !mountedWorkspaceIds.contains($0) }
+#if DEBUG
             if let snapshot = tabManager.debugCurrentWorkspaceSwitchSnapshot() {
                 let dtMs = (CACurrentMediaTime() - snapshot.startedAt) * 1000
                 dlog(
@@ -3021,8 +3073,15 @@ struct ContentView: View {
                     "mounted=\(debugShortWorkspaceIds(mountedWorkspaceIds))"
                 )
             }
-        }
 #endif
+            if let signpostID = tabManager.currentSwitchSignpostID {
+                WorkspaceSwitchSignpost.event(
+                    signpostID,
+                    "mount.reconcile",
+                    "mounted=\(mountedWorkspaceIds.count) +\(added.count) -\(removed.count) hot=\(isCycleHot ? 1 : 0)"
+                )
+            }
+        }
     }
 
     private enum BackgroundWorkspacePrimeState {
@@ -3356,6 +3415,14 @@ struct ContentView: View {
             )
         }
 #endif
+        if let signpostID = tabManager.currentSwitchSignpostID {
+            WorkspaceSwitchSignpost.event(
+                signpostID,
+                "handoff.start",
+                "old=\(oldSelectedId.uuidString.prefix(5)) " +
+                "new=\(newSelectedId.uuidString.prefix(5))"
+            )
+        }
 
         if canCompleteWorkspaceHandoffImmediately(for: newSelectedId) {
 #if DEBUG
@@ -3368,6 +3435,13 @@ struct ContentView: View {
                 dlog("ws.handoff.fastReady id=none selected=\(debugShortWorkspaceId(newSelectedId))")
             }
 #endif
+            if let signpostID = tabManager.currentSwitchSignpostID {
+                WorkspaceSwitchSignpost.event(
+                    signpostID,
+                    "handoff.fastReady",
+                    "selected=\(newSelectedId.uuidString.prefix(5))"
+                )
+            }
             completeWorkspaceHandoff(reason: "ready")
             return
         }
@@ -3427,6 +3501,13 @@ struct ContentView: View {
             dlog("ws.handoff.complete id=none reason=\(reason) retiring=\(debugShortWorkspaceId(retiring))")
         }
 #endif
+        if let signpostID = tabManager.currentSwitchSignpostID {
+            WorkspaceSwitchSignpost.event(
+                signpostID,
+                "handoff.complete",
+                "reason=\(reason) retiring=\(String(retiring?.uuidString.prefix(5) ?? "nil"))"
+            )
+        }
     }
 
     private var commandPaletteOverlay: some View {

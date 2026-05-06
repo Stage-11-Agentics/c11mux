@@ -200,11 +200,32 @@ final class TerminalPanel: Panel, ObservableObject {
     }
 
     func focus() {
+#if DEBUG
+        let focusStart = CACurrentMediaTime()
+#endif
         surface.setFocus(true)
+#if DEBUG
+        let postSetFocus = (CACurrentMediaTime() - focusStart) * 1000
+#endif
         // `unfocus()` force-disables active state to stop stale retries from stealing focus.
         // Re-enable it immediately for explicit focus requests (socket/UI) so ensureFocus can run.
         hostedView.setActive(true)
+#if DEBUG
+        let postSetActive = (CACurrentMediaTime() - focusStart) * 1000
+#endif
         hostedView.ensureFocus(for: workspaceId, surfaceId: id)
+#if DEBUG
+        let postEnsureFocus = (CACurrentMediaTime() - focusStart) * 1000
+        if postEnsureFocus > 5 {
+            dlog(
+                "terminalPanel.focus.timing panel=\(id.uuidString.prefix(5)) " +
+                "setFocus=\(String(format: "%.2f", postSetFocus))ms " +
+                "setActive=\(String(format: "%.2f", postSetActive - postSetFocus))ms " +
+                "ensureFocus=\(String(format: "%.2f", postEnsureFocus - postSetActive))ms " +
+                "total=\(String(format: "%.2f", postEnsureFocus))ms"
+            )
+        }
+#endif
     }
 
     func unfocus() {
