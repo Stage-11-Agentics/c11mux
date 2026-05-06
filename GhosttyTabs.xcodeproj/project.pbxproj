@@ -122,6 +122,10 @@
 		A5C101A2 /* PaneInteractionOverlayHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C101B2 /* PaneInteractionOverlayHost.swift */; };
 		A5C101A3 /* PaneInteractionOverlayHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C101B3 /* PaneInteractionOverlayHostView.swift */; };
 		A5C101A4 /* PaneCloseOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C101B4 /* PaneCloseOverlayController.swift */; };
+		A5C101A5 /* WorkspaceCloseInteractionRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C101B5 /* WorkspaceCloseInteractionRuntime.swift */; };
+		A5C101A6 /* WorkspaceCloseOverlayHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C101B6 /* WorkspaceCloseOverlayHost.swift */; };
+		A5C101A7 /* WorkspaceCloseCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C101B7 /* WorkspaceCloseCardView.swift */; };
+		A5C101A8 /* WorkspaceCloseOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C101B8 /* WorkspaceCloseOverlayController.swift */; };
 		A5C102A0 /* PaneInteractionRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C102B0 /* PaneInteractionRuntimeTests.swift */; };
 		A58689DE /* MermaidRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A537C229 /* MermaidRenderer.swift */; };
 		A58689DF /* FencedCodeRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A537C22A /* FencedCodeRenderer.swift */; };
@@ -467,6 +471,10 @@
 		A5C101B2 /* PaneInteractionOverlayHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/PaneInteractionOverlayHost.swift; sourceTree = "<group>"; };
 		A5C101B3 /* PaneInteractionOverlayHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/PaneInteractionOverlayHostView.swift; sourceTree = "<group>"; };
 		A5C101B4 /* PaneCloseOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/PaneCloseOverlayController.swift; sourceTree = "<group>"; };
+		A5C101B5 /* WorkspaceCloseInteractionRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/WorkspaceCloseInteractionRuntime.swift; sourceTree = "<group>"; };
+		A5C101B6 /* WorkspaceCloseOverlayHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/WorkspaceCloseOverlayHost.swift; sourceTree = "<group>"; };
+		A5C101B7 /* WorkspaceCloseCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/WorkspaceCloseCardView.swift; sourceTree = "<group>"; };
+		A5C101B8 /* WorkspaceCloseOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/WorkspaceCloseOverlayController.swift; sourceTree = "<group>"; };
 		A5C102B0 /* PaneInteractionRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneInteractionRuntimeTests.swift; sourceTree = "<group>"; };
 		A537C229 /* MermaidRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/MermaidRenderer.swift; sourceTree = "<group>"; };
 		A537C22A /* FencedCodeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/FencedCodeRenderer.swift; sourceTree = "<group>"; };
@@ -805,6 +813,10 @@
 				A5C101B2 /* PaneInteractionOverlayHost.swift */,
 				A5C101B3 /* PaneInteractionOverlayHostView.swift */,
 				A5C101B4 /* PaneCloseOverlayController.swift */,
+				A5C101B5 /* WorkspaceCloseInteractionRuntime.swift */,
+				A5C101B6 /* WorkspaceCloseOverlayHost.swift */,
+				A5C101B7 /* WorkspaceCloseCardView.swift */,
+				A5C101B8 /* WorkspaceCloseOverlayController.swift */,
 				A537C229 /* MermaidRenderer.swift */,
 				A537C22A /* FencedCodeRenderer.swift */,
 				A5001419 /* MarkdownPanelView.swift */,
@@ -1234,6 +1246,10 @@
 				A5C101A2 /* PaneInteractionOverlayHost.swift in Sources */,
 				A5C101A3 /* PaneInteractionOverlayHostView.swift in Sources */,
 				A5C101A4 /* PaneCloseOverlayController.swift in Sources */,
+				A5C101A5 /* WorkspaceCloseInteractionRuntime.swift in Sources */,
+				A5C101A6 /* WorkspaceCloseOverlayHost.swift in Sources */,
+				A5C101A7 /* WorkspaceCloseCardView.swift in Sources */,
+				A5C101A8 /* WorkspaceCloseOverlayController.swift in Sources */,
 				A58689DE /* MermaidRenderer.swift in Sources */,
 				A58689DF /* FencedCodeRenderer.swift in Sources */,
 				A5001421 /* MarkdownPanelView.swift in Sources */,

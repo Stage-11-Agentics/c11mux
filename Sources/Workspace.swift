@@ -5221,6 +5221,22 @@ final class Workspace: Identifiable, ObservableObject {
         runtime: paneCloseInteractionRuntime
     )
 
+    /// Workspace-scoped close-confirmation runtime. Distinct keyspace from
+    /// `paneInteractionRuntime` (panel-keyed) and `paneCloseInteractionRuntime`
+    /// (pane-keyed) so the workspace overlay's lifecycle never collides with
+    /// pane-scoped interactions. Only `.confirm` is supported here.
+    let workspaceCloseInteractionRuntime = WorkspaceCloseInteractionRuntime()
+
+    /// Mounts the workspace-scoped close-confirmation overlay (a near-black
+    /// scrim covering the workspace content area only) as an AppKit subview
+    /// of the window's themeFrame, above all portal-hosted content. Anchor
+    /// frame pushed in from `WorkspaceCloseOverlayHostView` rendered inside
+    /// `WorkspaceContentView` so the cover excludes the sidebar by
+    /// construction.
+    lazy var workspaceCloseOverlayController = WorkspaceCloseOverlayController(
+        runtime: workspaceCloseInteractionRuntime
+    )
+
 
     // Closing tabs mutates split layout immediately; terminal views handle their own AppKit
     // layout/size synchronization.
@@ -8174,6 +8190,8 @@ final class Workspace: Identifiable, ObservableObject {
         paneInteractionRuntime.clearAll()
         paneCloseInteractionRuntime.clearAll()
         paneCloseOverlayController.cleanup()
+        workspaceCloseInteractionRuntime.clear()
+        workspaceCloseOverlayController.cleanup()
 
         // CMUX-10: cancel every persistent-flash timer + manifest entry so
         // teardown does not leak repeating timers or stale `flash_state`
