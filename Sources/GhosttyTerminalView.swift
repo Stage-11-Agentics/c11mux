@@ -9,6 +9,7 @@ import Sentry
 import Bonsplit
 import IOSurface
 import UniformTypeIdentifiers
+import os
 
 #if os(macOS)
 func cmuxShouldUseTransparentBackgroundWindow() -> Bool {
@@ -9277,6 +9278,16 @@ struct GhosttyTerminalView: NSViewRepresentable {
             }
         }
 #endif
+        if desiredStateChanged,
+           let signpostID = AppDelegate.shared?.tabManager?.currentSwitchSignpostID {
+            WorkspaceSwitchSignpost.event(
+                signpostID,
+                "swiftui.update",
+                "surface=\(terminalSurface.id.uuidString.prefix(5)) " +
+                "visible=\(isVisibleInUI ? 1 : 0) active=\(isActive ? 1 : 0) z=\(portalZPriority) " +
+                "hostWindow=\(nsView.window != nil ? 1 : 0)"
+            )
+        }
 
         let hostContainer = nsView as? HostContainerView
         let hostOwnsPortalNow = hostContainer.map { host in
@@ -9535,6 +9546,15 @@ struct GhosttyTerminalView: NSViewRepresentable {
             }
         }
 #endif
+        if let hostedView,
+           let signpostID = AppDelegate.shared?.tabManager?.currentSwitchSignpostID {
+            WorkspaceSwitchSignpost.event(
+                signpostID,
+                "swiftui.dismantle",
+                "surface=\(hostedView.debugSurfaceId?.uuidString.prefix(5) ?? "nil") " +
+                "inWindow=\(hostedView.window != nil ? 1 : 0)"
+            )
+        }
 
         if let host = nsView as? HostContainerView {
             host.onDidMoveToWindow = nil
