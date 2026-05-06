@@ -1,7 +1,7 @@
 {
   "assigned_to": null,
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 1,
   "complexity": null,
   "created_at": "2026-04-19T00:45:05Z",
   "created_by": "agent:claude-opus-4-7",
@@ -10,8 +10,8 @@
   "done_at": null,
   "evidence_refs": [],
   "id": "task_01KPHK5GJC3PP9YH7K8QZN1X9H",
-  "last_event_id": "ev_01KPHK6G2W79KQV5EDTBV13EV0",
-  "last_status_changed_at": "2026-04-19T00:45:05Z",
+  "last_event_id": "ev_01KQXMW0AB56XNSAR4Y6CK8PFE",
+  "last_status_changed_at": "2026-05-06T03:21:26Z",
   "linked_files": [],
   "priority": "medium",
   "relationships_out": [
@@ -26,7 +26,7 @@
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "CMUX-19",
-  "status": "backlog",
+  "status": "cancelled",
   "tags": [
     "theming",
     "ux",
@@ -35,6 +35,6 @@
   ],
   "title": "Per-surface theme button (right-click menu)",
   "type": "task",
-  "updated_at": "2026-04-19T00:45:38Z",
+  "updated_at": "2026-05-06T03:21:26Z",
   "urgency": null
 }

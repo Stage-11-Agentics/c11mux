@@ -5154,6 +5154,13 @@ final class Workspace: Identifiable, ObservableObject {
         runtime: paneCloseInteractionRuntime
     )
 
+    /// Per-workspace presentation store hoisted out of `ContentView.terminalContent`
+    /// so workspaces whose presentation slice didn't change can skip body
+    /// re-evaluation on `selectedTabId` flips. ContentView pushes resolved
+    /// values via `update(...)`; only deltas fire `objectWillChange`.
+    /// See Phase 4 of C11-32 for the full motivation.
+    let presentationStore = WorkspacePresentationStore()
+
 
     // Closing tabs mutates split layout immediately; terminal views handle their own AppKit
     // layout/size synchronization.

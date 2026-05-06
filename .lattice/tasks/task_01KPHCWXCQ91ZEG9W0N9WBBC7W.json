@@ -1,27 +1,38 @@
 {
-  "assigned_to": null,
+  "assigned_to": "agent:claude-opus-4-7-cmux-10",
   "branch_links": [],
-  "comment_count": 0,
+  "comment_count": 19,
   "complexity": null,
   "created_at": "2026-04-18T22:55:32Z",
   "created_by": "human:atin",
   "custom_fields": {},
-  "description": "## Problem\n\nToday `cmux trigger-flash --surface <ref>` flashes only the pane content in-place. When the surface is in a non-focused workspace or tab, the flash is invisible \u2014 defeating the purpose of \"hey, look here.\" The sidebar tab selector for that workspace/surface should flash too.\n\n## Asks\n\n1. **Sidebar tab flash.** When `trigger-flash` fires for a surface, also flash the corresponding sidebar tab item (the row representing that workspace / tab). Treat the flash as an addressable attention signal across ALL representations of that surface, not just the pane's content rect.\n2. **Themable flash colors.** The flash color should be a theme-addressable attribute. Default could continue to be the current tone, but a `C11muxTheme` schema key like `flash.color` (and potentially `flash.sidebarColor` if we want them to differ) lets themes override it. Consider `$workspaceColor`-based defaults once the theme engine lands.\n\n## Context\n\n- Discovered during a conversation about building a c11mux theming engine. See `docs/c11mux-theming-plan.md` (in-flight via a cc agent in `surface:50`).\n- Ties directly into the broader theming effort: flash is one more chrome attribute that wants to be theme-driven.\n\n## Suggested relationship\n\nThis should be marked `related_to` the theming epic once that ticket is created by the planning agent. Depends on the theme engine foundation (M1) if flash color becomes a theme key; the sidebar-flash behavior itself can land independently.\n\n## Non-goals\n\n- Don't flash the Ghostty terminal content; that's Ghostty's cell rendering. Flash is a chrome-level signal.\n- Don't flash the macOS window frame / traffic lights.",
+  "description": "## Problem\n\nToday `c11 trigger-flash --surface <ref>` flashes only the pane content in-place, briefly. Two issues stack:\n\n1. When the surface is in a non-focused workspace or tab, the flash is invisible, defeating the purpose of \"hey, look here.\" The sidebar tab selector for that workspace/surface should flash too.\n2. Even when visible, the flash is too brief and singular to catch attention reliably from across the screen. The operator running 10+ surfaces wants something that says \"look at THIS one\" with conviction, and stays said until acknowledged.\n\n## Asks\n\n1. **Sidebar tab flash, in addition to the pane.** When `trigger-flash` fires for a surface, also flash the corresponding sidebar tab item. Treat the flash as an addressable attention signal across all representations of the surface, not just its pane rect.\n\n2. **Persistent flash mode.** New optional flag (e.g. `--persistent` on `c11 trigger-flash`) that makes the flash continue (pulsing) until the operator clicks the surface to dismiss. Clicking either the pane content or the corresponding sidebar tab cancels the flash. The c11 socket should expose a programmatic cancel as well (e.g. `c11 cancel-flash --surface <ref>`) for agents that want to clear the signal without simulating a click. Default behavior remains one-shot for backward compatibility.\n\n3. **Default flash color, configurable.** Default flash color is yellow (warm, hard-to-miss). Allow override per call (e.g. `--color <hex>`) and via a theme key (`flash.color`, optionally `flash.sidebarColor` if they should differ) so themes, projects, or agents can pick distinguishable signals.\n\n4. **Full flash across both pane content and sidebar tab.** The visual should wrap both the pane content area AND the sidebar tab item, treating them as one signal: same color, same envelope, applied to each representation. Not just a tab-corner indicator and a separate pane tint, a coherent \"this surface is calling you\" treatment.\n\n5. **Longer one-shot tab flash, configurable.** Even in non-persistent (one-shot) mode the sidebar tab flash should run noticeably longer than the current default, long enough that an operator scanning a busy sidebar registers it. Expose the duration as a setting (Settings \u2192 Notifications \u2192 Tab Flash Duration, or similar) so power users can tune it.\n\n## Context\n\n- Discovered during a conversation about building a c11 theming engine. Description rewritten 2026-05-05 to broaden the asks (persistence, default color, longer tab flash, click-to-dismiss).\n- Ties into the broader theming effort, since flash is a chrome-level attribute that wants to be theme-driven, but the persistence and duration mechanics ship independently of any theming plan.\n\n## Suggested relationship\n\nMark `related_to` the theming epic and the pane title bar work (CMUX-12) when convenient. Persistent-flash and the duration setting should land independently of any theme engine work; the color theming key can layer on top later.\n\n## Non-goals\n\n- Don't flash the Ghostty terminal cell content; that's the renderer's domain. Flash is a chrome-level signal applied around the pane and on the tab.\n- Don't flash the macOS window frame or traffic lights.\n- No system-wide attention sound; flash is purely visual.",
   "done_at": null,
-  "evidence_refs": [],
+  "evidence_refs": [
+    {
+      "id": "ev_01KQXYDK5GTPJEC9P12JKNHT7P",
+      "role": "review",
+      "source_type": "comment"
+    },
+    {
+      "id": "art_01KQXZP28XB828PTQKGEGADBRP",
+      "role": null,
+      "source_type": "artifact"
+    }
+  ],
   "id": "task_01KPHCWXCQ91ZEG9W0N9WBBC7W",
-  "last_event_id": "ev_01KPHCWXCRHJD1PGGK2A1TWG2A",
-  "last_status_changed_at": "2026-04-18T22:55:32Z",
+  "last_event_id": "ev_01KQXZPKAZJTVGG6EC78FH7K37",
+  "last_status_changed_at": "2026-05-06T05:25:46Z",
   "linked_files": [],
   "priority": "medium",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "CMUX-10",
-  "status": "backlog",
+  "status": "review",
   "tags": null,
-  "title": "Flash the sidebar tab selector, not just the pane \u2014 themable flash colors",
+  "title": "Persistent, themable surface flash across pane and sidebar tab",
   "type": "task",
-  "updated_at": "2026-04-18T22:55:32Z",
+  "updated_at": "2026-05-06T06:30:43Z",
   "urgency": null
 }

@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-05-06T03:01:52Z",
+  "created_by": "agent:claude-opus-4-7",
+  "custom_fields": {},
+  "id": "art_01KQXKR5ZER1VGY9HPT70HA0WY",
+  "model": null,
+  "payload": {
+    "content_type": "text/markdown",
+    "file": "art_01KQXKR5ZER1VGY9HPT70HA0WY.md",
+    "size_bytes": 226
+  },
+  "schema_version": 1,
+  "sensitive": false,
+  "summary": "PR #125 approved and merged. Surface lifecycle perf: webview suspension, off-screen terminal throttling, per-surface frame budget, sidebar metrics, Hibernate Workspace; review fixes B1-B4/I1-I4/M1-M3 ",
+  "tags": [],
+  "title": "Review findings",
+  "token_usage": null,
+  "type": "note"
+}

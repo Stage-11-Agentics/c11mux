@@ -2,7 +2,7 @@
   "agent_type": "advance",
   "base_name": "Argus",
   "framework": "claude-code",
-  "last_active": "2026-04-26T03:54:24Z",
+  "last_active": "2026-05-06T18:56:53Z",
   "model": "claude-opus-4-7",
   "name": "Argus-1",
   "parent": "human:atin",
