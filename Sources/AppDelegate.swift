@@ -11518,8 +11518,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             queue: .main
         ) { [weak self] note in
             guard let self, let window = note.object as? NSWindow else { return }
+#if DEBUG
+            let phase4aT0 = CFAbsoluteTimeGetCurrent()
+            let responder = String(describing: window.firstResponder.map { type(of: $0) })
+            dlog("key.window.transition phase=didBecomeKey.begin window={\(self.debugWindowToken(window))} key=\(window.isKeyWindow ? 1 : 0) main=\(window.isMainWindow ? 1 : 0) responder=\(responder)")
+#endif
             self.setActiveMainWindow(window)
+#if DEBUG
+            let phase4aDtMs = (CFAbsoluteTimeGetCurrent() - phase4aT0) * 1000.0
+            dlog("key.window.transition phase=didBecomeKey.end window={\(self.debugWindowToken(window))} key=\(window.isKeyWindow ? 1 : 0) main=\(window.isMainWindow ? 1 : 0) ms=\(String(format: "%.2f", phase4aDtMs))")
+#endif
         }
+        // Also instrument resignKey / didBecomeMain / didResignMain so we can
+        // attribute Burst A (key/main reconciliation) and the silent stretches
+        // around it. Phase 4a — A3: instrumentation only, no behavior change.
+#if DEBUG
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self, let window = note.object as? NSWindow else { return }
+            let responder = String(describing: window.firstResponder.map { type(of: $0) })
+            dlog("key.window.transition phase=didResignKey window={\(self.debugWindowToken(window))} key=\(window.isKeyWindow ? 1 : 0) main=\(window.isMainWindow ? 1 : 0) responder=\(responder)")
+        }
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeMainNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self, let window = note.object as? NSWindow else { return }
+            let responder = String(describing: window.firstResponder.map { type(of: $0) })
+            dlog("key.window.transition phase=didBecomeMain window={\(self.debugWindowToken(window))} key=\(window.isKeyWindow ? 1 : 0) main=\(window.isMainWindow ? 1 : 0) responder=\(responder)")
+        }
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignMainNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self, let window = note.object as? NSWindow else { return }
+            let responder = String(describing: window.firstResponder.map { type(of: $0) })
+            dlog("key.window.transition phase=didResignMain window={\(self.debugWindowToken(window))} key=\(window.isKeyWindow ? 1 : 0) main=\(window.isMainWindow ? 1 : 0) responder=\(responder)")
+        }
+#endif
     }
 
     private func installBrowserAddressBarFocusObservers() {

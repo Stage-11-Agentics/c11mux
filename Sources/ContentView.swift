@@ -3398,6 +3398,18 @@ struct ContentView: View {
     }
 
     private func startWorkspaceHandoffIfNeeded(newSelectedId: UUID?) {
+#if DEBUG
+        let phase4aStartHandoffT0 = CFAbsoluteTimeGetCurrent()
+        let phase4aStartHandoffSwitchId: String = {
+            if let snap = tabManager.debugCurrentWorkspaceSwitchSnapshot() { return String(snap.id) }
+            return "none"
+        }()
+        dlog("focusCascade.startHandoff.begin id=\(phase4aStartHandoffSwitchId) old=\(debugShortWorkspaceId(previousSelectedWorkspaceId)) new=\(debugShortWorkspaceId(newSelectedId))")
+        defer {
+            let phase4aStartHandoffEndMs = (CFAbsoluteTimeGetCurrent() - phase4aStartHandoffT0) * 1000.0
+            dlog("focusCascade.startHandoff.end id=\(phase4aStartHandoffSwitchId) ms=\(String(format: "%.2f", phase4aStartHandoffEndMs))")
+        }
+#endif
         let oldSelectedId = previousSelectedWorkspaceId
         previousSelectedWorkspaceId = newSelectedId
 
@@ -3487,6 +3499,14 @@ struct ContentView: View {
     }
 
     private func completeWorkspaceHandoff(reason: String) {
+#if DEBUG
+        let phase4aFocusCascadeT0 = CFAbsoluteTimeGetCurrent()
+        let phase4aSwitchId: String = {
+            if let snap = tabManager.debugCurrentWorkspaceSwitchSnapshot() { return String(snap.id) }
+            return "none"
+        }()
+        dlog("focusCascade.begin id=\(phase4aSwitchId) reason=\(reason) retiring=\(debugShortWorkspaceId(retiringWorkspaceId))")
+#endif
         workspaceHandoffFallbackTask?.cancel()
         workspaceHandoffFallbackTask = nil
         let retiring = retiringWorkspaceId
@@ -3500,10 +3520,16 @@ struct ContentView: View {
             workspace.hideAllTerminalPortalViews()
             workspace.hideAllBrowserPortalViews()
         }
+#if DEBUG
+        let phase4aFocusCascadePostHideMs = (CFAbsoluteTimeGetCurrent() - phase4aFocusCascadeT0) * 1000.0
+        dlog("focusCascade.step.postHidePortals id=\(phase4aSwitchId) ms=\(String(format: "%.2f", phase4aFocusCascadePostHideMs))")
+#endif
 
         retiringWorkspaceId = nil
         tabManager.completePendingWorkspaceUnfocus(reason: reason)
 #if DEBUG
+        let phase4aFocusCascadePostUnfocusMs = (CFAbsoluteTimeGetCurrent() - phase4aFocusCascadeT0) * 1000.0
+        dlog("focusCascade.step.postCompletePendingUnfocus id=\(phase4aSwitchId) ms=\(String(format: "%.2f", phase4aFocusCascadePostUnfocusMs))")
         if let snapshot = tabManager.debugCurrentWorkspaceSwitchSnapshot() {
             let dtMs = (CACurrentMediaTime() - snapshot.startedAt) * 1000
             dlog(
@@ -3520,6 +3546,10 @@ struct ContentView: View {
                 "reason=\(reason) retiring=\(String(retiring?.uuidString.prefix(5) ?? "nil"))"
             )
         }
+#if DEBUG
+        let phase4aFocusCascadeEndMs = (CFAbsoluteTimeGetCurrent() - phase4aFocusCascadeT0) * 1000.0
+        dlog("focusCascade.end id=\(phase4aSwitchId) reason=\(reason) ms=\(String(format: "%.2f", phase4aFocusCascadeEndMs))")
+#endif
     }
 
     private var commandPaletteOverlay: some View {

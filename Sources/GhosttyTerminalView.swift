@@ -7268,16 +7268,40 @@ final class GhosttySurfaceScrollView: NSView {
     /// helper so the invariant is enforced at one gate (plan §4.7).
     @discardableResult
     func safeMakeTerminalFirstResponder(reason: String) -> Bool {
+#if DEBUG
+        let phase4aSurfaceShort = surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
+        let phase4aT0 = CFAbsoluteTimeGetCurrent()
+        dlog("focus.makeFirstResponder.begin surface=\(phase4aSurfaceShort) reason=\(reason)")
+#endif
         if isPaneInteractionSuppressingFocus {
             _ = paneInteractionOverlay?.requestKeyboardFocus(reason: "suppressTerminalFocus.\(reason)")
 #if DEBUG
             let surfaceShort = surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
             dlog("focus.suppressed surface=\(surfaceShort) reason=\(reason)")
+            let phase4aDtMs = (CFAbsoluteTimeGetCurrent() - phase4aT0) * 1000.0
+            dlog("focus.makeFirstResponder.end surface=\(phase4aSurfaceShort) reason=\(reason) result=0 path=suppressed ms=\(String(format: "%.2f", phase4aDtMs))")
 #endif
             return false
         }
-        guard let window else { return false }
-        return window.makeFirstResponder(surfaceView)
+        guard let window else {
+#if DEBUG
+            let phase4aDtMs = (CFAbsoluteTimeGetCurrent() - phase4aT0) * 1000.0
+            dlog("focus.makeFirstResponder.end surface=\(phase4aSurfaceShort) reason=\(reason) result=0 path=noWindow ms=\(String(format: "%.2f", phase4aDtMs))")
+#endif
+            return false
+        }
+#if DEBUG
+        dlog("focus.makeFirstResponder.step.preMakeFirstResponder surface=\(phase4aSurfaceShort) reason=\(reason) keyWindow=\(window.isKeyWindow ? 1 : 0) mainWindow=\(window.isMainWindow ? 1 : 0)")
+        let phase4aMakeT0 = CFAbsoluteTimeGetCurrent()
+#endif
+        let result = window.makeFirstResponder(surfaceView)
+#if DEBUG
+        let phase4aMakeDtMs = (CFAbsoluteTimeGetCurrent() - phase4aMakeT0) * 1000.0
+        let phase4aDtMs = (CFAbsoluteTimeGetCurrent() - phase4aT0) * 1000.0
+        dlog("focus.makeFirstResponder.step.postMakeFirstResponder surface=\(phase4aSurfaceShort) reason=\(reason) result=\(result ? 1 : 0) makeMs=\(String(format: "%.2f", phase4aMakeDtMs))")
+        dlog("focus.makeFirstResponder.end surface=\(phase4aSurfaceShort) reason=\(reason) result=\(result ? 1 : 0) path=apply ms=\(String(format: "%.2f", phase4aDtMs))")
+#endif
+        return result
     }
 
     func setSearchOverlay(searchState: TerminalSurface.SearchState?) {
@@ -7654,6 +7678,9 @@ final class GhosttySurfaceScrollView: NSView {
         let wasActive = isActive
         isActive = active
 #if DEBUG
+        let phase4aSetActiveT0 = CFAbsoluteTimeGetCurrent()
+        let phase4aSurfaceShort = surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
+        dlog("setActive.begin surface=\(phase4aSurfaceShort) active=\(active ? 1 : 0) was=\(wasActive ? 1 : 0)")
         if wasActive != active {
             let transition = "\(wasActive ? 1 : 0)->\(active ? 1 : 0)"
             let suffix = debugVisibilityStateSuffix(transition: transition)
@@ -7668,6 +7695,10 @@ final class GhosttySurfaceScrollView: NSView {
         } else {
             resignOwnedFirstResponderIfNeeded(reason: "setActive(false)")
         }
+#if DEBUG
+        let phase4aSetActiveDtMs = (CFAbsoluteTimeGetCurrent() - phase4aSetActiveT0) * 1000.0
+        dlog("setActive.end surface=\(phase4aSurfaceShort) active=\(active ? 1 : 0) ms=\(String(format: "%.2f", phase4aSetActiveDtMs))")
+#endif
     }
 
 #if DEBUG
@@ -7886,20 +7917,42 @@ final class GhosttySurfaceScrollView: NSView {
     #endif
 
     func ensureFocus(for tabId: UUID, surfaceId: UUID) {
+#if DEBUG
+        let phase4aEnsureT0 = CFAbsoluteTimeGetCurrent()
+        let phase4aEnsureSurfaceShort = surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
+        dlog("ensureFocus.begin surface=\(phase4aEnsureSurfaceShort) tab=\(tabId.uuidString.prefix(5)) panel=\(surfaceId.uuidString.prefix(5))")
+#endif
         let hasUsablePortalGeometry: Bool = {
             let size = bounds.size
             return size.width > 1 && size.height > 1
         }()
         let isHiddenForFocus = isHiddenOrHasHiddenAncestor || surfaceView.isHiddenOrHasHiddenAncestor
 
-        guard isActive else { return }
-        guard let window else { return }
+        guard isActive else {
+#if DEBUG
+            let phase4aEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.notActive surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=skip path=notActive ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+#endif
+            return
+        }
+        guard let window else {
+#if DEBUG
+            let phase4aEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.noWindow surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=skip path=noWindow ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+#endif
+            return
+        }
         guard surfaceView.isVisibleInUI else {
 #if DEBUG
             dlog(
                 "focus.ensure.defer surface=\(surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil") " +
                 "reason=not_visible"
             )
+            let phase4aEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.notVisible surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=defer path=notVisible ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
 #endif
             scheduleAutomaticFirstResponderApply(reason: "ensureFocus.notVisible")
             return
@@ -7911,6 +7964,9 @@ final class GhosttySurfaceScrollView: NSView {
                 "reason=hidden_or_tiny hidden=\(isHiddenForFocus ? 1 : 0) " +
                 "frame=\(String(format: "%.1fx%.1f", bounds.width, bounds.height))"
             )
+            let phase4aEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.hiddenOrTiny surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=defer path=hiddenOrTiny ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
 #endif
             scheduleAutomaticFirstResponderApply(reason: "ensureFocus.hiddenOrTiny")
             return
@@ -7919,6 +7975,11 @@ final class GhosttySurfaceScrollView: NSView {
         guard let delegate = AppDelegate.shared,
               let tabManager = delegate.tabManagerFor(tabId: tabId) ?? delegate.tabManager,
               tabManager.selectedTabId == tabId else {
+#if DEBUG
+            let phase4aEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.inactiveTab surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=defer path=inactiveTab ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+#endif
             scheduleAutomaticFirstResponderApply(reason: "ensureFocus.inactiveTab")
             return
         }
@@ -7928,12 +7989,22 @@ final class GhosttySurfaceScrollView: NSView {
               let paneId = tab.bonsplitController.allPaneIds.first(where: { paneId in
                   tab.bonsplitController.tabs(inPane: paneId).contains(where: { $0.id == tabIdForSurface })
               }) else {
+#if DEBUG
+            let phase4aEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.missingPane surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=defer path=missingPane ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+#endif
             scheduleAutomaticFirstResponderApply(reason: "ensureFocus.missingPane")
             return
         }
 
         guard tab.bonsplitController.selectedTab(inPane: paneId)?.id == tabIdForSurface,
               tab.bonsplitController.focusedPaneId == paneId else {
+#if DEBUG
+            let phase4aEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.unfocusedPane surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=defer path=unfocusedPane ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+#endif
             scheduleAutomaticFirstResponderApply(reason: "ensureFocus.unfocusedPane")
             return
         }
@@ -7946,18 +8017,37 @@ final class GhosttySurfaceScrollView: NSView {
                 "tab=\(tabId.uuidString.prefix(5)) panel=\(surfaceId.uuidString.prefix(5)) " +
                 "firstResponder=\(String(describing: window.firstResponder))"
             )
+            let phase4aEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.searchRestore surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
 #endif
             restoreSearchFocus(window: window)
+#if DEBUG
+            let phase4aEnsureEndDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=ok path=searchRestore ms=\(String(format: "%.2f", phase4aEnsureEndDtMs))")
+#endif
             return
         }
 
         if let fr = window.firstResponder as? NSView,
            fr === surfaceView || fr.isDescendant(of: surfaceView) {
+#if DEBUG
+            let phase4aEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.alreadyFirstResponder surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureDtMs))")
+#endif
             reassertTerminalSurfaceFocus(reason: "ensureFocus.alreadyFirstResponder")
+#if DEBUG
+            let phase4aEnsureEndDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=ok path=alreadyFirstResponder ms=\(String(format: "%.2f", phase4aEnsureEndDtMs))")
+#endif
             return
         }
 
         if !window.isKeyWindow {
+#if DEBUG
+            let phase4aEnsureKeyDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.step.notKeyWindow.begin surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureKeyDtMs))")
+            let phase4aEnsureKeyT0 = CFAbsoluteTimeGetCurrent()
+#endif
             guard shouldAllowEnsureFocusWindowActivation(
                 activeTabManager: delegate.tabManager,
                 targetTabManager: tabManager,
@@ -7965,9 +8055,17 @@ final class GhosttySurfaceScrollView: NSView {
                 mainWindow: NSApp.mainWindow,
                 targetWindow: window
             ) else {
+#if DEBUG
+                let phase4aEnsureEndDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+                dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=skip path=notKeyWindow.disallowed ms=\(String(format: "%.2f", phase4aEnsureEndDtMs))")
+#endif
                 return
             }
             window.makeKeyAndOrderFront(nil)
+#if DEBUG
+            let phase4aEnsureKeyMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureKeyT0) * 1000.0
+            dlog("ensureFocus.step.notKeyWindow.makeKeyAndOrderFront surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureKeyMs))")
+#endif
         }
         // [TextBox] Do not steal focus from an active TextBox. ensureFocus
         // runs on tab switches, socket focus commands, and session restore.
@@ -7980,13 +8078,22 @@ final class GhosttySurfaceScrollView: NSView {
                 "focus.ensure.skip surface=\(surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil") " +
                 "reason=textBoxFocused"
             )
+            let phase4aEnsureEndDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+            dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=skip path=textBoxFocused ms=\(String(format: "%.2f", phase4aEnsureEndDtMs))")
 #endif
             return
         }
+#if DEBUG
+        let phase4aEnsureMakeT0 = CFAbsoluteTimeGetCurrent()
+        let phase4aEnsureBeforeMakeMs = (phase4aEnsureMakeT0 - phase4aEnsureT0) * 1000.0
+        dlog("ensureFocus.step.preMakeFirstResponder surface=\(phase4aEnsureSurfaceShort) ms=\(String(format: "%.2f", phase4aEnsureBeforeMakeMs))")
+#endif
         // Route through the focus choke-point so pane-interaction overlays
         // suppress this ensureFocus path while a dialog is visible (m10 plan §4.7).
         let result = safeMakeTerminalFirstResponder(reason: "ensureFocus")
 #if DEBUG
+        let phase4aEnsureMakeMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureMakeT0) * 1000.0
+        dlog("ensureFocus.step.postMakeFirstResponder surface=\(phase4aEnsureSurfaceShort) result=\(result ? 1 : 0) makeMs=\(String(format: "%.2f", phase4aEnsureMakeMs))")
         dlog(
             "focus.ensure.apply surface=\(surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil") " +
             "tab=\(tabId.uuidString.prefix(5)) panel=\(surfaceId.uuidString.prefix(5)) " +
@@ -7999,6 +8106,10 @@ final class GhosttySurfaceScrollView: NSView {
         } else {
             reassertTerminalSurfaceFocus(reason: "ensureFocus.afterMakeFirstResponder")
         }
+#if DEBUG
+        let phase4aEnsureEndDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
+        dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=\(result ? 1 : 0) path=apply ms=\(String(format: "%.2f", phase4aEnsureEndDtMs))")
+#endif
     }
 
     private func matchesCurrentTerminalFocusTarget(tabId: UUID, surfaceId: UUID) -> Bool {
