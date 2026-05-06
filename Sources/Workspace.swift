@@ -171,9 +171,22 @@ extension Workspace {
             allPanelIds.append(panelId)
         }
 
+        // C11-24: bulk-read conversation refs once from the actor before
+        // building any panel snapshots. Replaces the per-panel sync-bridge
+        // that deadlocked because the spawned `Task` inherited
+        // `@MainActor` isolation from this `@MainActor` class and could
+        // not run while main was blocked on the semaphore wait. Single
+        // `Task.detached` breaks the isolation inheritance; one
+        // round-trip per save instead of N.
+        let conversationsByPanelId = Workspace.readConversationsByPanelIdSync()
+
         let panelSnapshots = allPanelIds
             .prefix(SessionPersistencePolicy.maxPanelsPerWorkspace)
-            .compactMap { sessionPanelSnapshot(panelId: $0, includeScrollback: includeScrollback) }
+            .compactMap { sessionPanelSnapshot(
+                panelId: $0,
+                includeScrollback: includeScrollback,
+                conversationsByPanelId: conversationsByPanelId
+            ) }
 
         let statusSnapshots = statusEntries.values
             .sorted { lhs, rhs in lhs.key < rhs.key }
@@ -326,27 +339,46 @@ extension Workspace {
         }
 
         // C11-24: schedule agent-resume for restored terminal surfaces that
-        // carry a captured session id. The dispatch is deferred so Ghostty
-        // PTYs + their shells have time to come up; `CMUX_DISABLE_AGENT_RESTART=1`
-        // suppresses the whole pass. Layout/metadata/status restore above
-        // is independent — failures here cannot break a normal restore.
-        scheduleAgentRestart(from: snapshot, registry: .phase1, oldToNewPanelIds: oldToNewPanelIds)
+        // carry a ConversationRef in the store. The dispatch is deferred so
+        // Ghostty PTYs + their shells have time to come up;
+        // `CMUX_DISABLE_AGENT_RESTART=1` suppresses the whole pass. Layout/
+        // metadata/status restore above is independent — failures here
+        // cannot break a normal restore.
+        //
+        // Kill switch (`CMUX_DISABLE_CONVERSATION_STORE=1`): falls back to
+        // the legacy AgentRestartRegistry path for snapshots already
+        // containing `claude.session_id` reserved metadata (i.e., 0.43.0
+        // / 0.44.0-pre captures). New 0.44.0+ sessions captured under
+        // the kill switch do NOT capture (claude-hook session-start no
+        // longer writes that key), so they will not resume on restart.
+        // The kill switch is a one-release safety net for already-captured
+        // state, not a full rollback. Removed in 0.46.0 / v1.1 alongside
+        // the legacy claude.session_id metadata bridge.
+        if ConversationStorePolicy.isDisabled {
+            scheduleAgentRestartLegacy(
+                from: snapshot,
+                registry: .phase1,
+                oldToNewPanelIds: oldToNewPanelIds
+            )
+        } else {
+            scheduleAgentRestart(
+                from: snapshot,
+                registry: ConversationStrategyRegistry.v1,
+                oldToNewPanelIds: oldToNewPanelIds
+            )
+        }
     }
 
-    /// C11-24: collect resume commands for terminal panels that have a
-    /// captured `terminal_type` + `claude.session_id` in their snapshot
-    /// metadata, consulting the supplied registry. Reads directly from
-    /// the panel snapshot rather than the live `SurfaceMetadataStore`
-    /// because the store is rehydrated as part of the same restore pass
-    /// and may not have the values populated at the moment this is called.
-    /// Internal (not private) so unit tests can exercise it without going
-    /// through the full live workspace restore path.
-    func pendingRestartCommands(
+    /// Legacy fallback path used only when CMUX_DISABLE_CONVERSATION_STORE=1.
+    /// Reads the legacy `claude.session_id` reserved metadata directly from
+    /// the panel snapshot via AgentRestartRegistry. Removed in 0.46.0/v1.1.
+    private func scheduleAgentRestartLegacy(
         from snapshot: SessionWorkspaceSnapshot,
-        registry: AgentRestartRegistry
-    ) -> [(panelId: UUID, command: String)] {
-        guard SessionPersistencePolicy.agentRestartOnRestoreEnabled else { return [] }
-        var result: [(panelId: UUID, command: String)] = []
+        registry: AgentRestartRegistry,
+        oldToNewPanelIds: [UUID: UUID]
+    ) {
+        guard SessionPersistencePolicy.agentRestartOnRestoreEnabled else { return }
+        var commands: [(panelId: UUID, command: String)] = []
         for panelSnapshot in snapshot.panels {
             guard panelSnapshot.type == .terminal else { continue }
             let meta = Workspace.stringValues(from: panelSnapshot.metadata)
@@ -357,7 +389,85 @@ extension Workspace {
                 sessionId: sessionId,
                 metadata: meta
             ) else { continue }
-            result.append((panelId: panelSnapshot.id, command: command))
+            commands.append((panelId: panelSnapshot.id, command: command))
+        }
+        guard !commands.isEmpty else { return }
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + SessionPersistencePolicy.agentRestartDelay
+        ) { [weak self] in
+            guard let self else { return }
+            for (snapshotPanelId, command) in commands {
+                let livePanelId = oldToNewPanelIds[snapshotPanelId] ?? snapshotPanelId
+                guard let terminalPanel = self.panels[livePanelId] as? TerminalPanel else {
+                    continue
+                }
+                TextBoxSubmit.send(command, via: terminalPanel.surface)
+            }
+        }
+    }
+
+    /// C11-24: synchronous bulk read of the `ConversationStore` for use
+    /// from `@MainActor` contexts (snapshot capture, restore, dirty-boot
+    /// transitions). Uses `Task.detached` so the spawned task does NOT
+    /// inherit `@MainActor` isolation from the caller — otherwise the
+    /// task body could not run while the calling thread blocks on the
+    /// semaphore wait, deadlocking until the timeout. The previous
+    /// pattern (`Task { await actor.method(); sema.signal() }`) was
+    /// buggy in every `@MainActor` call site; per-panel snapshot capture
+    /// hit it once per panel per save and produced empty conversation
+    /// state in every persisted snapshot. Verified by reproducer at
+    /// `notes/c11-24-snapshot-capture-bug.md`.
+    ///
+    /// `nonisolated` so it can be called without an actor hop and
+    /// without inheriting the caller's isolation. The actor call inside
+    /// `Task.detached` still hops to `ConversationStore`'s executor in
+    /// the normal way.
+    nonisolated static func readConversationsByPanelIdSync(
+        timeout: TimeInterval = 2.0
+    ) -> [String: SurfaceConversations] {
+        guard !ConversationStorePolicy.isDisabled else { return [:] }
+        let sema = DispatchSemaphore(value: 0)
+        nonisolated(unsafe) var captured: [String: SurfaceConversations] = [:]
+        Task.detached(priority: .userInitiated) {
+            captured = await ConversationStore.shared.snapshot()
+            sema.signal()
+        }
+        _ = sema.wait(timeout: .now() + timeout)
+        return captured
+    }
+
+    /// C11-24: collect ResumeActions for terminal panels by consulting the
+    /// `ConversationStore`. Reads via the strategy registry: each panel's
+    /// active ref is handed to its strategy's `resume(ref:)`; the action
+    /// is then executed via `execute(_:on:panelMap:)`.
+    ///
+    /// Internal (not private) so unit tests can exercise it without going
+    /// through the full live workspace restore path.
+    func pendingRestartPlans(
+        from snapshot: SessionWorkspaceSnapshot,
+        registry: ConversationStrategyRegistry
+    ) -> [(panelId: UUID, action: ResumeAction)] {
+        guard SessionPersistencePolicy.agentRestartOnRestoreEnabled else { return [] }
+        var result: [(panelId: UUID, action: ResumeAction)] = []
+        // C11-24: bulk-read the actor via the shared sync helper. The
+        // previous inline `Task { ... }` deadlocked from `@MainActor`
+        // contexts because the unstructured Task inherited that
+        // isolation and could not run while main was blocked on the
+        // semaphore. `readConversationsByPanelIdSync` uses
+        // `Task.detached` to break the inheritance.
+        let storeSnapshot = Workspace.readConversationsByPanelIdSync(timeout: 1.0)
+        for panelSnapshot in snapshot.panels {
+            guard panelSnapshot.type == .terminal else { continue }
+            let key = panelSnapshot.id.uuidString
+            guard let surface = storeSnapshot[key], let ref = surface.active else {
+                continue
+            }
+            guard let strategy = registry.strategy(forKind: ref.kind) else {
+                continue
+            }
+            let action = strategy.resume(ref: ref)
+            if case .skip = action { continue }
+            result.append((panelId: panelSnapshot.id, action: action))
         }
         return result
     }
@@ -380,10 +490,10 @@ extension Workspace {
         return out
     }
 
-    /// Schedule deferred submission of synthesised resume commands for
-    /// terminal panels resolved via `pendingRestartCommands`. The dispatch
-    /// runs on the main actor after `SessionPersistencePolicy.agentRestartDelay`
-    /// so Ghostty surfaces have time to initialise.
+    /// Schedule deferred submission of `ResumeAction`s for terminal panels
+    /// resolved via `pendingRestartPlans`. The dispatch runs on the main
+    /// actor after `SessionPersistencePolicy.agentRestartDelay` so Ghostty
+    /// surfaces have time to initialise.
     ///
     /// `Ghostty's text-input path (sendText → ghostty_surface_text) wraps
     /// input in bracketed-paste markers (`ESC[200~…ESC[201~`). Bracketed
@@ -406,22 +516,39 @@ extension Workspace {
     /// map is an identity and the lookup is the snapshot id directly.
     private func scheduleAgentRestart(
         from snapshot: SessionWorkspaceSnapshot,
-        registry: AgentRestartRegistry,
+        registry: ConversationStrategyRegistry,
         oldToNewPanelIds: [UUID: UUID]
     ) {
-        let commands = pendingRestartCommands(from: snapshot, registry: registry)
-        guard !commands.isEmpty else { return }
+        let plans = pendingRestartPlans(from: snapshot, registry: registry)
+        guard !plans.isEmpty else { return }
         DispatchQueue.main.asyncAfter(
             deadline: .now() + SessionPersistencePolicy.agentRestartDelay
         ) { [weak self] in
             guard let self else { return }
-            for (snapshotPanelId, command) in commands {
+            for (snapshotPanelId, action) in plans {
                 let livePanelId = oldToNewPanelIds[snapshotPanelId] ?? snapshotPanelId
-                guard let terminalPanel = self.panels[livePanelId] as? TerminalPanel else {
-                    continue
-                }
-                TextBoxSubmit.send(command, via: terminalPanel.surface)
+                self.executeResumeAction(action, on: livePanelId)
             }
+        }
+    }
+
+    /// Execute a `ResumeAction` against a live terminal panel. Logs `.skip`
+    /// reasons for diagnostic visibility. Main-actor; only called from
+    /// `scheduleAgentRestart`'s deferred dispatch.
+    private func executeResumeAction(_ action: ResumeAction, on panelId: UUID) {
+        switch action {
+        case .typeCommand(let text, let submit):
+            guard let terminalPanel = self.panels[panelId] as? TerminalPanel else { return }
+            if submit {
+                TextBoxSubmit.send(text, via: terminalPanel.surface)
+            } else {
+                terminalPanel.surface.sendText(text)
+            }
+        case .skip(let reason):
+            #if DEBUG
+            dlog("conversation.resume.skipped panel=\(panelId.uuidString.prefix(8)) reason=\(reason)")
+            #endif
+            _ = reason // silence release-build unused warning
         }
     }
 
@@ -529,7 +656,11 @@ extension Workspace {
         return decoded.id
     }
 
-    private func sessionPanelSnapshot(panelId: UUID, includeScrollback: Bool) -> SessionPanelSnapshot? {
+    private func sessionPanelSnapshot(
+        panelId: UUID,
+        includeScrollback: Bool,
+        conversationsByPanelId: [String: SurfaceConversations]
+    ) -> SessionPanelSnapshot? {
         guard let panel = panels[panelId] else { return nil }
 
         let panelTitle = panelTitle(panelId: panelId)
@@ -620,6 +751,22 @@ extension Workspace {
             }
         }
 
+        // C11-24: lookup the surface's ConversationRefs from the
+        // pre-built map (bulk-read once at the workspace level — see
+        // `readConversationsByPanelIdSync` in `sessionSnapshot`). The
+        // previous implementation did a per-panel sync-bridge here, which
+        // deadlocked: this method is `@MainActor`-isolated, the spawned
+        // `Task { ... }` inherited that isolation and could not run while
+        // main was blocked on `sema.wait`. Every call timed out and the
+        // resulting snapshot wrote `.empty` for every panel, regardless of
+        // what the live store actually held. Empty `SurfaceConversations`
+        // (`active: nil, history: []`) is still written for terminal
+        // surfaces with no captured conversation — the empty shape is part
+        // of the v1 JSON contract.
+        var surfaceConversations: SurfaceConversations? = nil
+        if !ConversationStorePolicy.isDisabled, panel.panelType == .terminal {
+            surfaceConversations = conversationsByPanelId[panelId.uuidString] ?? .empty
+        }
         return SessionPanelSnapshot(
             id: panelId,
             type: panel.panelType,
@@ -636,7 +783,8 @@ extension Workspace {
             browser: browserSnapshot,
             markdown: markdownSnapshot,
             metadata: persistedMetadata,
-            metadataSources: persistedMetadataSources
+            metadataSources: persistedMetadataSources,
+            surfaceConversations: surfaceConversations
         )
     }
 

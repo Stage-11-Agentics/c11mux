@@ -2208,6 +2208,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var mainWindowControllers: [MainWindowController] = []
     private var startupSessionSnapshot: AppSessionSnapshot?
     private var didPrepareStartupSessionSnapshot = false
+    /// C11-24 review (B2): captured at launch in `applicationDidFinishLaunching`
+    /// and consumed in `prepareStartupSessionSnapshotIfNeeded` *after*
+    /// `seedFromSnapshot` runs, so `markAllUnknown` can never race ahead
+    /// of the bridge seed and let stale .alive/.suspended refs through.
+    private var priorShutdownAtLaunch: ShutdownSentinel.PriorShutdown = .missing
     private var didAttemptStartupSessionRestore = false
     private var isApplyingStartupSessionRestore = false
     private var sessionAutosaveTimer: DispatchSourceTimer?
@@ -2228,7 +2233,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var lastSessionAutosavePersistedAt: Date = .distantPast
     private var lastTypingActivityAt: TimeInterval = 0
     private var didHandleExplicitOpenIntentAtStartup = false
-    private var isTerminatingApp = false
+    private(set) var isTerminatingApp = false
     private var didInstallLifecycleSnapshotObservers = false
     private var didDisableSuddenTermination = false
     private var commandPaletteVisibilityByWindowId: [UUID: Bool] = [:]
@@ -2339,11 +2344,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationDidFinishLaunching(_ notification: Notification) {
         mirrorC11CmuxEnv()
 
-        // Write before anything else can crash. If a previous launch ended without
-        // calling applicationWillTerminate (Force Quit, SIGKILL, jetsam, in-process
-        // crash that Sentry didn't flush), this archives that marker as
-        // unclean-exit-<ts>.json — the only local rail that survives signal-bypass
-        // termination regardless of telemetry consent.
+        // C11-24: write the dirty shutdown sentinel as early as possible
+        // and inspect the prior-shutdown state. The write must precede
+        // any potential crash path. Bundle-scoped so debug, release, and
+        // concurrent c11 instances don't cross-contaminate.
+        // Best-effort — sentinel writes never block launch.
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.stage11.c11"
+        let priorShutdown = ShutdownSentinel.readPriorShutdown(bundleId: bundleId)
+        // C11-24 review (B2): capture the decision now but defer the
+        // crash-recovery `markAllUnknown` until *after* `seedFromSnapshot`
+        // runs in `prepareStartupSessionSnapshotIfNeeded`. Previously this
+        // dispatched in an unstructured Task that could race ahead of the
+        // synchronous snapshot seed, restoring stale .alive/.suspended
+        // refs the dirty sentinel was meant to invalidate.
+        priorShutdownAtLaunch = priorShutdown
+        switch priorShutdown {
+        case .clean(let at):
+            dlog("shutdown.sentinel prior=clean at=\(at.timeIntervalSince1970)")
+        case .dirty(let at):
+            dlog("shutdown.sentinel prior=dirty launchedAt=\(at.map { String($0.timeIntervalSince1970) } ?? "nil") — crash recovery (deferred to post-seed)")
+        case .missing:
+            dlog("shutdown.sentinel prior=missing — first launch or sentinel unwritable")
+        }
+        ShutdownSentinel.writeDirty(bundleId: bundleId)
+
+        // C11-24 review (M3): kill-switch breadcrumb. The store
+        // short-circuits four code paths silently when CMUX_DISABLE_-
+        // CONVERSATION_STORE=1 is set; without a startup signal,
+        // operators on the legacy fallback path don't notice until
+        // something visibly regresses. Emit once at launch and surface
+        // via `c11 conversation list --json` for diagnostics.
+        if ConversationStorePolicy.isDisabled {
+            dlog("conversation.kill_switch.engaged env=CMUX_DISABLE_CONVERSATION_STORE — falling back to AgentRestartRegistry")
+        }
+
+        // Crash visibility (separate rail from ShutdownSentinel above): if a
+        // previous launch ended without applicationWillTerminate (Force Quit,
+        // SIGKILL, jetsam, in-process crash Sentry didn't flush), archive that
+        // marker as unclean-exit-<ts>.json. Survives signal-bypass termination
+        // regardless of telemetry consent.
         LaunchSentinel.recordLaunchAndArchivePrevious()
 
         // Migrate preferences from legacy upstream cmux bundle IDs before anything
@@ -2776,19 +2815,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         isTerminatingApp = true
-        // Surface to the socket so the `c11 claude-hook session-end` CLI
-        // (fired from claude's SessionEnd hook as terminals get killed)
-        // skips the surface-metadata clear that would race this same
-        // shutdown's snapshot capture. See `SessionEndShutdownPolicy`.
-        TerminalController.shared.setIsTerminatingApp(true)
-        _ = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
+        // C11-24 review (M1): the snapshot write happens in
+        // applicationWillTerminate AFTER suspendAllAlive runs, so the
+        // persisted refs carry .suspended state. The original
+        // double-write here wrote .alive first, then .suspended after
+        // suspend. If the OS killed the process between the two writes
+        // (forced logout, low memory, sleep-killed) the on-disk
+        // snapshot ended up with .alive refs and promoteToClean never
+        // ran, so next launch hit the dirty path and markAllUnknown
+        // turned what should have been .suspended into .unknown.
+        // Single load-bearing snapshot in applicationWillTerminate.
         return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         isTerminatingApp = true
-        TerminalController.shared.setIsTerminatingApp(true)
-        _ = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
+        // C11-24: suspendAllAlive transitions every alive ConversationRef
+        // to .suspended so resume on next launch is gated. Synchronous
+        // bridge into the actor (bounded — store has no I/O).
+        // `Task.detached` so the task does not inherit `@MainActor`
+        // isolation from this method (`AppDelegate` is `@MainActor`);
+        // without it, the body cannot run while main is blocked on
+        // `sema.wait` and the suspend never lands.
+        let suspendDone = DispatchSemaphore(value: 0)
+        Task.detached(priority: .userInitiated) {
+            await ConversationStore.shared.suspendAllAlive()
+            suspendDone.signal()
+        }
+        _ = suspendDone.wait(timeout: .now() + 1.0)
+
+        // saveSessionSnapshot writes the snapshot synchronously. Promote
+        // dirty → clean ONLY after both the suspend pass AND the
+        // snapshot succeed, eliminating the false-clean window of the
+        // original at-start-of-shutdown design.
+        let snapshotOK = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
+        if snapshotOK {
+            let bundleId = Bundle.main.bundleIdentifier ?? "com.stage11.c11"
+            ShutdownSentinel.promoteToClean(bundleId: bundleId)
+        }
+
         stopSessionAutosaveTimer()
         TerminalController.shared.stop()
         VSCodeServeWebController.shared.stop()
@@ -2808,7 +2873,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func persistSessionForUpdateRelaunch() {
         isTerminatingApp = true
-        TerminalController.shared.setIsTerminatingApp(true)
         _ = saveSessionSnapshot(includeScrollback: true, removeWhenEmpty: false)
     }
 
@@ -2911,7 +2975,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         guard !didPrepareStartupSessionSnapshot else { return }
         didPrepareStartupSessionSnapshot = true
         guard SessionRestorePolicy.shouldAttemptRestore() else { return }
-        startupSessionSnapshot = SessionPersistenceStore.load()
+        let snapshot = SessionPersistenceStore.load()
+        startupSessionSnapshot = snapshot
+        // C11-24: seed ConversationStore from the loaded snapshot before
+        // any panel restore runs. Native field wins; legacy
+        // claude.session_id metadata is lifted for one release window
+        // (TODO 0.46.0 / v1.1 in WorkspaceSnapshotConversationBridge).
+        if let snapshot, !ConversationStorePolicy.isDisabled {
+            WorkspaceSnapshotConversationBridge.seedFromSnapshot(snapshot)
+        }
+        // C11-24 review (B2): now that the snapshot has seeded the store,
+        // act on the prior-shutdown decision captured at launch. On a
+        // dirty sentinel, transition every freshly-seeded ref to
+        // .unknown so panel restore can't auto-resume from stale
+        // .alive/.suspended state. Synchronous bridge so the order is
+        // observable to subsequent restore work on the same dispatch
+        // queue (no Task race against pendingRestartPlans).
+        if case .dirty = priorShutdownAtLaunch, !ConversationStorePolicy.isDisabled {
+            // C11-24: `Task.detached` so the spawned task does not
+            // inherit `@MainActor` isolation from this method. Without
+            // it, the body could not run while main is blocked on
+            // `sema.wait` and the dirty-recovery transition would never
+            // fire. (`AppDelegate` is `@MainActor`.)
+            let sema = DispatchSemaphore(value: 0)
+            Task.detached(priority: .userInitiated) {
+                await ConversationStore.shared.markAllUnknown()
+                sema.signal()
+            }
+            // Bounded; the actor never blocks on I/O. Matches the
+            // bridge's existing 1s budget.
+            _ = sema.wait(timeout: .now() + 1.0)
+        }
     }
 
     private func persistedWindowGeometry(
@@ -3570,6 +3664,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 Self.hashFrame(window.frame, into: &hasher)
             } else {
                 hasher.combine(-1)
+            }
+        }
+
+        // C11-24: include conversation state in the fingerprint so that
+        // wrapper-claim, hook-push, and tombstone events trigger an
+        // autosave write. Without this, conversation activity alone never
+        // changes the fingerprint, the autosave path skips with
+        // `unchanged_autosave_fingerprint`, and the only persisted
+        // snapshot is the one written at clean shutdown — losing every
+        // ref captured in a session that ended any other way.
+        if !ConversationStorePolicy.isDisabled {
+            let conversations = Workspace.readConversationsByPanelIdSync(timeout: 0.5)
+            // Order-independent: sort surface ids before hashing.
+            for surfaceId in conversations.keys.sorted() {
+                guard let surface = conversations[surfaceId],
+                      let active = surface.active else { continue }
+                hasher.combine(surfaceId)
+                hasher.combine(active.kind)
+                hasher.combine(active.id)
+                hasher.combine(active.state.rawValue)
+                hasher.combine(active.capturedVia.rawValue)
             }
         }
 

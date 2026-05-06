@@ -34,32 +34,6 @@ func isAdvisoryHookConnectivityError(_ error: CLIError) -> Bool {
     CLIAdvisoryConnectivity.isAdvisoryHookConnectivity(message: error.message)
 }
 
-/// Probe c11's terminating state via `system.ping` for the
-/// `claude-hook session-end` shutdown guard. The bounded 250ms timeout
-/// keeps the hook (timeout-budgeted at 1s by Claude Code's settings) from
-/// stalling on a slow or partially-torn-down socket. Any failure (timeout,
-/// socket gone, malformed payload) collapses to `.failure` — the policy
-/// above treats that as "preserve metadata," matching the
-/// "never tombstone on socket-uncertainty" rule from synthesis-action B4.
-func queryC11ShutdownState(client: SocketClient) -> SessionEndShutdownPolicy.PingOutcome {
-    do {
-        let response = try client.sendV2(
-            method: "system.ping",
-            deadline: .custom(0.25)
-        )
-        if let result = response["result"] as? [String: Any],
-           let isTerminating = result["is_terminating_app"] as? Bool {
-            return .success(isTerminating: isTerminating)
-        }
-        // Old c11 binary without the field: the response is a successful
-        // `{pong: true}`. Report `isTerminating: false` so the existing
-        // clear-always behavior is preserved against pre-fix c11 builds.
-        return .success(isTerminating: false)
-    } catch {
-        return .failure
-    }
-}
-
 // Mirrors CMUX_* ↔ C11_* env vars so callers can use either prefix.
 // Why: binary rename from `cmux` to `c11` keeps both namespaces live during transition.
 func mirrorC11CmuxEnv() {
@@ -2726,6 +2700,13 @@ struct CMUXCLI {
                 jsonOutput: jsonOutput,
                 idFormat: idFormat,
                 windowOverride: windowId
+            )
+
+        case "conversation":
+            try runConversationCommand(
+                commandArgs: commandArgs,
+                client: client,
+                jsonOutput: jsonOutput
             )
 
         case "claude-hook":
@@ -9025,6 +9006,48 @@ struct CMUXCLI {
 
             Trigger the app-active handler used by notification focus tests.
             """
+        case "conversation":
+            return """
+            Usage: c11 conversation <subcommand> [flags]
+
+            Manage per-surface ConversationRefs (the C11-24 conversation
+            store). Each surface hosts at most one active ConversationRef
+            keyed by an opaque, per-kind id. The store survives c11
+            restarts and is consulted at restore time to synthesise the
+            resume command.
+
+            Subcommands:
+              claim --kind <k> [--cwd <path>] [--id <id>]
+                Wrapper-claim: mint a placeholder ref. Idempotent and
+                conservative — never displaces a real id captured by
+                hook/scrape.
+              push --kind <k> --id <id> --source <hook|scrape|manual>
+                   [--state <alive|suspended|tombstoned|unknown|ended>]
+                   [--cwd <path>] [--reason <text>]
+                   [--payload <json> | --payload @<path>]
+                Hook or operator push of the real id. Source priority:
+                hook > scrape > manual > wrapperClaim.
+                --payload accepts inline JSON or @<path> (mirrors HOOKS_FILE
+                ergonomics in Resources/bin/claude).
+              tombstone --kind <k> --id <id> [--reason <text>]
+                Mark the surface's active ref as tombstoned. Operator-
+                initiated; not auto-resumable.
+              list [--surface <id>] [--json]
+                List captured conversations. v1 stores process-wide;
+                no workspace partitioning. Filter with --surface.
+              get [--surface <id>] [--json]
+                Read the active ref + can_resume + diagnostic_reason for
+                the surface. Use this when debugging "why did this pane
+                resume that session?" — diagnostic_reason explains the
+                strategy's decision.
+              clear [--surface <id>]
+                Wipe the surface's conversations. Forces a fresh launch
+                on next workspace open.
+
+            Surface resolution: --surface flag, else $CMUX_SURFACE_ID env
+            var. There is NO focused-surface fallback (the silent-misroute
+            footgun the architecture exists to avoid).
+            """
         case "claude-hook":
             return """
             Usage: c11 claude-hook <session-start|active|stop|idle|notification|notify|prompt-submit> [flags]
@@ -11180,6 +11203,280 @@ struct CMUXCLI {
                 let reason = (reasons[key] as? String) ?? "not_applied"
                 print("  \(key): skipped (\(reason))")
             }
+        }
+    }
+
+    /// `c11 conversation <claim|push|tombstone|list|get|clear>` — wraps the
+    /// `conversation.*` v2 socket methods.
+    ///
+    /// Per the C11-24 plan: every verb resolves `--surface` from
+    /// `CMUX_SURFACE_ID` if unset. **No focused-fallback** — that path is
+    /// the silent-misroute footgun the architecture exists to fix. If the
+    /// env var is missing and no flag was given, error out cleanly.
+    private func runConversationCommand(
+        commandArgs: [String],
+        client: SocketClient,
+        jsonOutput: Bool
+    ) throws {
+        let subcommand = commandArgs.first?.lowercased() ?? "help"
+        let subArgs = Array(commandArgs.dropFirst())
+
+        switch subcommand {
+        case "claim":
+            try runConversationClaim(subArgs: subArgs, client: client, jsonOutput: jsonOutput)
+        case "push":
+            try runConversationPush(subArgs: subArgs, client: client, jsonOutput: jsonOutput)
+        case "tombstone":
+            try runConversationTombstone(subArgs: subArgs, client: client, jsonOutput: jsonOutput)
+        case "list":
+            try runConversationList(subArgs: subArgs, client: client, jsonOutput: jsonOutput)
+        case "get":
+            try runConversationGet(subArgs: subArgs, client: client, jsonOutput: jsonOutput)
+        case "clear":
+            try runConversationClear(subArgs: subArgs, client: client, jsonOutput: jsonOutput)
+        case "help", "--help", "-h":
+            print(conversationUsage())
+        default:
+            throw CLIError(message: "Unknown conversation subcommand: \(subcommand)")
+        }
+    }
+
+    private func conversationUsage() -> String {
+        return """
+        Usage: c11 conversation <subcommand> [flags]
+
+        Subcommands:
+          claim --kind <k> [--cwd <path>] [--id <id>]
+          push --kind <k> --id <id> --source <hook|scrape|manual>
+               [--state <alive|suspended|tombstoned|unknown|ended>]
+               [--cwd <path>] [--reason <text>]
+               [--payload <json> | --payload @<path>]
+          tombstone --kind <k> --id <id> [--reason <text>]
+          list [--surface <id>] [--json]
+          get [--surface <id>] [--json]
+          clear [--surface <id>]
+
+        --surface defaults to $CMUX_SURFACE_ID. There is NO focused-surface
+        fallback; commands error out if the env var is missing and no flag
+        was given.
+        """
+    }
+
+    /// Resolve `--surface` strictly — env-var or flag, no focused fallback.
+    /// Returns the raw surface handle; the server resolves it to a UUID.
+    private func resolveConversationSurface(_ args: [String]) throws -> String {
+        if let raw = optionValue(args, name: "--surface") {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        if let envRaw = ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !envRaw.isEmpty {
+            return envRaw
+        }
+        throw CLIError(message: "missing_surface: --surface flag or CMUX_SURFACE_ID env var required (no focused-fallback)")
+    }
+
+    /// `--payload <json>` or `--payload @<path>` (mirrors HOOKS_FILE in
+    /// Resources/bin/claude). Returns parsed JSON object or nil.
+    private func readConversationPayload(_ args: [String]) throws -> [String: Any]? {
+        guard let raw = optionValue(args, name: "--payload") else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let jsonText: String
+        if trimmed.hasPrefix("@") {
+            let path = String(trimmed.dropFirst())
+            do {
+                jsonText = try String(contentsOfFile: path, encoding: .utf8)
+            } catch {
+                throw CLIError(message: "payload_file_unreadable: \(path): \(error.localizedDescription)")
+            }
+        } else {
+            jsonText = trimmed
+        }
+        guard let data = jsonText.data(using: .utf8) else {
+            throw CLIError(message: "invalid_json: --payload is not valid UTF-8")
+        }
+        let obj = try? JSONSerialization.jsonObject(with: data, options: [])
+        guard let dict = obj as? [String: Any] else {
+            throw CLIError(message: "invalid_json: --payload must be a JSON object")
+        }
+        return dict
+    }
+
+    private func runConversationClaim(
+        subArgs: [String],
+        client: SocketClient,
+        jsonOutput: Bool
+    ) throws {
+        guard let kind = optionValue(subArgs, name: "--kind"),
+              !kind.isEmpty else {
+            throw CLIError(message: "claim requires --kind <kind>")
+        }
+        let surface = try resolveConversationSurface(subArgs)
+        var params: [String: Any] = [
+            "surface_id": surface,
+            "kind": kind
+        ]
+        if let cwd = optionValue(subArgs, name: "--cwd") { params["cwd"] = cwd }
+        if let id = optionValue(subArgs, name: "--id") { params["placeholder_id"] = id }
+        let payload = try client.sendV2(method: "conversation.claim", params: params)
+        if jsonOutput {
+            print(jsonString(payload))
+        } else {
+            print("OK conversation.claim kind=\(kind) surface=\(surface)")
+        }
+    }
+
+    private func runConversationPush(
+        subArgs: [String],
+        client: SocketClient,
+        jsonOutput: Bool
+    ) throws {
+        guard let kind = optionValue(subArgs, name: "--kind"),
+              !kind.isEmpty else {
+            throw CLIError(message: "push requires --kind <kind>")
+        }
+        guard let id = optionValue(subArgs, name: "--id"),
+              !id.isEmpty else {
+            throw CLIError(message: "push requires --id <id>")
+        }
+        guard let source = optionValue(subArgs, name: "--source"),
+              !source.isEmpty else {
+            throw CLIError(message: "push requires --source <hook|scrape|manual>")
+        }
+        let surface = try resolveConversationSurface(subArgs)
+        var params: [String: Any] = [
+            "surface_id": surface,
+            "kind": kind,
+            "id": id,
+            "source": source
+        ]
+        if let state = optionValue(subArgs, name: "--state") {
+            // C11-24 review (I2): mirror the server-side strict validation
+            // so typos fail at the CLI boundary instead of round-tripping
+            // to the socket only to come back with `invalid_state`.
+            let allowed: Set<String> = ["alive", "suspended", "ended", "tombstoned", "unknown", "unsupported"]
+            guard allowed.contains(state.lowercased()) else {
+                throw CLIError(message: "--state must be one of: \(allowed.sorted().joined(separator: ", "))")
+            }
+            params["state"] = state.lowercased()
+        }
+        if let cwd = optionValue(subArgs, name: "--cwd") { params["cwd"] = cwd }
+        if let reason = optionValue(subArgs, name: "--reason") { params["diagnostic_reason"] = reason }
+        if let payloadObj = try readConversationPayload(subArgs) {
+            params["payload"] = payloadObj
+        }
+        let response = try client.sendV2(method: "conversation.push", params: params)
+        if jsonOutput {
+            print(jsonString(response))
+        } else {
+            print("OK conversation.push kind=\(kind) surface=\(surface) source=\(source)")
+        }
+    }
+
+    private func runConversationTombstone(
+        subArgs: [String],
+        client: SocketClient,
+        jsonOutput: Bool
+    ) throws {
+        guard let kind = optionValue(subArgs, name: "--kind"),
+              !kind.isEmpty else {
+            throw CLIError(message: "tombstone requires --kind <kind>")
+        }
+        guard let id = optionValue(subArgs, name: "--id"),
+              !id.isEmpty else {
+            throw CLIError(message: "tombstone requires --id <id>")
+        }
+        let surface = try resolveConversationSurface(subArgs)
+        var params: [String: Any] = [
+            "surface_id": surface,
+            "kind": kind,
+            "id": id
+        ]
+        if let reason = optionValue(subArgs, name: "--reason") { params["reason"] = reason }
+        let response = try client.sendV2(method: "conversation.tombstone", params: params)
+        if jsonOutput {
+            print(jsonString(response))
+        } else {
+            print("OK conversation.tombstone kind=\(kind) surface=\(surface)")
+        }
+    }
+
+    private func runConversationList(
+        subArgs: [String],
+        client: SocketClient,
+        jsonOutput: Bool
+    ) throws {
+        var params: [String: Any] = [:]
+        if let s = optionValue(subArgs, name: "--surface") { params["surface_id"] = s }
+        // C11-24 review (I3): --workspace is not implemented in v1. The
+        // store doesn't track per-workspace partitioning today; the
+        // server has been silently ignoring `workspace_id` and returning
+        // every conversation across every workspace. Reject explicitly
+        // rather than lying about the filter; revisit in v1.1 if the
+        // store grows workspace partitioning.
+        if optionValue(subArgs, name: "--workspace") != nil {
+            throw CLIError(message: "--workspace is not supported in v1; conversations are stored process-wide. Filter with --surface instead.")
+        }
+        let response = try client.sendV2(method: "conversation.list", params: params)
+        if jsonOutput || hasFlag(subArgs, name: "--json") {
+            print(jsonString(response))
+            return
+        }
+        let entries = response["conversations"] as? [[String: Any]] ?? []
+        if entries.isEmpty {
+            print("(no conversations)")
+            return
+        }
+        for entry in entries {
+            let kind = entry["kind"] as? String ?? "?"
+            let id = entry["id"] as? String ?? "?"
+            let state = entry["state"] as? String ?? "?"
+            let surface = entry["surface_id"] as? String ?? "?"
+            print("\(surface)  \(kind)  \(id)  [\(state)]")
+        }
+    }
+
+    private func runConversationGet(
+        subArgs: [String],
+        client: SocketClient,
+        jsonOutput: Bool
+    ) throws {
+        let surface = try resolveConversationSurface(subArgs)
+        let params: [String: Any] = ["surface_id": surface]
+        let response = try client.sendV2(method: "conversation.get", params: params)
+        if jsonOutput || hasFlag(subArgs, name: "--json") {
+            print(jsonString(response))
+            return
+        }
+        guard let active = response["active"] as? [String: Any] else {
+            print("(no conversation for surface)")
+            return
+        }
+        let kind = active["kind"] as? String ?? "?"
+        let id = active["id"] as? String ?? "?"
+        let state = active["state"] as? String ?? "?"
+        let source = active["captured_via"] as? String ?? "?"
+        let reason = active["diagnostic_reason"] as? String ?? ""
+        let resumable = (response["can_resume"] as? Bool) ?? false
+        print("kind=\(kind) id=\(id) state=\(state) source=\(source) resumable=\(resumable)")
+        if !reason.isEmpty {
+            print("reason: \(reason)")
+        }
+    }
+
+    private func runConversationClear(
+        subArgs: [String],
+        client: SocketClient,
+        jsonOutput: Bool
+    ) throws {
+        let surface = try resolveConversationSurface(subArgs)
+        let params: [String: Any] = ["surface_id": surface]
+        let response = try client.sendV2(method: "conversation.clear", params: params)
+        if jsonOutput {
+            print(jsonString(response))
+        } else {
+            print("OK conversation.clear surface=\(surface)")
         }
     }
 
@@ -13954,55 +14251,33 @@ struct CMUXCLI {
                     cwd: parsedInput.cwd,
                     pid: claudePid
                 )
-                // CMUX-37 Phase 1: also write `claude.session_id` to the
-                // surface metadata so `c11 restore` + the Phase 1 restart
-                // registry can synthesise `cc --resume <id>` on restore.
-                // Best-effort: a missing socket (Claude running outside a
-                // c11 surface) follows the existing advisory pattern —
-                // the outer claude-hook dispatch already absorbs
-                // connectivity errors; we double-wrap here so the
-                // sessionStore write succeeds even if another CLIError
-                // bubbles up from the metadata path.
+                // C11-24 conversation store: route the SessionStart id
+                // into ConversationStore via conversation.push. Replaces
+                // the older claude.session_id reserved-metadata write
+                // (which raced SessionEnd on Cmd+Q). The legacy
+                // claude.session_id reserved key is no longer written
+                // here; the read-side bridge in WorkspaceSnapshotStore
+                // continues to recognise it for one-release backcompat
+                // (snapshots from 0.43.0/0.44.0-pre).
                 let trimmedSessionId = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmedSessionId.isEmpty, !surfaceId.isEmpty {
-                    // `Sources/WorkspaceMetadataKeys.swift` is linked into
-                    // both the c11 app target and the c11-cli target, so the
-                    // reserved-key constant has one spelling in one place.
-                    var metadata: [String: Any] = [
-                        SurfaceMetadataKeyName.claudeSessionId: trimmedSessionId
-                    ]
-                    // Pair the session id with the project directory it was
-                    // created in. `claude --resume` resolves the session JSONL
-                    // relative to the shell's cwd, so a session captured in a
-                    // worktree subdir cannot be resumed from its parent.
-                    // Recording the project_dir lets the restart registry `cd`
-                    // there before issuing the resume command. Re-validate
-                    // here: the store rejects malformed values, but skipping
-                    // the write entirely on an invalid path keeps the
-                    // session_id capture intact rather than failing the
-                    // whole metadata-merge call.
-                    if let cwd = parsedInput.cwd?
-                        .trimmingCharacters(in: .whitespacesAndNewlines),
-                       !cwd.isEmpty,
-                       isValidClaudeSessionProjectDir(cwd) {
-                        metadata[SurfaceMetadataKeyName.claudeSessionProjectDir] = cwd
-                    }
-                    var params: [String: Any] = [
+                    var pushParams: [String: Any] = [
                         "surface_id": surfaceId,
-                        "metadata": metadata,
-                        "mode": "merge",
-                        "source": "explicit"
+                        "kind": "claude-code",
+                        "id": trimmedSessionId,
+                        "source": "hook",
+                        "state": "alive"
                     ]
-                    if !workspaceId.isEmpty {
-                        params["workspace_id"] = workspaceId
+                    if let cwd = parsedInput.cwd, !cwd.isEmpty {
+                        pushParams["cwd"] = cwd
                     }
                     do {
-                        _ = try client.sendV2(method: "surface.set_metadata", params: params)
-                        telemetry.breadcrumb("claude-hook.session-id.metadata-write.ok")
+                        _ = try client.sendV2(method: "conversation.push", params: pushParams)
+                        telemetry.breadcrumb("claude-hook.conversation.push.ok")
                     } catch let error as CLIError where isAdvisoryHookConnectivityError(error) {
-                        telemetry.breadcrumb("claude-hook.session-id.metadata-write.skipped")
+                        telemetry.breadcrumb("claude-hook.conversation.push.skipped")
                     } catch {
-                        telemetry.breadcrumb("claude-hook.session-id.metadata-write.failed")
+                        telemetry.breadcrumb("claude-hook.conversation.push.failed")
                     }
                 }
             }
@@ -14140,23 +14415,6 @@ struct CMUXCLI {
 
         case "session-end":
             telemetry.breadcrumb("claude-hook.session-end")
-            // SessionEnd-during-shutdown race: c11 kills its terminals when
-            // the app is quitting, claude exits, this hook fires while c11
-            // is still tearing down. Without the guard below we'd clear
-            // `claude.session_id` from surface metadata and race the
-            // snapshot capture in `applicationShouldTerminate`, losing the
-            // per-pane id and breaking auto-resume on next launch (the
-            // registry's resolver returns nil with no session id, so the
-            // wrapper just launches a fresh claude). See
-            // `SessionEndShutdownPolicy` for the policy and PR #95
-            // (conversation-store) for the architecture that supersedes
-            // this rail.
-            let pingOutcome = queryC11ShutdownState(client: client)
-            if SessionEndShutdownPolicy.shouldPreserve(outcome: pingOutcome) {
-                telemetry.breadcrumb("claude-hook.session-end.preserved-during-shutdown")
-                print("OK")
-                return
-            }
             // Final cleanup when Claude process exits.
             // Only clear when we are the primary cleanup path (Stop didn't fire first).
             // If Stop already consumed the session, consumedSession is nil and we skip
@@ -14171,34 +14429,57 @@ struct CMUXCLI {
                 _ = try? clearClaudeStatus(client: client, workspaceId: workspaceId)
                 _ = try? sendV1Command("clear_agent_pid claude_code --tab=\(workspaceId)", client: client)
                 _ = try? sendV1Command("clear_notifications --tab=\(workspaceId)", client: client)
-                // C11-24: clear `claude.session_id` from the surface metadata
-                // so a subsequent c11 restart doesn't auto-resume an
-                // already-ended session. The paired `claude.session_project_dir`
-                // is cleared in the same call — they're written atomically
-                // at SessionStart and only meaningful as a pair.
-                // `terminal_type` stays — it's a per-surface configuration
-                // ("this surface is a claude terminal"), not a per-session
-                // pointer.
+                // C11-24: SessionEnd race fix.
+                //
+                // The legacy code path here cleared `claude.session_id`
+                // from surface metadata — but on Cmd+Q, c11 kills
+                // terminals → claude exits → SessionEnd fires →
+                // metadata cleared, racing the snapshot capture. By
+                // next launch, per-surface session ids were gone (one
+                // of the bugs this primitive was built to fix).
+                //
+                // New semantics: query is_terminating_app via
+                // system.ping (250 ms bounded). If the app is
+                // terminating, NO-OP (preserve the ref so resume on
+                // next launch still works). If not, push state="ended"
+                // → store maps to .unknown so next-launch scrape
+                // reclassifies (the hook can't distinguish user
+                // /exit from Claude crash, terminal kill, or wrapper
+                // failure; tombstoning unconditionally would refuse
+                // auto-resume of work the user expected to continue).
+                //
+                // CLI policy on socket failure: treat unreachable /
+                // timeout as terminating, so we err on preservation,
+                // never tombstone on socket-uncertainty.
                 let surfaceId = consumedSession.surfaceId
-                if !surfaceId.isEmpty {
-                    var params: [String: Any] = [
-                        "surface_id": surfaceId,
-                        "keys": [
-                            SurfaceMetadataKeyName.claudeSessionId,
-                            SurfaceMetadataKeyName.claudeSessionProjectDir
-                        ],
-                        "source": "explicit"
-                    ]
-                    if !workspaceId.isEmpty {
-                        params["workspace_id"] = workspaceId
-                    }
-                    do {
-                        _ = try client.sendV2(method: "surface.clear_metadata", params: params)
-                        telemetry.breadcrumb("claude-hook.session-id.metadata-clear.ok")
-                    } catch let error as CLIError where isAdvisoryHookConnectivityError(error) {
-                        telemetry.breadcrumb("claude-hook.session-id.metadata-clear.skipped")
-                    } catch {
-                        telemetry.breadcrumb("claude-hook.session-id.metadata-clear.failed")
+                let isTerminating = isAppCurrentlyTerminating(client: client, telemetry: telemetry)
+                if isTerminating {
+                    telemetry.breadcrumb("claude-hook.session-end.skipped-during-shutdown")
+                } else if let sessionId = parsedInput.sessionId, !surfaceId.isEmpty {
+                    let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        var params: [String: Any] = [
+                            "surface_id": surfaceId,
+                            "kind": "claude-code",
+                            "id": trimmed,
+                            "source": "hook",
+                            "state": "ended",
+                            // C11-24 review (B3): server-side handler reads
+                            // `diagnostic_reason`. Sending bare `reason` here
+                            // dropped the SessionEnd context silently.
+                            "diagnostic_reason": "SessionEnd (TUI exited; reclassify on next launch)"
+                        ]
+                        if !workspaceId.isEmpty {
+                            params["workspace_id"] = workspaceId
+                        }
+                        do {
+                            _ = try client.sendV2(method: "conversation.push", params: params)
+                            telemetry.breadcrumb("claude-hook.session-end.ended.ok")
+                        } catch let error as CLIError where isAdvisoryHookConnectivityError(error) {
+                            telemetry.breadcrumb("claude-hook.session-end.ended.skipped")
+                        } catch {
+                            telemetry.breadcrumb("claude-hook.session-end.ended.failed")
+                        }
                     }
                 }
             }
@@ -14455,6 +14736,32 @@ struct CMUXCLI {
             return cwd
         }
         return nil
+    }
+
+    /// C11-24: query `is_terminating_app` on `system.ping` with a 250 ms
+    /// bounded timeout. CLI policy: treat unreachable/timeout as
+    /// terminating so SessionEnd errs on preservation and never
+    /// tombstones a ref the operator expected to resume.
+    private func isAppCurrentlyTerminating(
+        client: SocketClient,
+        telemetry: CLISocketSentryTelemetry
+    ) -> Bool {
+        do {
+            let response = try client.sendV2(method: "system.ping")
+            if let flag = response["is_terminating_app"] as? Bool {
+                if flag { telemetry.breadcrumb("claude-hook.is-terminating.true") }
+                return flag
+            }
+            // Field absent on older builds — be conservative.
+            telemetry.breadcrumb("claude-hook.is-terminating.field-absent")
+            return false
+        } catch let error as CLIError where isAdvisoryHookConnectivityError(error) {
+            telemetry.breadcrumb("claude-hook.is-terminating.unreachable-treated-as-terminating")
+            return true
+        } catch {
+            telemetry.breadcrumb("claude-hook.is-terminating.error-treated-as-terminating")
+            return true
+        }
     }
 
     private func summarizeClaudeHookStop(
