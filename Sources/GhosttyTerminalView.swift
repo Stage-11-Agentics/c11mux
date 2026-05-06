@@ -6404,6 +6404,7 @@ final class GhosttySurfaceScrollView: NSView {
     private var pendingDropZone: DropZone?
     private var dropZoneOverlayAnimationGeneration: UInt64 = 0
     private var pendingAutomaticFirstResponderApply = false
+    private var pendingDeferredSetActiveFalseResign = false
     // Intentionally no focus retry loops: rely on AppKit first-responder and bonsplit selection.
 
     /// Tracks whether keyboard focus should go to the search field or the terminal
@@ -7693,13 +7694,62 @@ final class GhosttySurfaceScrollView: NSView {
         if active {
             scheduleAutomaticFirstResponderApply(reason: "setActive")
         } else {
-            resignOwnedFirstResponderIfNeeded(reason: "setActive(false)")
+            scheduleDeferredResignAfterSetActiveFalse()
         }
 #if DEBUG
         let phase4aSetActiveDtMs = (CFAbsoluteTimeGetCurrent() - phase4aSetActiveT0) * 1000.0
         dlog("setActive.end surface=\(phase4aSurfaceShort) active=\(active ? 1 : 0) ms=\(String(format: "%.2f", phase4aSetActiveDtMs))")
 #endif
     }
+
+    // Phase 8e (C11-32): off-screen surfaces have no observable contract requiring
+    // synchronous responder-resignation inside the workspace-switch runloop iteration.
+    // The new active workspace's setActive(true) → applyFirstResponderIfNeeded →
+    // makeFirstResponder swaps the responder via the standard AppKit chain anyway.
+    // Pushing the resign call to the next idle removes Burst B (~60-300 ms) from
+    // the user-perceived switch frame.
+    private func scheduleDeferredResignAfterSetActiveFalse() {
+        guard !pendingDeferredSetActiveFalseResign else { return }
+        pendingDeferredSetActiveFalseResign = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.pendingDeferredSetActiveFalseResign = false
+            // Skip if we've been re-activated before this block runs — setActive(true)
+            // will have already swapped the responder via scheduleAutomaticFirstResponderApply.
+            guard !self.isActive else {
+#if DEBUG
+                let surfaceShort = self.surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
+                dlog("setActive.deferredResign.skipped reason=reactivated surface=\(surfaceShort)")
+#endif
+                return
+            }
+#if DEBUG
+            let surfaceShort = self.surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
+            dlog("setActive.deferredResign.fire surface=\(surfaceShort)")
+#endif
+            self.resignOwnedFirstResponderIfNeeded(reason: "setActive(false).deferred")
+#if DEBUG
+            self.assertOffScreenSurfaceNotKeyEventRoutable()
+#endif
+        }
+    }
+
+#if DEBUG
+    // Phase 8e DEBUG runtime check: after the deferred resign runs, an inactive
+    // surface should not own its window's first responder. If it does, key events
+    // would route to an off-screen surface — observable correctness regression.
+    private func assertOffScreenSurfaceNotKeyEventRoutable() {
+        guard !isActive,
+              let window,
+              let firstResponder = window.firstResponder as? NSView else { return }
+        let isOurResponder = firstResponder === surfaceView || firstResponder.isDescendant(of: surfaceView)
+        if isOurResponder {
+            let surfaceShort = surfaceView.terminalSurface?.id.uuidString.prefix(5) ?? "nil"
+            dlog("ASSERT setActive.deferredResign.routable surface=\(surfaceShort) — off-screen surface still firstResponder after deferred resign")
+            assertionFailure("Off-screen surface still owns first responder after deferred setActive(false).resign")
+        }
+    }
+#endif
 
 #if DEBUG
     private func debugLogWorkspaceSwitchTiming(event: String, suffix: String) {
@@ -8091,13 +8141,12 @@ final class GhosttySurfaceScrollView: NSView {
                 dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=defer path=windowJustBecameKey ms=\(String(format: "%.2f", phase8cEnsureDtMs))")
 #endif
                 scheduleAutomaticFirstResponderApply(reason: "ensureFocus.windowJustBecameKey")
-            }
+            } else {
 #if DEBUG
-            else {
                 let phase8cEnsureDtMs = (CFAbsoluteTimeGetCurrent() - phase4aEnsureT0) * 1000.0
                 dlog("ensureFocus.end surface=\(phase4aEnsureSurfaceShort) result=skip path=windowJustBecameKey.textBoxFocused ms=\(String(format: "%.2f", phase8cEnsureDtMs))")
-            }
 #endif
+            }
             return
         }
         // [TextBox] Do not steal focus from an active TextBox. ensureFocus
