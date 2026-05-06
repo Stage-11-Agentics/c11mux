@@ -266,6 +266,17 @@ extension Workspace {
         prunePaneMetadata(validPaneIds: Set(bonsplitController.allPaneIds.map { $0.id }))
 
         pruneSurfaceMetadata(validSurfaceIds: Set(panels.keys))
+
+        // C11-25 review fix I1: rehydrate per-surface lifecycle from the
+        // canonical metadata mirror. The blueprint-apply restore path
+        // (`WorkspaceLayoutExecutor.apply`) already calls this; the
+        // session-snapshot restore path used by `TabManager` /
+        // `TerminalController` / `AppDelegate` did not, so a hibernated
+        // browser restored on app relaunch landed with
+        // `lifecycle_state == "hibernated"` in metadata but was running
+        // as `.active` in runtime. Operator intent was silently dropped.
+        restoreLifecycleStateFromMetadata()
+
         applySessionDividerPositions(snapshotNode: snapshot.layout, liveNode: bonsplitController.treeSnapshot())
 
         let restoredStableDefaultTitle = snapshot.stableDefaultTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -625,6 +636,7 @@ extension Workspace {
             type: panel.panelType,
             title: panelTitle,
             customTitle: customTitle,
+            customColor: panelCustomColors[panelId],
             directory: directory,
             isPinned: isPinned,
             isManuallyUnread: isManuallyUnread,
@@ -799,12 +811,19 @@ extension Workspace {
             return terminalPanel.id
         case .browser:
             let initialURL = snapshot.browser?.urlString.flatMap { URL(string: $0) }
+            // C11-25 fix S4+E1: when the persisted snapshot says the panel
+            // was hibernated, construct it natively in `.hibernated` so the
+            // initial WKWebView load never fires for `initialURL` —
+            // matches the executor-driven restore path and closes the same
+            // privacy/billing leak on session-snapshot restore.
+            let restoredHibernated = snapshotRequestsHibernated(snapshot)
             guard let browserPanel = newBrowserSurface(
                 inPane: paneId,
                 url: initialURL,
                 focus: false,
                 preferredProfileID: snapshot.browser?.profileID,
-                panelId: restoredPanelId
+                panelId: restoredPanelId,
+                pendingHibernate: restoredHibernated
             ) else {
                 return nil
             }
@@ -824,12 +843,26 @@ extension Workspace {
         }
     }
 
+    /// C11-25 fix S4+E1: returns `true` when the persisted session
+    /// snapshot's per-surface metadata pinned the panel to
+    /// `lifecycle_state == "hibernated"`. Used by `createPanel` to
+    /// suppress the initial WKWebView navigate so a restored hibernated
+    /// browser never briefly hits the network for its persisted URL.
+    private func snapshotRequestsHibernated(_ snapshot: SessionPanelSnapshot) -> Bool {
+        guard let metadata = snapshot.metadata,
+              case .string(let raw)? = metadata[MetadataKey.lifecycleState] else {
+            return false
+        }
+        return raw == SurfaceLifecycleState.hibernated.rawValue
+    }
+
     private func applySessionPanelMetadata(_ snapshot: SessionPanelSnapshot, toPanelId panelId: UUID) {
         if let title = snapshot.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
             panelTitles[panelId] = title
         }
 
         setPanelCustomTitle(panelId: panelId, title: snapshot.customTitle)
+        setPanelCustomColor(panelId: panelId, color: snapshot.customColor)
         setPanelPinned(panelId: panelId, pinned: snapshot.isPinned)
 
         if snapshot.isManuallyUnread {
@@ -5113,6 +5146,14 @@ final class Workspace: Identifiable, ObservableObject {
     /// row pulse together. Visual-only; never affects selection.
     @Published private(set) var sidebarFlashToken: Int = 0
 
+    /// C11-25: workspace-level operator hibernate flag. True when the
+    /// operator has explicitly hibernated this workspace via the
+    /// "Hibernate Workspace" context menu (or socket equivalent). Survives
+    /// `c11 snapshot` / `restore` via the canonical `lifecycle_state`
+    /// metadata mirror on each panel — the workspace flag is rebuilt on
+    /// restore from "any panel hibernated".
+    @Published var isHibernated: Bool = false
+
     /// Subscriptions for panel updates (e.g., browser title changes)
     private var panelSubscriptions: [UUID: AnyCancellable] = [:]
 
@@ -5194,6 +5235,10 @@ final class Workspace: Identifiable, ObservableObject {
     @Published var panelDirectories: [UUID: String] = [:]
     @Published var panelTitles: [UUID: String] = [:]
     @Published private(set) var panelCustomTitles: [UUID: String] = [:]
+    /// Per-surface custom color, normalized as `#RRGGBB`. Identity marker for
+    /// individual pane tabs; distinct from workspace-level `customColor` which
+    /// drives sidebar/theme chrome. See ticket C11-10.
+    @Published private(set) var panelCustomColors: [UUID: String] = [:]
     /// M7 per-surface title-bar collapse state (in-memory, session-scoped).
     @Published var titleBarCollapsed: [UUID: Bool] = [:]
     /// M7 per-surface flag: user explicitly collapsed this surface (suppresses auto-expand).
@@ -5622,6 +5667,7 @@ final class Workspace: Identifiable, ObservableObject {
         )
         self.bonsplitController = BonsplitController(configuration: config)
         bonsplitController.contextMenuShortcuts = Self.buildContextMenuShortcuts()
+        bonsplitController.tabColorPalette = Self.bonsplitTabColorPalette()
 
         // Subscribe to UserDefaults.standard.chromeScalePreset so chrome scale
         // changes from any writer (Settings UI, `defaults write`, future
@@ -5838,6 +5884,7 @@ final class Workspace: Identifiable, ObservableObject {
         let directory: String?
         let cachedTitle: String?
         let customTitle: String?
+        let customColor: String?
         let manuallyUnread: Bool
     }
 
@@ -6044,6 +6091,72 @@ final class Workspace: Identifiable, ObservableObject {
         panels[panelId] as? BrowserPanel
     }
 
+    /// C11-25 commit 8: rehydrate workspace + panel lifecycle state from
+    /// `lifecycle_state` canonical metadata after a `c11 restore` /
+    /// blueprint apply. Called by `WorkspaceLayoutExecutor` once all
+    /// surfaces and metadata are materialized.
+    ///
+    /// For browser panels with `lifecycle_state == "hibernated"`:
+    ///   `setHibernated(true)` re-triggers the snapshot+terminate path
+    ///   so the restored panel ends up in the same operator-pinned
+    ///   state. Snapshots are in-memory only in C11-25, so the
+    ///   placeholder will render a neutral background until the
+    ///   operator resumes — operator accepted in §0a.
+    ///
+    /// For terminals/markdown the canonical metadata is preserved but
+    /// no runtime change is dispatched (auto-throttle handles
+    /// visibility; explicit terminal hibernate is deferred).
+    ///
+    /// `isHibernated` is rebuilt from "any browser panel hibernated".
+    func restoreLifecycleStateFromMetadata() {
+        var anyHibernated = false
+        for (panelId, panel) in panels {
+            let snapshot = SurfaceMetadataStore.shared.getMetadata(
+                workspaceId: id,
+                surfaceId: panelId
+            )
+            guard let stateStr = snapshot.metadata[MetadataKey.lifecycleState] as? String,
+                  let state = SurfaceLifecycleState(rawValue: stateStr) else {
+                continue
+            }
+            if state == .hibernated {
+                anyHibernated = true
+                if let browser = panel as? BrowserPanel {
+                    browser.setHibernated(true)
+                }
+            }
+        }
+        if isHibernated != anyHibernated {
+            isHibernated = anyHibernated
+        }
+    }
+
+    /// C11-25: hibernate every browser panel in the workspace and flip
+    /// the workspace-level flag. Terminals stay on the auto-throttle
+    /// path (workspace deselect already pauses libghostty rendering;
+    /// SIGSTOP for terminals is deferred). Markdown surfaces are
+    /// unaffected. Idempotent.
+    func hibernate() {
+        for panel in panels.values {
+            if let browser = panel as? BrowserPanel {
+                browser.setHibernated(true)
+            }
+        }
+        isHibernated = true
+    }
+
+    /// C11-25: resume the workspace. Browser panels transition out of
+    /// `.hibernated` (back to `.active`); the auto-throttle path takes
+    /// it from there based on visibility. Idempotent.
+    func resume() {
+        for panel in panels.values {
+            if let browser = panel as? BrowserPanel {
+                browser.setHibernated(false)
+            }
+        }
+        isHibernated = false
+    }
+
     func markdownPanel(for panelId: UUID) -> MarkdownPanel? {
         panels[panelId] as? MarkdownPanel
     }
@@ -6163,6 +6276,37 @@ final class Workspace: Identifiable, ObservableObject {
         }
 
         syncPanelTitleFromMetadata(panelId: panelId)
+    }
+
+    /// Set or clear the surface tab color for a panel. Pass nil or an empty/whitespace
+    /// string to clear; otherwise the input is normalized to `#RRGGBB` via
+    /// `WorkspaceTabColorSettings.normalizedHex`. Invalid hex inputs are ignored
+    /// (state unchanged) so callers can pass user input directly.
+    func setPanelCustomColor(panelId: UUID, color: String?) {
+        guard panels[panelId] != nil else { return }
+        let next: String?
+        if let raw = color?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
+            guard let normalized = WorkspaceTabColorSettings.normalizedHex(raw) else { return }
+            next = normalized
+        } else {
+            next = nil
+        }
+        let previous = panelCustomColors[panelId]
+        guard previous != next else { return }
+        if let next {
+            panelCustomColors[panelId] = next
+        } else {
+            panelCustomColors.removeValue(forKey: panelId)
+        }
+        if let tabId = surfaceIdFromPanelId(panelId) {
+            bonsplitController.updateTab(tabId, customColorHex: .some(next))
+        }
+    }
+
+    /// Returns the current normalized surface tab color for a panel, or nil if
+    /// none is set.
+    func panelCustomColor(panelId: UUID) -> String? {
+        panelCustomColors[panelId]
     }
 
     func isPanelPinned(_ panelId: UUID) -> Bool {
@@ -6891,6 +7035,7 @@ final class Workspace: Identifiable, ObservableObject {
         panelDirectories = panelDirectories.filter { validSurfaceIds.contains($0.key) }
         panelTitles = panelTitles.filter { validSurfaceIds.contains($0.key) }
         panelCustomTitles = panelCustomTitles.filter { validSurfaceIds.contains($0.key) }
+        panelCustomColors = panelCustomColors.filter { validSurfaceIds.contains($0.key) }
         pinnedPanelIds = pinnedPanelIds.filter { validSurfaceIds.contains($0) }
         manualUnreadPanelIds = manualUnreadPanelIds.filter { validSurfaceIds.contains($0) }
         panelGitBranches = panelGitBranches.filter { validSurfaceIds.contains($0.key) }
@@ -7711,6 +7856,10 @@ final class Workspace: Identifiable, ObservableObject {
     }
 
     /// Create a new browser panel split
+    /// - Parameter pendingHibernate: C11-25 fix S4+E1. When `true`, the
+    ///   panel is constructed natively in `.hibernated` and the initial
+    ///   URL navigate is suppressed. Used by `c11 restore` when the plan
+    ///   declares `lifecycle_state == "hibernated"` for the surface.
     @discardableResult
     func newBrowserSplit(
         from panelId: UUID,
@@ -7718,7 +7867,8 @@ final class Workspace: Identifiable, ObservableObject {
         insertFirst: Bool = false,
         url: URL? = nil,
         preferredProfileID: UUID? = nil,
-        focus: Bool = true
+        focus: Bool = true,
+        pendingHibernate: Bool = false
     ) -> BrowserPanel? {
         guard let paneId = paneIdForPanel(panelId) else { return nil }
 
@@ -7732,7 +7882,8 @@ final class Workspace: Identifiable, ObservableObject {
             initialURL: url,
             proxyEndpoint: remoteProxyEndpoint,
             isRemoteWorkspace: isRemoteWorkspace,
-            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil
+            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil,
+            pendingHibernate: pendingHibernate
         )
         panels[browserPanel.id] = browserPanel
         panelTitles[browserPanel.id] = browserPanel.displayTitle
@@ -7787,6 +7938,10 @@ final class Workspace: Identifiable, ObservableObject {
     /// - Parameter focus: nil = focus only if the target pane is already focused (default UI behavior),
     ///                    true = force focus/selection of the new surface,
     ///                    false = never focus (used for internal placeholder repair paths).
+    /// - Parameter pendingHibernate: C11-25 fix S4+E1. When `true`, the
+    ///   panel is constructed natively in `.hibernated` and the initial
+    ///   URL navigate is suppressed. Used by `c11 restore` when the plan
+    ///   declares `lifecycle_state == "hibernated"` for the surface.
     @discardableResult
     func newBrowserSurface(
         inPane paneId: PaneID,
@@ -7795,7 +7950,8 @@ final class Workspace: Identifiable, ObservableObject {
         insertAtEnd: Bool = false,
         preferredProfileID: UUID? = nil,
         bypassInsecureHTTPHostOnce: String? = nil,
-        panelId: UUID? = nil
+        panelId: UUID? = nil,
+        pendingHibernate: Bool = false
     ) -> BrowserPanel? {
         let shouldFocusNewTab = focus ?? (bonsplitController.focusedPaneId == paneId)
         let sourcePanelId = effectiveSelectedPanelId(inPane: paneId)
@@ -7813,7 +7969,8 @@ final class Workspace: Identifiable, ObservableObject {
             bypassInsecureHTTPHostOnce: bypassInsecureHTTPHostOnce,
             proxyEndpoint: remoteProxyEndpoint,
             isRemoteWorkspace: isRemoteWorkspace,
-            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil
+            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil,
+            pendingHibernate: pendingHibernate
         )
         panels[browserPanel.id] = browserPanel
         panelTitles[browserPanel.id] = browserPanel.displayTitle
@@ -8460,6 +8617,11 @@ final class Workspace: Identifiable, ObservableObject {
         if let customTitle = detached.customTitle {
             panelCustomTitles[detached.panelId] = customTitle
         }
+        if let customColor = detached.customColor {
+            panelCustomColors[detached.panelId] = customColor
+        } else {
+            panelCustomColors.removeValue(forKey: detached.panelId)
+        }
         if detached.isPinned {
             pinnedPanelIds.insert(detached.panelId)
         } else {
@@ -8482,12 +8644,14 @@ final class Workspace: Identifiable, ObservableObject {
             isDirty: detached.panel.isDirty,
             isLoading: detached.isLoading,
             isPinned: detached.isPinned,
+            customColorHex: detached.customColor,
             inPane: paneId
         ) else {
             panels.removeValue(forKey: detached.panelId)
             panelDirectories.removeValue(forKey: detached.panelId)
             panelTitles.removeValue(forKey: detached.panelId)
             panelCustomTitles.removeValue(forKey: detached.panelId)
+            panelCustomColors.removeValue(forKey: detached.panelId)
             pinnedPanelIds.remove(detached.panelId)
             manualUnreadPanelIds.remove(detached.panelId)
             manualUnreadMarkedAt.removeValue(forKey: detached.panelId)
@@ -8867,6 +9031,21 @@ final class Workspace: Identifiable, ObservableObject {
             }
         }
         return shortcuts
+    }
+
+    /// Snapshot of the workspace tab color palette mapped into the Bonsplit
+    /// menu shape. Built once at workspace init; the user-defaults-backed
+    /// palette can grow during a session, but we accept the slight staleness
+    /// here in exchange for not adding a defaults observer in slice 4. A
+    /// follow-up can refresh this on UserDefaults change if needed.
+    static func bonsplitTabColorPalette() -> [BonsplitTabColorMenuItem] {
+        WorkspaceTabColorSettings.palette().map { entry in
+            BonsplitTabColorMenuItem(
+                id: entry.id,
+                label: entry.name,
+                hex: entry.hex
+            )
+        }
     }
 
     // MARK: - Flash/Notification Support
@@ -10467,6 +10646,7 @@ extension Workspace: BonsplitDelegate {
                 directory: panelDirectories[panelId],
                 cachedTitle: cachedTitle,
                 customTitle: panelCustomTitles[panelId],
+                customColor: panelCustomColors[panelId],
                 manuallyUnread: manualUnreadPanelIds.contains(panelId)
             )
         } else {
@@ -10490,6 +10670,7 @@ extension Workspace: BonsplitDelegate {
         panelPullRequests.removeValue(forKey: panelId)
         panelTitles.removeValue(forKey: panelId)
         panelCustomTitles.removeValue(forKey: panelId)
+        panelCustomColors.removeValue(forKey: panelId)
         pinnedPanelIds.remove(panelId)
         manualUnreadPanelIds.remove(panelId)
         manualUnreadMarkedAt.removeValue(forKey: panelId)
@@ -10653,6 +10834,7 @@ extension Workspace: BonsplitDelegate {
                 panelPullRequests.removeValue(forKey: panelId)
                 panelTitles.removeValue(forKey: panelId)
                 panelCustomTitles.removeValue(forKey: panelId)
+                panelCustomColors.removeValue(forKey: panelId)
                 pinnedPanelIds.remove(panelId)
                 manualUnreadPanelIds.remove(panelId)
                 panelSubscriptions.removeValue(forKey: panelId)
@@ -11135,9 +11317,78 @@ extension Workspace: BonsplitDelegate {
         case .toggleZoom:
             guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
             toggleSplitZoom(panelId: panelId)
+        case .clearColor:
+            guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
+            setPanelCustomColor(panelId: panelId, color: nil)
+        case .chooseCustomColor:
+            guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
+            promptCustomTabColor(panelId: panelId)
         @unknown default:
             break
         }
+    }
+
+    func splitTabBar(_ controller: BonsplitController, didSelectTabColorPaletteEntry hex: String, for tab: Bonsplit.Tab, inPane pane: PaneID) {
+        guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
+        setPanelCustomColor(panelId: panelId, color: hex)
+    }
+
+    private func promptCustomTabColor(panelId: UUID) {
+        let seed = panelCustomColors[panelId] ?? "#1565C0"
+        let alert = NSAlert()
+        alert.messageText = String(
+            localized: "alert.tabColor.title",
+            defaultValue: "Custom Tab Color"
+        )
+        alert.informativeText = String(
+            localized: "alert.tabColor.message",
+            defaultValue: "Enter a hex color in the format #RRGGBB."
+        )
+
+        let input = NSTextField(string: seed)
+        input.placeholderString = "#1565C0"
+        input.frame = NSRect(x: 0, y: 0, width: 240, height: 22)
+        alert.accessoryView = input
+        alert.addButton(withTitle: String(
+            localized: "alert.tabColor.apply",
+            defaultValue: "Apply"
+        ))
+        alert.addButton(withTitle: String(
+            localized: "alert.tabColor.cancel",
+            defaultValue: "Cancel"
+        ))
+
+        let alertWindow = alert.window
+        alertWindow.initialFirstResponder = input
+        DispatchQueue.main.async {
+            alertWindow.makeFirstResponder(input)
+            input.selectText(nil)
+        }
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else { return }
+        let raw = input.stringValue
+        guard let normalized = WorkspaceTabColorSettings.addCustomColor(raw) else {
+            // Reuse the existing invalid-color path; mirror messaging used by
+            // the workspace color flow so users see a consistent explanation.
+            let invalid = NSAlert()
+            invalid.alertStyle = .warning
+            invalid.messageText = String(
+                localized: "alert.invalidColor.title",
+                defaultValue: "Invalid Color"
+            )
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            invalid.informativeText = trimmed.isEmpty
+                ? String(localized: "alert.invalidColor.emptyMessage", defaultValue: "Enter a hex color in the format #RRGGBB.")
+                : String(localized: "alert.invalidColor.invalidMessage", defaultValue: "\"\(trimmed)\" is not a valid hex color. Use #RRGGBB.")
+            invalid.addButton(withTitle: String(localized: "alert.invalidColor.ok", defaultValue: "OK"))
+            _ = invalid.runModal()
+            return
+        }
+        setPanelCustomColor(panelId: panelId, color: normalized)
+        // Refresh the bonsplit palette so newly-added custom colors are
+        // immediately visible in subsequent submenu opens.
+        bonsplitController.tabColorPalette = Self.bonsplitTabColorPalette()
     }
 
     func splitTabBar(_ controller: BonsplitController, didChangeGeometry snapshot: LayoutSnapshot) {

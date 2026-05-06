@@ -8314,6 +8314,11 @@ private struct SidebarResizerAccessibilityModifier: ViewModifier {
 struct VerticalTabsSidebar: View {
     @ObservedObject var updateViewModel: UpdateViewModel
     @ObservedObject private var themeManager = ThemeManager.shared
+    /// C11-25: subscribe to per-surface CPU/RSS sampler revision bumps so
+    /// the sidebar re-evaluates at the sample cadence (default 2 Hz).
+    /// `TabItemView.==` short-circuits body re-eval when the row's
+    /// metrics value didn't change, so this stays cheap.
+    @ObservedObject private var surfaceMetricsSampler = SurfaceMetricsSampler.shared
     let onSendFeedback: () -> Void
     @EnvironmentObject var tabManager: TabManager
     @EnvironmentObject var notificationStore: TerminalNotificationStore
@@ -8460,6 +8465,15 @@ struct VerticalTabsSidebar: View {
                                         sources: sources
                                     )
                                 }()
+                                // C11-25: read the focused surface's most recent CPU/RSS
+                                // sample as a precomputed `let`. The sampler's revision is
+                                // observed at the struct level so this re-evaluates at the
+                                // sample cadence; equality on the resolved sample (rounded
+                                // for stability) decides whether the row body re-renders.
+                                let surfaceMetricsSample: SurfaceMetricsSampler.Sample? = {
+                                    guard let focusedId = tab.focusedPanelId else { return nil }
+                                    return SurfaceMetricsSampler.shared.sample(forSurfaceId: focusedId)
+                                }()
                                 TabItemView(
                                     tabManager: tabManager,
                                     notificationStore: notificationStore,
@@ -8467,6 +8481,7 @@ struct VerticalTabsSidebar: View {
                                     index: index,
                                     isActive: isActive,
                                     agentChip: agentChip,
+                                    surfaceMetricsSample: surfaceMetricsSample,
                                     workspaceShortcutDigit: WorkspaceShortcutMapper.commandDigitForWorkspace(
                                         at: index,
                                         workspaceCount: workspaceCount
@@ -10930,6 +10945,7 @@ private struct TabItemView: View, Equatable {
         lhs.index == rhs.index &&
         lhs.isActive == rhs.isActive &&
         lhs.agentChip == rhs.agentChip &&
+        TabItemView.surfaceMetricsEqual(lhs.surfaceMetricsSample, rhs.surfaceMetricsSample) &&
         lhs.workspaceShortcutDigit == rhs.workspaceShortcutDigit &&
         lhs.canCloseWorkspace == rhs.canCloseWorkspace &&
         lhs.accessibilityWorkspaceCount == rhs.accessibilityWorkspaceCount &&
@@ -10946,6 +10962,39 @@ private struct TabItemView: View, Equatable {
         lhs.chromeTokens == rhs.chromeTokens
     }
 
+    /// Equality on metric samples is rounded so sub-percent / sub-MB
+    /// jitter at the 2 Hz sample cadence does not invalidate
+    /// `TabItemView.==` and force body re-eval. We only redraw when the
+    /// rendered text would change.
+    nonisolated static func surfaceMetricsEqual(
+        _ a: SurfaceMetricsSampler.Sample?,
+        _ b: SurfaceMetricsSampler.Sample?
+    ) -> Bool {
+        switch (a, b) {
+        case (nil, nil):
+            return true
+        case let (a?, b?):
+            return Int(a.cpuPct.rounded()) == Int(b.cpuPct.rounded())
+                && Int(a.rssMb.rounded()) == Int(b.rssMb.rounded())
+        default:
+            return false
+        }
+    }
+
+    /// Render a Sample as a compact "<cpu>% <mem>" string.
+    /// CPU is integer percent (0%–800% on multi-core spikes); memory is
+    /// integer MB up to 1024, otherwise 1-decimal GB.
+    nonisolated static func formatSurfaceMetrics(_ sample: SurfaceMetricsSampler.Sample) -> String {
+        let cpu = "\(Int(sample.cpuPct.rounded()))%"
+        let mem: String
+        if sample.rssMb >= 1024 {
+            mem = String(format: "%.1fGB", sample.rssMb / 1024)
+        } else {
+            mem = "\(Int(sample.rssMb.rounded()))MB"
+        }
+        return "\(cpu) \(mem)"
+    }
+
     // Use plain references instead of @EnvironmentObject to avoid subscribing
     // to ALL changes on these objects. Body reads use precomputed parameters;
     // action handlers use the plain references without triggering re-evaluation.
@@ -10956,6 +11005,10 @@ private struct TabItemView: View, Equatable {
     let index: Int
     let isActive: Bool
     let agentChip: AgentChip?
+    /// C11-25: most recent CPU/RSS sample for the workspace's focused
+    /// surface, or nil when no PID is registered (terminals — pending
+    /// the TTY → child PID resolver follow-up).
+    let surfaceMetricsSample: SurfaceMetricsSampler.Sample?
     let workspaceShortcutDigit: Int?
     let canCloseWorkspace: Bool
     let accessibilityWorkspaceCount: Int
@@ -11334,6 +11387,19 @@ private struct TabItemView: View, Equatable {
                         secondary: activeSecondaryColor(0.68)
                     )
                     Spacer(minLength: 0)
+                    // C11-25: per-surface CPU/RSS rendered next to the
+                    // agent chip when a sample is available. Terminal
+                    // PID resolution is a follow-up; terminals show no
+                    // metrics until that lands. Format keeps the row
+                    // narrow: integer percent + integer MB or 1-decimal
+                    // GB. Equality in `==` is rounded for stability.
+                    if let sample = surfaceMetricsSample {
+                        Text(TabItemView.formatSurfaceMetrics(sample))
+                            .font(.system(size: 9, design: .monospaced))
+                            .monospacedDigit()
+                            .foregroundColor(activeSecondaryColor(0.55))
+                            .accessibilityIdentifier("SidebarTabSurfaceMetrics")
+                    }
                 }
                 .padding(.top, 1)
             }
@@ -11838,6 +11904,28 @@ private struct TabItemView: View, Equatable {
             closeTabsAbove(tabId: tab.id)
         }
         .disabled(index == 0)
+
+        Divider()
+
+        // C11-25: hibernate / resume the right-clicked workspace. Mirrors
+        // the App menu bar's Workspace submenu (`c11App.swift:1394`) so
+        // the action is reachable from the sidebar where operators expect
+        // it (DoD #6 placement). Browser surfaces snapshot + terminate
+        // their WebContent processes and render a placeholder until
+        // resume; terminals stay on the auto-throttle path.
+        if tab.isHibernated {
+            Button(String(localized: "contextMenu.resumeWorkspace", defaultValue: "Resume Workspace")) {
+                tab.resume()
+            }
+        } else {
+            Button(String(localized: "contextMenu.hibernateWorkspace", defaultValue: "Hibernate Workspace")) {
+                tab.hibernate()
+            }
+            .help(String(
+                localized: "contextMenu.hibernateWorkspaceTooltip",
+                defaultValue: "Suspends browser surfaces in this workspace. Terminals stay on auto-throttle (already low-CPU when the workspace isn't focused)."
+            ))
+        }
 
         Divider()
 

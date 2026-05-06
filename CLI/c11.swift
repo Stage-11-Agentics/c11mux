@@ -34,6 +34,32 @@ func isAdvisoryHookConnectivityError(_ error: CLIError) -> Bool {
     CLIAdvisoryConnectivity.isAdvisoryHookConnectivity(message: error.message)
 }
 
+/// Probe c11's terminating state via `system.ping` for the
+/// `claude-hook session-end` shutdown guard. The bounded 250ms timeout
+/// keeps the hook (timeout-budgeted at 1s by Claude Code's settings) from
+/// stalling on a slow or partially-torn-down socket. Any failure (timeout,
+/// socket gone, malformed payload) collapses to `.failure` — the policy
+/// above treats that as "preserve metadata," matching the
+/// "never tombstone on socket-uncertainty" rule from synthesis-action B4.
+func queryC11ShutdownState(client: SocketClient) -> SessionEndShutdownPolicy.PingOutcome {
+    do {
+        let response = try client.sendV2(
+            method: "system.ping",
+            deadline: .custom(0.25)
+        )
+        if let result = response["result"] as? [String: Any],
+           let isTerminating = result["is_terminating_app"] as? Bool {
+            return .success(isTerminating: isTerminating)
+        }
+        // Old c11 binary without the field: the response is a successful
+        // `{pong: true}`. Report `isTerminating: false` so the existing
+        // clear-always behavior is preserved against pre-fix c11 builds.
+        return .success(isTerminating: false)
+    } catch {
+        return .failure
+    }
+}
+
 // Mirrors CMUX_* ↔ C11_* env vars so callers can use either prefix.
 // Why: binary rename from `cmux` to `c11` keeps both namespaces live during transition.
 func mirrorC11CmuxEnv() {
@@ -2833,6 +2859,9 @@ struct CMUXCLI {
 
         case "workspace-color":
             try runWorkspaceColor(commandArgs: commandArgs, client: client, jsonOutput: jsonOutput)
+
+        case "surface-color":
+            try runSurfaceColor(commandArgs: commandArgs, client: client, jsonOutput: jsonOutput)
 
         // C11-13 Stage 2: inter-agent mailbox (send/recv/trace/tail + helpers).
         case "mailbox":
@@ -10081,12 +10110,143 @@ struct CMUXCLI {
         }
     }
 
+    private func resolveCurrentWorkspaceId(client: SocketClient) throws -> String {
+        if let id = try normalizeWorkspaceHandle(nil, client: client, allowCurrent: true) {
+            return id
+        }
+        throw CLIError(message: "No current workspace available")
+    }
+
     private func resolveWorkspaceColorTarget(_ raw: String?, client: SocketClient) throws -> String? {
         let value = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value == nil || value?.isEmpty == true || value == "@current" || value == "@focused" {
+        if value == "@current" || value == "@focused" {
+            return try normalizeWorkspaceHandle(nil, client: client, allowCurrent: true)
+        }
+        if value == nil || value?.isEmpty == true {
+            // No --workspace flag: prefer caller's env workspace so commands launched
+            // from an unfocused surface still target the caller's own workspace
+            // (matches the env-first pattern used at CLI/c11.swift:1762 'identify').
+            let env = ProcessInfo.processInfo.environment
+            if let envWs = env["CMUX_WORKSPACE_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines), !envWs.isEmpty {
+                return try normalizeWorkspaceHandle(envWs, client: client)
+            }
+            if let envWs = env["C11_WORKSPACE_ID"]?.trimmingCharacters(in: .whitespacesAndNewlines), !envWs.isEmpty {
+                return try normalizeWorkspaceHandle(envWs, client: client)
+            }
             return try normalizeWorkspaceHandle(nil, client: client, allowCurrent: true)
         }
         return try normalizeWorkspaceHandle(value, client: client)
+    }
+
+    // MARK: - `c11 surface-color` (C11-10)
+    //
+    // Per-surface tab color: identifies a single surface tab in a pane,
+    // distinct from the workspace-level chrome accent. Help text says
+    // "surface tab in a pane" to disambiguate from workspace tabs.
+
+    private func runSurfaceColor(commandArgs: [String], client: SocketClient, jsonOutput: Bool) throws {
+        guard let first = commandArgs.first else {
+            throw CLIError(message: "surface-color requires a subcommand. Try: c11 surface-color get (operates on the surface tab in a pane)")
+        }
+        let sub = first.lowercased()
+        let rest = Array(commandArgs.dropFirst())
+        switch sub {
+        case "set":
+            try runSurfaceColorSet(args: rest, client: client, jsonOutput: jsonOutput)
+        case "clear":
+            try runSurfaceColorClear(args: rest, client: client, jsonOutput: jsonOutput)
+        case "get":
+            try runSurfaceColorGet(args: rest, client: client, jsonOutput: jsonOutput)
+        case "list-palette":
+            // Shares the workspace-color palette — same list, same names.
+            try runWorkspaceColorListPalette(client: client, jsonOutput: jsonOutput)
+        default:
+            throw CLIError(message: "Unknown surface-color subcommand: \(first)")
+        }
+    }
+
+    private func runSurfaceColorSet(args: [String], client: SocketClient, jsonOutput: Bool) throws {
+        let (workspaceOpt, rest1) = parseOption(args, name: "--workspace")
+        let (surfaceOpt, rest2) = parseOption(rest1, name: "--surface")
+        let positional = rest2.filter { !$0.hasPrefix("-") }
+        guard let hex = positional.first else {
+            throw CLIError(message: "surface-color set <hex> [--workspace <ref>] [--surface <ref>] (quote hex starting with '#': c11 surface-color set \"#RRGGBB\")")
+        }
+
+        let workspaceHandle = try resolveWorkspaceColorTarget(workspaceOpt, client: client)
+        let surfaceRef = surfaceOpt ?? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"]
+        let surfaceId = try resolveSurfaceId(
+            surfaceRef,
+            workspaceId: workspaceHandle ?? (try resolveCurrentWorkspaceId(client: client)),
+            client: client
+        )
+
+        var params: [String: Any] = ["hex": hex, "surface_id": surfaceId]
+        if let workspaceHandle { params["workspace_id"] = workspaceHandle }
+        let response = try client.sendV2(method: "surface.set_custom_color", params: params)
+        if jsonOutput {
+            print(jsonString(response))
+        } else {
+            let applied = response["custom_color"] as? String ?? hex
+            print("OK surface_color=\(applied)")
+        }
+    }
+
+    private func runSurfaceColorClear(args: [String], client: SocketClient, jsonOutput: Bool) throws {
+        let (workspaceOpt, rest1) = parseOption(args, name: "--workspace")
+        let (surfaceOpt, rest2) = parseOption(rest1, name: "--surface")
+        let extras = rest2.filter { !$0.hasPrefix("-") }
+        if !extras.isEmpty {
+            throw CLIError(message: "surface-color clear takes no positional arguments. Use 'surface-color set <hex>' to set a color.")
+        }
+        let workspaceHandle = try resolveWorkspaceColorTarget(workspaceOpt, client: client)
+        let surfaceRef = surfaceOpt ?? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"]
+        let surfaceId = try resolveSurfaceId(
+            surfaceRef,
+            workspaceId: workspaceHandle ?? (try resolveCurrentWorkspaceId(client: client)),
+            client: client
+        )
+
+        var params: [String: Any] = ["clear": true, "surface_id": surfaceId]
+        if let workspaceHandle { params["workspace_id"] = workspaceHandle }
+        let response = try client.sendV2(method: "surface.set_custom_color", params: params)
+        if jsonOutput {
+            print(jsonString(response))
+        } else {
+            print("OK surface color cleared")
+        }
+    }
+
+    private func runSurfaceColorGet(args: [String], client: SocketClient, jsonOutput: Bool) throws {
+        let (workspaceOpt, rest1) = parseOption(args, name: "--workspace")
+        let (surfaceOpt, _) = parseOption(rest1, name: "--surface")
+        let workspaceHandle = try resolveWorkspaceColorTarget(workspaceOpt, client: client)
+        let resolvedWorkspaceId = try workspaceHandle ?? resolveCurrentWorkspaceId(client: client)
+        let surfaceRef = surfaceOpt ?? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"]
+        let surfaceId = try resolveSurfaceId(
+            surfaceRef,
+            workspaceId: resolvedWorkspaceId,
+            client: client
+        )
+
+        let response = try client.sendV2(method: "surface.list", params: ["workspace_id": resolvedWorkspaceId])
+        let items = (response["surfaces"] as? [[String: Any]]) ?? []
+        guard let match = items.first(where: { ($0["id"] as? String) == surfaceId }) else {
+            // Match the v2 server's not_found semantics. resolveSurfaceId short-circuits
+            // any UUID-shaped string without validating membership, so a stale or wrong
+            // UUID would otherwise print 'color: (none)' and exit 0 — silently lying.
+            throw CLIError(message: "Surface not found: \(surfaceRef ?? surfaceId)")
+        }
+
+        if jsonOutput {
+            print(jsonString(match))
+            return
+        }
+        if let color = match["custom_color"] as? String {
+            print("color: \(color)")
+        } else {
+            print("color: (none)")
+        }
     }
 
     private func availableThemeNames() -> [String] {
@@ -13980,6 +14140,23 @@ struct CMUXCLI {
 
         case "session-end":
             telemetry.breadcrumb("claude-hook.session-end")
+            // SessionEnd-during-shutdown race: c11 kills its terminals when
+            // the app is quitting, claude exits, this hook fires while c11
+            // is still tearing down. Without the guard below we'd clear
+            // `claude.session_id` from surface metadata and race the
+            // snapshot capture in `applicationShouldTerminate`, losing the
+            // per-pane id and breaking auto-resume on next launch (the
+            // registry's resolver returns nil with no session id, so the
+            // wrapper just launches a fresh claude). See
+            // `SessionEndShutdownPolicy` for the policy and PR #95
+            // (conversation-store) for the architecture that supersedes
+            // this rail.
+            let pingOutcome = queryC11ShutdownState(client: client)
+            if SessionEndShutdownPolicy.shouldPreserve(outcome: pingOutcome) {
+                telemetry.breadcrumb("claude-hook.session-end.preserved-during-shutdown")
+                print("OK")
+                return
+            }
             // Final cleanup when Claude process exits.
             // Only clear when we are the primary cleanup path (Stop didn't fire first).
             // If Stop already consumed the session, consumedSession is nil and we skip

@@ -39,6 +39,18 @@ class TerminalController {
 
     static let shared = TerminalController()
 
+    /// Set by `AppDelegate.applicationShouldTerminate` /
+    /// `applicationWillTerminate` / `persistSessionForUpdateRelaunch` and
+    /// read by `system.ping`. The `c11 claude-hook session-end` CLI queries
+    /// this to decide whether to skip the surface-metadata clear during a
+    /// c11 shutdown — see `SessionEndShutdownPolicy` for the rationale.
+    /// Plain `var`: read and write are both on the main actor.
+    private var isTerminatingApp: Bool = false
+
+    func setIsTerminatingApp(_ value: Bool) {
+        isTerminatingApp = value
+    }
+
     private nonisolated(unsafe) var socketPath = SocketControlSettings.stableDefaultSocketPath
     private nonisolated(unsafe) var serverSocket: Int32 = -1
     private nonisolated(unsafe) var isRunning = false
@@ -2156,7 +2168,14 @@ class TerminalController {
         return withSocketCommandPolicy(commandKey: method, isV2: true) {
             switch method {
         case "system.ping":
-            return v2Ok(id: id, result: ["pong": true])
+            // `is_terminating_app` is the SessionEnd-during-shutdown signal —
+            // the `c11 claude-hook session-end` CLI reads it to skip the
+            // metadata clear that would otherwise race the snapshot capture
+            // in `applicationShouldTerminate`. See `SessionEndShutdownPolicy`.
+            return v2Ok(id: id, result: [
+                "pong": true,
+                "is_terminating_app": isTerminatingApp
+            ])
         case "system.capabilities":
             return v2Ok(id: id, result: v2Capabilities())
 
@@ -2291,6 +2310,8 @@ class TerminalController {
             return v2Result(id: id, self.v2SurfaceList(params: params))
         case "surface.current":
             return v2Result(id: id, self.v2SurfaceCurrent(params: params))
+        case "surface.set_custom_color":
+            return v2Result(id: id, self.v2SurfaceSetCustomColor(params: params))
         case "surface.focus":
             return v2Result(id: id, self.v2SurfaceFocus(params: params))
         case "surface.split":
@@ -6056,13 +6077,38 @@ class TerminalController {
                     "pane_ref": v2Ref(kind: .pane, uuid: paneUUID),
                     "index_in_pane": v2OrNull(indexInPaneByPanelId[panel.id]),
                     "selected_in_pane": v2OrNull(selectedInPaneByPanelId[panel.id]),
-                    "tty": v2OrNull(ws.surfaceTTYNames[panel.id])
+                    "tty": v2OrNull(ws.surfaceTTYNames[panel.id]),
+                    "custom_color": v2OrNull(ws.panelCustomColor(panelId: panel.id))
                 ]
                 if let browserPanel = panel as? BrowserPanel {
                     item["developer_tools_visible"] = browserPanel.isDeveloperToolsVisible()
                 }
                 if let markdownPanel = panel as? MarkdownPanel {
                     item["file_path"] = markdownPanel.filePath
+                }
+                // C11-25 fix DoD #5: expose the SurfaceMetricsSampler
+                // snapshot for terminal + browser surfaces so callers
+                // (smoke harness, `c11 tree --json`) can verify the
+                // CPU/RSS sidebar telemetry without a screenshot. Markdown
+                // surfaces have no process-level metric — omit the block.
+                // Lookup is a lock-protected dictionary read; safe on
+                // main. `cpu_pct` / `rss_mb` are NSNull until the sampler
+                // converges (~one tick after pid registration).
+                switch panel.panelType {
+                case .terminal, .browser:
+                    let sample = SurfaceMetricsSampler.shared.sample(forSurfaceId: panel.id)
+                    var metrics: [String: Any] = [
+                        "cpu_pct": v2OrNull(sample?.cpuPct),
+                        "rss_mb": v2OrNull(sample?.rssMb)
+                    ]
+                    if let sampledAt = sample?.sampledAt {
+                        metrics["sampled_at"] = ISO8601DateFormatter().string(from: sampledAt)
+                    } else {
+                        metrics["sampled_at"] = NSNull()
+                    }
+                    item["metrics"] = metrics
+                case .markdown:
+                    break
                 }
                 return item
             }
@@ -6108,7 +6154,8 @@ class TerminalController {
                 "pane_ref": v2Ref(kind: .pane, uuid: paneId),
                 "surface_id": v2OrNull(surfaceId?.uuidString),
                 "surface_ref": v2Ref(kind: .surface, uuid: surfaceId),
-                "surface_type": v2OrNull(surfaceId.flatMap { ws.panels[$0]?.panelType.rawValue })
+                "surface_type": v2OrNull(surfaceId.flatMap { ws.panels[$0]?.panelType.rawValue }),
+                "custom_color": v2OrNull(surfaceId.flatMap { ws.panelCustomColor(panelId: $0) })
             ]
         }
 
@@ -6116,6 +6163,61 @@ class TerminalController {
             return .err(code: "not_found", message: "Workspace not found", data: nil)
         }
         return .ok(payload)
+    }
+
+    private func v2SurfaceSetCustomColor(params: [String: Any]) -> V2CallResult {
+        guard let tabManager = v2ResolveTabManager(params: params) else {
+            return .err(code: "unavailable", message: "TabManager not available", data: nil)
+        }
+        guard let surfaceId = v2UUID(params, "surface_id") else {
+            return .err(code: "invalid_params", message: "Missing or invalid surface_id", data: nil)
+        }
+
+        let clear = (params["clear"] as? Bool) ?? false
+        let hex = params["hex"] as? String
+
+        if !clear && hex == nil {
+            return .err(code: "invalid_params", message: "Provide either 'hex' or 'clear=true'", data: nil)
+        }
+        if clear && hex != nil {
+            return .err(code: "invalid_params", message: "'clear' and 'hex' are mutually exclusive", data: nil)
+        }
+        if !clear, let hex, WorkspaceTabColorSettings.normalizedHex(hex) == nil {
+            return .err(code: "invalid_params", message: "Invalid hex color (use #RRGGBB)", data: ["hex": hex])
+        }
+
+        var applied: String? = nil
+        var workspaceUUID: UUID? = nil
+        var found = false
+        v2MainSync {
+            guard let workspace = v2ResolveWorkspace(params: params, tabManager: tabManager) else { return }
+            guard workspace.panels[surfaceId] != nil else { return }
+            workspaceUUID = workspace.id
+            found = true
+            if clear {
+                workspace.setPanelCustomColor(panelId: surfaceId, color: nil)
+                applied = nil
+            } else if let hex {
+                workspace.setPanelCustomColor(panelId: surfaceId, color: hex)
+                applied = workspace.panelCustomColor(panelId: surfaceId)
+            }
+        }
+
+        guard found else {
+            return .err(code: "not_found", message: "Surface not found", data: [
+                "surface_id": surfaceId.uuidString,
+                "surface_ref": v2Ref(kind: .surface, uuid: surfaceId)
+            ])
+        }
+
+        return .ok([
+            "workspace_id": v2OrNull(workspaceUUID?.uuidString),
+            "workspace_ref": v2Ref(kind: .workspace, uuid: workspaceUUID),
+            "surface_id": surfaceId.uuidString,
+            "surface_ref": v2Ref(kind: .surface, uuid: surfaceId),
+            "custom_color": v2OrNull(applied),
+            "cleared": clear
+        ])
     }
 
     private func v2SurfaceFocus(params: [String: Any]) -> V2CallResult {
@@ -17769,6 +17871,14 @@ class TerminalController {
                 tab.surfaceTTYNames[scope.panelId] = ttyName
                 PortScanner.shared.registerTTY(workspaceId: scope.workspaceId, panelId: scope.panelId, ttyName: ttyName)
                 AgentDetector.shared.registerTTY(workspaceId: scope.workspaceId, panelId: scope.panelId, ttyName: ttyName)
+                // C11-25 fix DoD #5: install a Sendable PID provider so
+                // the per-surface CPU/MEM sampler can attribute usage to
+                // the foreground process running on this tty (typically
+                // the shell or its most-recently spawned child).
+                let capturedTTY = ttyName
+                SurfaceMetricsSampler.shared.setPidProvider(surfaceId: scope.panelId) {
+                    TerminalPIDResolver.foregroundPID(forTTYName: capturedTTY)
+                }
             }
             return "OK"
         }
@@ -17809,6 +17919,13 @@ class TerminalController {
             tab.surfaceTTYNames[surfaceId] = ttyName
             PortScanner.shared.registerTTY(workspaceId: tab.id, panelId: surfaceId, ttyName: ttyName)
             AgentDetector.shared.registerTTY(workspaceId: tab.id, panelId: surfaceId, ttyName: ttyName)
+            // C11-25 fix DoD #5: install a Sendable PID provider so the
+            // per-surface CPU/MEM sampler can attribute usage to the
+            // foreground process running on this tty.
+            let capturedTTY = ttyName
+            SurfaceMetricsSampler.shared.setPidProvider(surfaceId: surfaceId) {
+                TerminalPIDResolver.foregroundPID(forTTYName: capturedTTY)
+            }
         }
         return result
     }

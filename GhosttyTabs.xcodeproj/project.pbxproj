@@ -23,9 +23,16 @@
 		D70B3BF0A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3BF1A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift */; };
 		D70B3BF0A1B2C3D4E5F60719 /* CLIAdvisoryConnectivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3BF1A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift */; };
 		D70B3BF0A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3BF1A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift */; };
+		D70B3CF0A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3CF1A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift */; };
+		D70B3CF0A1B2C3D4E5F60719 /* SessionEndShutdownPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3CF1A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift */; };
+		D70B3CF0A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70B3CF1A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift */; };
 		D70A4BF0A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */; };
 		D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */; };
 		D7010BF0A1B2C3D4E5F60718 /* PaneMetadataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */; };
+		D7C11250A1B2C3D4E5F60718 /* SurfaceLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11251A1B2C3D4E5F60718 /* SurfaceLifecycle.swift */; };
+		D7C11252A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11253A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift */; };
+		D7C11254A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11255A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift */; };
+		D7C11256A1B2C3D4E5F60718 /* TerminalPIDResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11257A1B2C3D4E5F60718 /* TerminalPIDResolver.swift */; };
 		D8001BF0A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8001BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift */; };
 		D8002BF0A1B2C3D4E5F60718 /* WorkspaceApplyPlanCodableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8002BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlanCodableTests.swift */; };
 		D8003BF0A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8003BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift */; };
@@ -47,6 +54,7 @@
 		D800CBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */; };
 		D800DBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */; };
 		D800EBF0A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800EBF1A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift */; };
+		D7C11260A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11261A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift */; };
 		D800FBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800FBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift */; };
 		D8010BF0A1B2C3D4E5F60718 /* WorkspacePlanCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8010BF1A1B2C3D4E5F60718 /* WorkspacePlanCapture.swift */; };
 		D8011BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8011BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift */; };
@@ -335,9 +343,15 @@
 		D70A3BF1A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataKeys.swift; sourceTree = "<group>"; };
 		D70B3BF1A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIAdvisoryConnectivity.swift; sourceTree = "<group>"; };
 		D70B3BF1A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIAdvisoryConnectivityTests.swift; sourceTree = "<group>"; };
+		D70B3CF1A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionEndShutdownPolicy.swift; sourceTree = "<group>"; };
+		D70B3CF1A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionEndShutdownPolicyTests.swift; sourceTree = "<group>"; };
 		D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataValidatorTests.swift; sourceTree = "<group>"; };
 		D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedMetadata.swift; sourceTree = "<group>"; };
 		D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneMetadataStore.swift; sourceTree = "<group>"; };
+		D7C11251A1B2C3D4E5F60718 /* SurfaceLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceLifecycle.swift; sourceTree = "<group>"; };
+		D7C11253A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserSnapshotStore.swift; sourceTree = "<group>"; };
+		D7C11255A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceMetricsSampler.swift; sourceTree = "<group>"; };
+		D7C11257A1B2C3D4E5F60718 /* TerminalPIDResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalPIDResolver.swift; sourceTree = "<group>"; };
 		D8001BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceApplyPlan.swift; sourceTree = "<group>"; };
 		D8002BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlanCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceApplyPlanCodableTests.swift; sourceTree = "<group>"; };
 		D8003BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceLayoutExecutor.swift; sourceTree = "<group>"; };
@@ -359,6 +373,7 @@
 		D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotCaptureTests.swift; sourceTree = "<group>"; };
 		D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotRoundTripAcceptanceTests.swift; sourceTree = "<group>"; };
 		D800EBF1A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceMetadataStoreValidationTests.swift; sourceTree = "<group>"; };
+		D7C11261A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceLifecycleTests.swift; sourceTree = "<group>"; };
 		D800FBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotStoreSecurityTests.swift; sourceTree = "<group>"; };
 		D8010BF1A1B2C3D4E5F60718 /* WorkspacePlanCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspacePlanCapture.swift; sourceTree = "<group>"; };
 		D8011BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintFile.swift; sourceTree = "<group>"; };
@@ -709,8 +724,13 @@
 				A5001543 /* SurfaceMetadataStore.swift */,
 				D70A3BF1A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift */,
 				D70B3BF1A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift */,
+				D70B3CF1A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift */,
 				D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */,
 				D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */,
+				D7C11251A1B2C3D4E5F60718 /* SurfaceLifecycle.swift */,
+				D7C11253A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift */,
+				D7C11255A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift */,
+				D7C11257A1B2C3D4E5F60718 /* TerminalPIDResolver.swift */,
 				D8001BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift */,
 				D8003BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift */,
 				D8005BF1A1B2C3D4E5F60718 /* WorkspaceSnapshot.swift */,
@@ -948,6 +968,7 @@
 					D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */,
 					D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */,
 					D800EBF1A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift */,
+					D7C11261A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift */,
 					D800FBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift */,
 				D8014BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift */,
 				D8015BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift */,
@@ -955,6 +976,7 @@
 				D8019BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift */,
 				D801BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift */,
 					D70B3BF1A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift */,
+					D70B3CF1A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift */,
 					A5C36031 /* StatusBarButtonDisplayTests.swift */,
 					D7101BF1A1B2C3D4E5F60718 /* MailboxLayoutTests.swift */,
 					D7104BF1A1B2C3D4E5F60718 /* MailboxIOTests.swift */,
@@ -1128,8 +1150,13 @@
 				A5001542 /* SurfaceMetadataStore.swift in Sources */,
 				D70A3BF0A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift in Sources */,
 				D70B3BF0A1B2C3D4E5F60718 /* CLIAdvisoryConnectivity.swift in Sources */,
+				D70B3CF0A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift in Sources */,
 				D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */,
 				D7010BF0A1B2C3D4E5F60718 /* PaneMetadataStore.swift in Sources */,
+				D7C11250A1B2C3D4E5F60718 /* SurfaceLifecycle.swift in Sources */,
+				D7C11252A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift in Sources */,
+				D7C11254A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift in Sources */,
+				D7C11256A1B2C3D4E5F60718 /* TerminalPIDResolver.swift in Sources */,
 				D8001BF0A1B2C3D4E5F60718 /* WorkspaceApplyPlan.swift in Sources */,
 				D8003BF0A1B2C3D4E5F60718 /* WorkspaceLayoutExecutor.swift in Sources */,
 				D8005BF0A1B2C3D4E5F60718 /* WorkspaceSnapshot.swift in Sources */,
@@ -1338,6 +1365,7 @@
 					D800CBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift in Sources */,
 					D800DBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift in Sources */,
 					D800EBF0A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift in Sources */,
+					D7C11260A1B2C3D4E5F60718 /* SurfaceLifecycleTests.swift in Sources */,
 					D800FBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotStoreSecurityTests.swift in Sources */,
 					D8014BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintFileCodableTests.swift in Sources */,
 					D8015BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintStoreTests.swift in Sources */,
@@ -1345,6 +1373,7 @@
 					D8019BF0A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift in Sources */,
 					D801BBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift in Sources */,
 					D70B3BF0A1B2C3D4E5F60720 /* CLIAdvisoryConnectivityTests.swift in Sources */,
+					D70B3CF0A1B2C3D4E5F60720 /* SessionEndShutdownPolicyTests.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
@@ -1362,6 +1391,7 @@
 				D7206BF0A1B2C3D4E5F60719 /* MailboxEnvelope.swift in Sources */,
 				D70A3BF0A1B2C3D4E5F60719 /* WorkspaceMetadataKeys.swift in Sources */,
 				D70B3BF0A1B2C3D4E5F60719 /* CLIAdvisoryConnectivity.swift in Sources */,
+				D70B3CF0A1B2C3D4E5F60719 /* SessionEndShutdownPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
