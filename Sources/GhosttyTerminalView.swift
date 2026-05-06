@@ -9364,6 +9364,28 @@ struct GhosttyTerminalView: NSViewRepresentable {
                 ) else { return }
                 guard host.window != nil else { return }
                 guard portalBindingStillLive() else { return }
+                // Phase 2: skip the bind here when the host's frame hasn't been laid
+                // out yet. AppKit fires `viewDidMoveToWindow` during `addSubview`,
+                // BEFORE SwiftUI's layout pass sizes the host. Binding now would
+                // run with a zero anchor frame, hide the hosted view, and force
+                // a second bind+sync cycle once the frame became real, which is
+                // the source of the post-handoff layout cascade. `onGeometryChanged`
+                // below performs the bind on the first geometry tick — by that
+                // point the host has its real frame and the hosted view appears
+                // in one pass.
+                let hostBounds = host.bounds
+                let geometryReady = hostBounds.width > 1 && hostBounds.height > 1
+                if !geometryReady {
+#if DEBUG
+                    dlog(
+                        "ws.hostState.deferBindOnDidMove surface=\(terminalSurface.id.uuidString.prefix(5)) " +
+                        "reason=hostBoundsNotReady visible=\(coordinator.desiredIsVisibleInUI ? 1 : 0) " +
+                        "active=\(coordinator.desiredIsActive ? 1 : 0) z=\(coordinator.desiredPortalZPriority) " +
+                        "bounds=\(String(format: "%.1fx%.1f", hostBounds.width, hostBounds.height))"
+                    )
+#endif
+                    return
+                }
                 TerminalWindowPortalRegistry.bind(
                     hostedView: hostedView,
                     to: host,
