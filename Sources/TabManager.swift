@@ -889,11 +889,42 @@ class TabManager: ObservableObject {
                     WorkspaceSwitchSignpost.end(switchSignpostID, "superseded")
                     return
                 }
+#if DEBUG
+                let asyncBlockStart = CACurrentMediaTime()
+                let switchDtAtAsyncEnter = self.debugWorkspaceSwitchStartTime > 0
+                    ? (asyncBlockStart - self.debugWorkspaceSwitchStartTime) * 1000
+                    : 0
+                dlog(
+                    "ws.select.asyncEnter id=\(self.debugWorkspaceSwitchId) " +
+                    "dt=\(Self.debugMsText(switchDtAtAsyncEnter))"
+                )
+#endif
                 self.focusSelectedTabPanel(previousTabId: previousTabId)
+#if DEBUG
+                let postFocusDt = (CACurrentMediaTime() - asyncBlockStart) * 1000
+                dlog(
+                    "ws.select.asyncPostFocusPanel id=\(self.debugWorkspaceSwitchId) " +
+                    "phaseDt=\(Self.debugMsText(postFocusDt))"
+                )
+#endif
                 self.updateWindowTitleForSelectedTab()
+#if DEBUG
+                let postTitleDt = (CACurrentMediaTime() - asyncBlockStart) * 1000
+                dlog(
+                    "ws.select.asyncPostTitleUpdate id=\(self.debugWorkspaceSwitchId) " +
+                    "phaseDt=\(Self.debugMsText(postTitleDt))"
+                )
+#endif
                 if let selectedTabId = self.selectedTabId {
                     self.markFocusedPanelReadIfActive(tabId: selectedTabId)
                 }
+#if DEBUG
+                let postMarkReadDt = (CACurrentMediaTime() - asyncBlockStart) * 1000
+                dlog(
+                    "ws.select.asyncPostMarkRead id=\(self.debugWorkspaceSwitchId) " +
+                    "phaseDt=\(Self.debugMsText(postMarkReadDt))"
+                )
+#endif
 
                 // Phase 0: close the signpost interval and post a release-safe
                 // Sentry breadcrumb with the duration so production traces
@@ -2920,6 +2951,21 @@ class TabManager: ObservableObject {
     }
 
     private func focusSelectedTabPanel(previousTabId: UUID?) {
+#if DEBUG
+        let phaseStart = CACurrentMediaTime()
+        func phaseDlog(_ marker: String) {
+            let dtMs = (CACurrentMediaTime() - phaseStart) * 1000
+            let switchDtMs = debugWorkspaceSwitchStartTime > 0
+                ? (CACurrentMediaTime() - debugWorkspaceSwitchStartTime) * 1000
+                : 0
+            dlog(
+                "ws.focusPanel.\(marker) id=\(debugWorkspaceSwitchId) " +
+                "phaseDt=\(Self.debugMsText(dtMs)) switchDt=\(Self.debugMsText(switchDtMs))"
+            )
+        }
+        phaseDlog("enter")
+        defer { phaseDlog("exit") }
+#endif
         guard let selectedTabId,
               let tab = tabs.first(where: { $0.id == selectedTabId }) else { return }
 
@@ -2944,12 +2990,21 @@ class TabManager: ObservableObject {
                 with: (tabId: previousTabId, panelId: previousPanelId)
             )
         }
+#if DEBUG
+        phaseDlog("preFocus")
+#endif
 
         panel.focus()
+#if DEBUG
+        phaseDlog("postPanelFocus")
+#endif
 
         // For terminal panels, ensure proper focus handling
         if let terminalPanel = panel as? TerminalPanel {
             terminalPanel.hostedView.ensureFocus(for: selectedTabId, surfaceId: panelId)
+#if DEBUG
+            phaseDlog("postEnsureFocus")
+#endif
         }
     }
 
