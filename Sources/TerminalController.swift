@@ -6086,6 +6086,30 @@ class TerminalController {
                 if let markdownPanel = panel as? MarkdownPanel {
                     item["file_path"] = markdownPanel.filePath
                 }
+                // C11-25 fix DoD #5: expose the SurfaceMetricsSampler
+                // snapshot for terminal + browser surfaces so callers
+                // (smoke harness, `c11 tree --json`) can verify the
+                // CPU/RSS sidebar telemetry without a screenshot. Markdown
+                // surfaces have no process-level metric — omit the block.
+                // Lookup is a lock-protected dictionary read; safe on
+                // main. `cpu_pct` / `rss_mb` are NSNull until the sampler
+                // converges (~one tick after pid registration).
+                switch panel.panelType {
+                case .terminal, .browser:
+                    let sample = SurfaceMetricsSampler.shared.sample(forSurfaceId: panel.id)
+                    var metrics: [String: Any] = [
+                        "cpu_pct": v2OrNull(sample?.cpuPct),
+                        "rss_mb": v2OrNull(sample?.rssMb)
+                    ]
+                    if let sampledAt = sample?.sampledAt {
+                        metrics["sampled_at"] = ISO8601DateFormatter().string(from: sampledAt)
+                    } else {
+                        metrics["sampled_at"] = NSNull()
+                    }
+                    item["metrics"] = metrics
+                case .markdown:
+                    break
+                }
                 return item
             }
 
@@ -17847,6 +17871,14 @@ class TerminalController {
                 tab.surfaceTTYNames[scope.panelId] = ttyName
                 PortScanner.shared.registerTTY(workspaceId: scope.workspaceId, panelId: scope.panelId, ttyName: ttyName)
                 AgentDetector.shared.registerTTY(workspaceId: scope.workspaceId, panelId: scope.panelId, ttyName: ttyName)
+                // C11-25 fix DoD #5: install a Sendable PID provider so
+                // the per-surface CPU/MEM sampler can attribute usage to
+                // the foreground process running on this tty (typically
+                // the shell or its most-recently spawned child).
+                let capturedTTY = ttyName
+                SurfaceMetricsSampler.shared.setPidProvider(surfaceId: scope.panelId) {
+                    TerminalPIDResolver.foregroundPID(forTTYName: capturedTTY)
+                }
             }
             return "OK"
         }
@@ -17887,6 +17919,13 @@ class TerminalController {
             tab.surfaceTTYNames[surfaceId] = ttyName
             PortScanner.shared.registerTTY(workspaceId: tab.id, panelId: surfaceId, ttyName: ttyName)
             AgentDetector.shared.registerTTY(workspaceId: tab.id, panelId: surfaceId, ttyName: ttyName)
+            // C11-25 fix DoD #5: install a Sendable PID provider so the
+            // per-surface CPU/MEM sampler can attribute usage to the
+            // foreground process running on this tty.
+            let capturedTTY = ttyName
+            SurfaceMetricsSampler.shared.setPidProvider(surfaceId: surfaceId) {
+                TerminalPIDResolver.foregroundPID(forTTYName: capturedTTY)
+            }
         }
         return result
     }

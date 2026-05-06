@@ -266,6 +266,17 @@ extension Workspace {
         prunePaneMetadata(validPaneIds: Set(bonsplitController.allPaneIds.map { $0.id }))
 
         pruneSurfaceMetadata(validSurfaceIds: Set(panels.keys))
+
+        // C11-25 review fix I1: rehydrate per-surface lifecycle from the
+        // canonical metadata mirror. The blueprint-apply restore path
+        // (`WorkspaceLayoutExecutor.apply`) already calls this; the
+        // session-snapshot restore path used by `TabManager` /
+        // `TerminalController` / `AppDelegate` did not, so a hibernated
+        // browser restored on app relaunch landed with
+        // `lifecycle_state == "hibernated"` in metadata but was running
+        // as `.active` in runtime. Operator intent was silently dropped.
+        restoreLifecycleStateFromMetadata()
+
         applySessionDividerPositions(snapshotNode: snapshot.layout, liveNode: bonsplitController.treeSnapshot())
 
         let restoredStableDefaultTitle = snapshot.stableDefaultTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -800,12 +811,19 @@ extension Workspace {
             return terminalPanel.id
         case .browser:
             let initialURL = snapshot.browser?.urlString.flatMap { URL(string: $0) }
+            // C11-25 fix S4+E1: when the persisted snapshot says the panel
+            // was hibernated, construct it natively in `.hibernated` so the
+            // initial WKWebView load never fires for `initialURL` —
+            // matches the executor-driven restore path and closes the same
+            // privacy/billing leak on session-snapshot restore.
+            let restoredHibernated = snapshotRequestsHibernated(snapshot)
             guard let browserPanel = newBrowserSurface(
                 inPane: paneId,
                 url: initialURL,
                 focus: false,
                 preferredProfileID: snapshot.browser?.profileID,
-                panelId: restoredPanelId
+                panelId: restoredPanelId,
+                pendingHibernate: restoredHibernated
             ) else {
                 return nil
             }
@@ -823,6 +841,19 @@ extension Workspace {
             applySessionPanelMetadata(snapshot, toPanelId: markdownPanel.id)
             return markdownPanel.id
         }
+    }
+
+    /// C11-25 fix S4+E1: returns `true` when the persisted session
+    /// snapshot's per-surface metadata pinned the panel to
+    /// `lifecycle_state == "hibernated"`. Used by `createPanel` to
+    /// suppress the initial WKWebView navigate so a restored hibernated
+    /// browser never briefly hits the network for its persisted URL.
+    private func snapshotRequestsHibernated(_ snapshot: SessionPanelSnapshot) -> Bool {
+        guard let metadata = snapshot.metadata,
+              case .string(let raw)? = metadata[MetadataKey.lifecycleState] else {
+            return false
+        }
+        return raw == SurfaceLifecycleState.hibernated.rawValue
     }
 
     private func applySessionPanelMetadata(_ snapshot: SessionPanelSnapshot, toPanelId panelId: UUID) {
@@ -5108,6 +5139,14 @@ final class Workspace: Identifiable, ObservableObject {
     /// row pulse together. Visual-only; never affects selection.
     @Published private(set) var sidebarFlashToken: Int = 0
 
+    /// C11-25: workspace-level operator hibernate flag. True when the
+    /// operator has explicitly hibernated this workspace via the
+    /// "Hibernate Workspace" context menu (or socket equivalent). Survives
+    /// `c11 snapshot` / `restore` via the canonical `lifecycle_state`
+    /// metadata mirror on each panel — the workspace flag is rebuilt on
+    /// restore from "any panel hibernated".
+    @Published var isHibernated: Bool = false
+
     /// Subscriptions for panel updates (e.g., browser title changes)
     private var panelSubscriptions: [UUID: AnyCancellable] = [:]
 
@@ -5979,6 +6018,72 @@ final class Workspace: Identifiable, ObservableObject {
 
     func browserPanel(for panelId: UUID) -> BrowserPanel? {
         panels[panelId] as? BrowserPanel
+    }
+
+    /// C11-25 commit 8: rehydrate workspace + panel lifecycle state from
+    /// `lifecycle_state` canonical metadata after a `c11 restore` /
+    /// blueprint apply. Called by `WorkspaceLayoutExecutor` once all
+    /// surfaces and metadata are materialized.
+    ///
+    /// For browser panels with `lifecycle_state == "hibernated"`:
+    ///   `setHibernated(true)` re-triggers the snapshot+terminate path
+    ///   so the restored panel ends up in the same operator-pinned
+    ///   state. Snapshots are in-memory only in C11-25, so the
+    ///   placeholder will render a neutral background until the
+    ///   operator resumes — operator accepted in §0a.
+    ///
+    /// For terminals/markdown the canonical metadata is preserved but
+    /// no runtime change is dispatched (auto-throttle handles
+    /// visibility; explicit terminal hibernate is deferred).
+    ///
+    /// `isHibernated` is rebuilt from "any browser panel hibernated".
+    func restoreLifecycleStateFromMetadata() {
+        var anyHibernated = false
+        for (panelId, panel) in panels {
+            let snapshot = SurfaceMetadataStore.shared.getMetadata(
+                workspaceId: id,
+                surfaceId: panelId
+            )
+            guard let stateStr = snapshot.metadata[MetadataKey.lifecycleState] as? String,
+                  let state = SurfaceLifecycleState(rawValue: stateStr) else {
+                continue
+            }
+            if state == .hibernated {
+                anyHibernated = true
+                if let browser = panel as? BrowserPanel {
+                    browser.setHibernated(true)
+                }
+            }
+        }
+        if isHibernated != anyHibernated {
+            isHibernated = anyHibernated
+        }
+    }
+
+    /// C11-25: hibernate every browser panel in the workspace and flip
+    /// the workspace-level flag. Terminals stay on the auto-throttle
+    /// path (workspace deselect already pauses libghostty rendering;
+    /// SIGSTOP for terminals is deferred). Markdown surfaces are
+    /// unaffected. Idempotent.
+    func hibernate() {
+        for panel in panels.values {
+            if let browser = panel as? BrowserPanel {
+                browser.setHibernated(true)
+            }
+        }
+        isHibernated = true
+    }
+
+    /// C11-25: resume the workspace. Browser panels transition out of
+    /// `.hibernated` (back to `.active`); the auto-throttle path takes
+    /// it from there based on visibility. Idempotent.
+    func resume() {
+        for panel in panels.values {
+            if let browser = panel as? BrowserPanel {
+                browser.setHibernated(false)
+            }
+        }
+        isHibernated = false
     }
 
     func markdownPanel(for panelId: UUID) -> MarkdownPanel? {
@@ -7680,6 +7785,10 @@ final class Workspace: Identifiable, ObservableObject {
     }
 
     /// Create a new browser panel split
+    /// - Parameter pendingHibernate: C11-25 fix S4+E1. When `true`, the
+    ///   panel is constructed natively in `.hibernated` and the initial
+    ///   URL navigate is suppressed. Used by `c11 restore` when the plan
+    ///   declares `lifecycle_state == "hibernated"` for the surface.
     @discardableResult
     func newBrowserSplit(
         from panelId: UUID,
@@ -7687,7 +7796,8 @@ final class Workspace: Identifiable, ObservableObject {
         insertFirst: Bool = false,
         url: URL? = nil,
         preferredProfileID: UUID? = nil,
-        focus: Bool = true
+        focus: Bool = true,
+        pendingHibernate: Bool = false
     ) -> BrowserPanel? {
         guard let paneId = paneIdForPanel(panelId) else { return nil }
 
@@ -7701,7 +7811,8 @@ final class Workspace: Identifiable, ObservableObject {
             initialURL: url,
             proxyEndpoint: remoteProxyEndpoint,
             isRemoteWorkspace: isRemoteWorkspace,
-            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil
+            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil,
+            pendingHibernate: pendingHibernate
         )
         panels[browserPanel.id] = browserPanel
         panelTitles[browserPanel.id] = browserPanel.displayTitle
@@ -7756,6 +7867,10 @@ final class Workspace: Identifiable, ObservableObject {
     /// - Parameter focus: nil = focus only if the target pane is already focused (default UI behavior),
     ///                    true = force focus/selection of the new surface,
     ///                    false = never focus (used for internal placeholder repair paths).
+    /// - Parameter pendingHibernate: C11-25 fix S4+E1. When `true`, the
+    ///   panel is constructed natively in `.hibernated` and the initial
+    ///   URL navigate is suppressed. Used by `c11 restore` when the plan
+    ///   declares `lifecycle_state == "hibernated"` for the surface.
     @discardableResult
     func newBrowserSurface(
         inPane paneId: PaneID,
@@ -7764,7 +7879,8 @@ final class Workspace: Identifiable, ObservableObject {
         insertAtEnd: Bool = false,
         preferredProfileID: UUID? = nil,
         bypassInsecureHTTPHostOnce: String? = nil,
-        panelId: UUID? = nil
+        panelId: UUID? = nil,
+        pendingHibernate: Bool = false
     ) -> BrowserPanel? {
         let shouldFocusNewTab = focus ?? (bonsplitController.focusedPaneId == paneId)
         let sourcePanelId = effectiveSelectedPanelId(inPane: paneId)
@@ -7782,7 +7898,8 @@ final class Workspace: Identifiable, ObservableObject {
             bypassInsecureHTTPHostOnce: bypassInsecureHTTPHostOnce,
             proxyEndpoint: remoteProxyEndpoint,
             isRemoteWorkspace: isRemoteWorkspace,
-            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil
+            remoteWebsiteDataStoreIdentifier: isRemoteWorkspace ? id : nil,
+            pendingHibernate: pendingHibernate
         )
         panels[browserPanel.id] = browserPanel
         panelTitles[browserPanel.id] = browserPanel.displayTitle

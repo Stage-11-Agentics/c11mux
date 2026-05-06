@@ -2358,6 +2358,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // Register fenced code renderers for the markdown panel content pipeline.
         FencedCodeRendererRegistry.shared.register(MermaidRenderer.shared)
 
+        // C11-25: begin per-surface CPU/RSS sampling. Background timer; the
+        // sidebar reads samples via `SurfaceMetricsSampler.shared.sample(...)`
+        // during body eval. Idempotent — safe across UI tests that
+        // re-init the app delegate.
+        SurfaceMetricsSampler.shared.start()
+
         // Start watching the user themes directory for hot-reload.
         ThemeManager.shared.startWatchingUserThemes()
 

@@ -266,6 +266,15 @@ enum WorkspaceLayoutExecutor {
             ))
         }
 
+        // C11-25 commit 8 — rehydrate per-panel + workspace-level
+        // lifecycle from the canonical `lifecycle_state` metadata that
+        // has been applied above. For hibernated browsers this fires
+        // the snapshot+terminate path so the restored workspace
+        // matches the pre-snapshot operator intent. Cheap-tier
+        // throttled state is implicit from workspace-selection and
+        // does not need rehydration here.
+        workspace.restoreLifecycleStateFromMetadata()
+
         // Step 8 — assemble refs. The executor mints refs for every surface
         // and pane that was successfully created; plan-local surface ids map
         // 1:1 to live `surface:N` / `pane:N` refs via the injected minters.
@@ -822,7 +831,8 @@ enum WorkspaceLayoutExecutor {
                     orientation: orientation,
                     insertFirst: false,
                     url: url,
-                    focus: false
+                    focus: false,
+                    pendingHibernate: WorkspaceLayoutExecutor.specRequestsHibernated(spec)
                 )?.id
             case .markdown:
                 if spec.workingDirectory != nil {
@@ -1033,7 +1043,8 @@ enum WorkspaceLayoutExecutor {
                 return workspace.newBrowserSurface(
                     inPane: paneId,
                     url: url,
-                    focus: focus
+                    focus: focus,
+                    pendingHibernate: WorkspaceLayoutExecutor.specRequestsHibernated(spec)
                 )?.id
             case .markdown:
                 if spec.workingDirectory != nil {
@@ -1154,6 +1165,21 @@ enum WorkspaceLayoutExecutor {
             }
         }
         return out
+    }
+
+    /// C11-25 fix S4+E1: returns `true` when the plan declares
+    /// `lifecycle_state == "hibernated"` for `spec`. Browser construction
+    /// uses this to skip the initial `WKWebView.load(URLRequest:)` so a
+    /// restored hibernated workspace never briefly hits the network for
+    /// `spec.url` before being re-hibernated. Returning `false` keeps the
+    /// legacy spin-up + `restoreLifecycleStateFromMetadata` fallback for
+    /// any panel kind whose construction path doesn't yet honor the flag.
+    fileprivate nonisolated static func specRequestsHibernated(_ spec: SurfaceSpec) -> Bool {
+        guard let metadata = spec.metadata,
+              case .string(let raw)? = metadata[MetadataKey.lifecycleState] else {
+            return false
+        }
+        return raw == SurfaceLifecycleState.hibernated.rawValue
     }
 
     // MARK: - Timing helper
