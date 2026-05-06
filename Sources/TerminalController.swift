@@ -7728,6 +7728,22 @@ class TerminalController {
             return .err(code: "unavailable", message: "TabManager not available", data: nil)
         }
 
+        // CMUX-10: parse + validate the optional color override off-main, before
+        // hopping to the main actor. Per CLAUDE.md socket-threading policy.
+        let appearance: FlashAppearance
+        if let raw = params["color"] as? String {
+            guard let color = FlashAppearance.parseHex(raw) else {
+                return .err(
+                    code: "invalid_argument",
+                    message: "--color must be a hex value like #F5C518.",
+                    data: ["color": raw]
+                )
+            }
+            appearance = FlashAppearance(color: color, envelope: .paneRing)
+        } else {
+            appearance = FlashAppearance.current(envelope: .paneRing)
+        }
+
         var result: V2CallResult = .err(code: "internal_error", message: "Failed to trigger flash", data: nil)
         v2MainSync {
             guard let ws = v2ResolveWorkspace(params: params, tabManager: tabManager) else {
@@ -7748,7 +7764,7 @@ class TerminalController {
             v2MaybeFocusWindow(for: tabManager)
             v2MaybeSelectWorkspace(tabManager, workspace: ws)
 
-            ws.triggerFocusFlash(panelId: surfaceId)
+            ws.triggerFocusFlash(panelId: surfaceId, appearance: appearance)
             result = .ok(["workspace_id": ws.id.uuidString, "workspace_ref": v2Ref(kind: .workspace, uuid: ws.id), "surface_id": surfaceId.uuidString, "surface_ref": v2Ref(kind: .surface, uuid: surfaceId), "window_id": v2OrNull(v2ResolveWindowId(tabManager: tabManager)?.uuidString), "window_ref": v2Ref(kind: .window, uuid: v2ResolveWindowId(tabManager: tabManager))])
         }
         return result

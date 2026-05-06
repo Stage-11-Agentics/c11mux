@@ -9065,8 +9065,17 @@ final class Workspace: Identifiable, ObservableObject {
     /// Gated on `NotificationPaneFlashSettings` so disabling the user-facing
     /// "Pane Flash" toggle silences all three channels consistently.
     func triggerFocusFlash(panelId: UUID) {
+        triggerFocusFlash(panelId: panelId, appearance: FlashAppearance.current(envelope: .paneRing))
+    }
+
+    /// CMUX-10: variant that threads a per-call appearance (color override
+    /// from the CLI / socket) through to the pane and sidebar render paths.
+    /// Bonsplit's `flashTab` does not accept a color callback, so the tab-
+    /// strip pulse stays on the bonsplit-internal accent and is intentionally
+    /// not retinted here.
+    func triggerFocusFlash(panelId: UUID, appearance: FlashAppearance) {
         guard NotificationPaneFlashSettings.isEnabled() else { return }
-        panels[panelId]?.triggerFlash()
+        panels[panelId]?.triggerFlash(appearance: appearance)
         if let tabId = surfaceIdFromPanelId(panelId) {
             bonsplitController.flashTab(tabId)
         }

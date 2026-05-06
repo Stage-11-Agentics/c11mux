@@ -7578,6 +7578,14 @@ final class GhosttySurfaceScrollView: NSView {
 #endif
 
     func triggerFlash(style: FlashStyle = .standardFocus) {
+        triggerFlash(style: style, appearance: FlashAppearance.current(envelope: .paneRing))
+    }
+
+    /// CMUX-10: variant that re-tints the flash layer with a per-call color
+    /// before firing the animation. Color is applied off the layer's
+    /// presentation tree (sublayer property), not via a redraw of the surface,
+    /// so this stays out of the typing hot path.
+    func triggerFlash(style: FlashStyle, appearance: FlashAppearance) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
 #if DEBUG
@@ -7588,6 +7596,8 @@ final class GhosttySurfaceScrollView: NSView {
             self.updateFlashPath(style: style)
             self.flashLayer.removeAllAnimations()
             self.flashLayer.opacity = 0
+            self.flashLayer.strokeColor = appearance.color.cgColor
+            self.flashLayer.shadowColor = appearance.color.cgColor
             let animation = CAKeyframeAnimation(keyPath: "opacity")
             animation.values = FocusFlashPattern.values.map { NSNumber(value: $0) }
             animation.keyTimes = FocusFlashPattern.keyTimes.map { NSNumber(value: $0) }

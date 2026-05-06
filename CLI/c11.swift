@@ -2289,11 +2289,16 @@ struct CMUXCLI {
             let tfWsFlag = optionValue(commandArgs, name: "--workspace")
             let workspaceArg = tfWsFlag ?? (windowId == nil ? ProcessInfo.processInfo.environment["CMUX_WORKSPACE_ID"] : nil)
             let surfaceArg = optionValue(commandArgs, name: "--surface") ?? optionValue(commandArgs, name: "--panel") ?? (tfWsFlag == nil && windowId == nil ? ProcessInfo.processInfo.environment["CMUX_SURFACE_ID"] : nil)
+            let colorArg = optionValue(commandArgs, name: "--color")
+            if let colorArg, !isValidFlashColorHex(colorArg) {
+                throw CLIError(message: "--color must be a hex value like #F5C518.")
+            }
             var params: [String: Any] = [:]
             let wsId = try normalizeWorkspaceHandle(workspaceArg, client: client)
             if let wsId { params["workspace_id"] = wsId }
             let sfId = try normalizeSurfaceHandle(surfaceArg, client: client, workspaceHandle: wsId)
             if let sfId { params["surface_id"] = sfId }
+            if let colorArg { params["color"] = colorArg }
             let payload = try client.sendV2(method: "surface.trigger_flash", params: params)
             printV2Payload(payload, jsonOutput: jsonOutput, idFormat: idFormat, fallbackText: v2OKSummary(payload, idFormat: idFormat))
 
@@ -8332,7 +8337,7 @@ struct CMUXCLI {
             """
         case "trigger-flash":
             return """
-            Usage: c11 trigger-flash [--workspace <id|ref>] [--surface <id|ref>] [--panel <id|ref>]
+            Usage: c11 trigger-flash [--workspace <id|ref>] [--surface <id|ref>] [--panel <id|ref>] [--color <#hex>]
 
             Trigger the unread flash indicator for a surface.
 
@@ -8340,10 +8345,13 @@ struct CMUXCLI {
               --workspace <id|ref>   Workspace context (default: $CMUX_WORKSPACE_ID)
               --surface <id|ref>     Target surface (default: $CMUX_SURFACE_ID)
               --panel <id|ref>       Alias for --surface
+              --color <#hex>         One-shot color override (e.g. "#F5C518" or "#F5C518FF").
+                                     Defaults to the c11 yellow signal color.
 
             Example:
               c11 trigger-flash
               c11 trigger-flash --workspace workspace:2 --surface surface:3
+              c11 trigger-flash --surface surface:3 --color "#FF00FF"
             """
         case "list-panels":
             return """
@@ -10633,6 +10641,17 @@ struct CMUXCLI {
 
     private func hasFlag(_ args: [String], name: String) -> Bool {
         args.contains(name)
+    }
+
+    /// CMUX-10: client-side hex validation for `--color`. The socket re-validates
+    /// authoritatively (server is the source of truth), but rejecting obviously
+    /// wrong shapes here gives the operator a fast, clear error without a
+    /// round-trip. Accepts `#RRGGBB`, `#RRGGBBAA`, with or without leading `#`.
+    private func isValidFlashColorHex(_ raw: String) -> Bool {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stripped = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
+        guard stripped.count == 6 || stripped.count == 8 else { return false }
+        return stripped.allSatisfy { $0.isHexDigit }
     }
 
     private func replaceToken(_ args: [String], from: String, to: String) -> [String] {

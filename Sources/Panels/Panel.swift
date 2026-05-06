@@ -116,6 +116,12 @@ public protocol Panel: AnyObject, Identifiable, ObservableObject where ID == UUI
     /// Trigger a focus flash animation for this panel.
     func triggerFlash()
 
+    /// Trigger a focus flash animation with a specific appearance (color +
+    /// envelope). Default impl falls back to the no-arg `triggerFlash()` so
+    /// existing call sites keep working — panels that want to honor a per-
+    /// call color override implement this directly.
+    func triggerFlash(appearance: FlashAppearance)
+
     /// Capture the panel-local focus target that should be restored later.
     func captureFocusIntent(in window: NSWindow?) -> PanelFocusIntent
 
@@ -141,6 +147,13 @@ public protocol Panel: AnyObject, Identifiable, ObservableObject where ID == UUI
 extension Panel {
     public var displayIcon: String? { nil }
     public var isDirty: Bool { false }
+
+    /// Default impl: panels that don't yet honor per-call appearance fall
+    /// through to the legacy `triggerFlash()` path.
+    func triggerFlash(appearance: FlashAppearance) {
+        _ = appearance
+        triggerFlash()
+    }
 
     func captureFocusIntent(in window: NSWindow?) -> PanelFocusIntent {
         _ = window
