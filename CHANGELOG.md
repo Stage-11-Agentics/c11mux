@@ -4,6 +4,44 @@ All notable changes to c11 (and, before the fork, cmux) are documented here.
 
 Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the 0.38.0 section for the rename.
 
+## [0.46.0] - 2026-05-06
+
+### Added
+
+- **Hibernate Workspace + per-surface lifecycle (active / throttled / suspended / hibernated).** A right-click "Hibernate Workspace" / "Resume Workspace" entry on sidebar tabs, mirrored in the App menu's Workspace submenu, aggressively reclaims resources from workspaces you're not using. Browsers in non-focused workspaces detach their NSView so compositor cost drops to ~0%; hibernated workspaces snapshot to an NSImage placeholder and `WKWebView.close()` terminates the WebContent processes (~200 MB freed across two browsers in validation). Terminal renderers in non-focused workspaces drop to <2 Hz via libghostty `setOcclusion(false)` — ~3.3× CPU reduction on a producer pegging the render loop. Per-surface CPU and RSS now show in the sidebar (also exposed in `c11 tree --json` as `metrics.cpu_pct` / `metrics.rss_mb`) so you can see what's expensive at a glance. Hibernated workspaces persist across `c11 restore`; resume fires the URL exactly once. ([#125](https://github.com/Stage-11-Agentics/c11/pull/125))
+
+- **Per-surface tab colors inside panes.** Right-click a tab → **Tab Color** submenu picks a swatch from the palette, opens the system color picker for a custom hex, or clears the color. The color follows the surface across reorder, cross-pane move, detach/reattach, cross-workspace move, and session restore. Programmatic control via `c11 surface-color {set|clear|get|list-palette}` and the `surface.set_custom_color` v2 socket method (non-focus-stealing). All new menu strings localized for ja / uk / ko / zh-Hans / zh-Hant / ru in both c11 and the Bonsplit tab strip. ([#124](https://github.com/Stage-11-Agentics/c11/pull/124))
+
+- **App Chrome UI Scale (Compact / Default / Large / Extra Large).** Settings → Appearance → **App Chrome UI Scale** scales c11-owned chrome — sidebar workspace cards, the Bonsplit tab strip (titles, icons, accessories, item height, padding, close glyph, dirty indicator, notification badge, active-tab underbar), and the surface title bar — without touching Ghostty terminal cells, browser content, or markdown content. Default preset is byte-exact with the previous tab bar shell height (30 pt). Live update on UserDefaults change (Settings UI, `defaults write com.stage11.c11 chromeScalePreset large`, future migrations) via per-Workspace KVO; typing-latency hot paths (`TabItemView`) preserved by routing tokens through precomputed `let` parameters. Picker localized for en / ja / uk / ko / zh-Hans / zh-Hant / ru. ([#123](https://github.com/Stage-11-Agentics/c11/pull/123))
+
+- **Persistent themable surface flash with custom color and duration.** `c11 trigger-flash --persistent` keeps a surface pulsing — sidebar row + pane content + Bonsplit tab strip in unison — until the operator clicks the pane or sidebar row to dismiss, or programmatic `c11 cancel-flash --surface <ref>` cancels it. Default flash color is yellow `#F5C518` with `--color <hex>` per-call override and a forward-compatible `flash.color` theme key. Settings → Notifications → **Flash Duration** slider (500–4000 ms, default 1500 ms) scales pane and sidebar pulses together. Click-cancel hook stays out of the keystroke path; persistent timers invalidate on close + deinit. ([#126](https://github.com/Stage-11-Agentics/c11/pull/126))
+
+### Changed
+
+- **Workspace switch latency: 1–6 s → ~325 ms median, 90 s tail eliminated.** Heavy switches were dominated by `-[NSView _layoutSubtreeWithOldSize:]` recursing ~30 levels deep across every mounted workspace's bonsplit pane tree, even when only one was visible (~64% of main thread time in production samples). Three landed phases attack this:
+    - **Phase 0** wires an always-on `WorkspaceSwitchSignpost` (`os_signpost` subsystem `com.stage11.c11`, category `WorkspaceSwitch`) that graphs the switch path in Instruments.app, plus a release-safe `workspace.switch.complete` Sentry breadcrumb with `dt_ms` so production switch latency is observable.
+    - **Phase 1** wraps every `WorkspaceContentView` in `AppKitHiddenWrapper` (`NSHostingController` whose `view.isHidden` tracks visibility). `_layoutSubtreeWithOldSize:` short-circuits at hidden subviews; off-screen workspaces' subtrees are skipped entirely. SwiftUI subtree is preserved — surfaces don't dismount, so terminal scrollback and browser state survive switches unchanged.
+    - **Phase 2** skips the deferred portal bind when the host frame is zero, eliminating a second AppKit layout cascade triggered by `onDidMoveToWindow` after the first cascade had already settled.
+
+  Real-world numbers, 11 workspaces / ~20 agents loaded, after Phases 0+1+2:
+
+  | Metric | Baseline | After |
+  |---|---|---|
+  | `handoff.start` (SwiftUI cascade) | ~1,500 ms | 17–77 ms (~30–80×) |
+  | `asyncDone` median | ~1,000 ms | ~325 ms (~3×) |
+  | `asyncDone` p95 | ~6,000 ms | ~1,200 ms (~5×) |
+  | `asyncDone` worst seen | 90,790 ms | 2,426 ms |
+
+  Typing-latency hot paths (`TerminalSurface.forceRefresh()`, `TabItemView` Equatable/`.equatable()`, `WindowTerminalHostView.hitTest()`) verified intact. Phase 3 (split queued `selectedTabId.didSet` async block to defer non-essential work past the visible flip) is in flight on a separate branch and will land in a follow-up release. ([#127](https://github.com/Stage-11-Agentics/c11/pull/127), [#128](https://github.com/Stage-11-Agentics/c11/pull/128))
+
+### Fixed
+
+- **Claude Code session resume across c11 restart.** Two paired bugs broke session resume after the C11-26 socket dispatch refactor: the `claude` PATH wrapper resolution leaked into worktree subdirs, and a SessionEnd shutdown race could lose the final `claude.session_id` write. Restart now records `claude.session_project_dir` paired atomically with `claude.session_id` at SessionStart, validates the path on synthesis, and synthesizes `cd '<path>' && claude --dangerously-skip-permissions --resume <id>` only when the path is present and reachable. Existing surfaces with id-only metadata keep working unchanged. (`cc0f1fc5b`)
+
+### Built and shipped by
+
+Stage 11 Agentics. Operator:agent, fused.
+
 ## [0.45.2] - 2026-05-04
 
 ### Fixed
