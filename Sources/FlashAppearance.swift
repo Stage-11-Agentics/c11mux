@@ -62,13 +62,20 @@ public struct FlashAppearance: Equatable {
     /// Resolved by the CMUX-10 ticket: a warm yellow distinct from the gold
     /// accent so the flash reads as a *signal*, not just chrome.
     ///
+    /// `static let` (not `var`) so the `NSColor` is allocated once at class
+    /// initialization, not on every read. Sidebar overlay reads this on each
+    /// pulse animation tick; a computed accessor would build a fresh
+    /// `NSColor` per tick per row.
+    ///
     /// TODO(theme-engine, CMUX-9): read `flash.color` from the active theme
     /// when the theme engine ships; until then this constant is the source of
     /// truth and per-call overrides come through `--color`.
-    public static var defaultColor: NSColor {
-        // sRGB #F5C518 — warm signal yellow.
-        NSColor(srgbRed: 0xF5 / 255.0, green: 0xC5 / 255.0, blue: 0x18 / 255.0, alpha: 1.0)
-    }
+    public static let defaultColor: NSColor = NSColor(
+        srgbRed: 0xF5 / 255.0,
+        green: 0xC5 / 255.0,
+        blue: 0x18 / 255.0,
+        alpha: 1.0
+    )
 
     /// Parse a hex color string of the form `#RRGGBB` or `#RRGGBBAA`
     /// (case-insensitive, optional leading `#`). Returns `nil` for any other
