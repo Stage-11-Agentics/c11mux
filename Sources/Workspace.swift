@@ -7013,8 +7013,8 @@ final class Workspace: Identifiable, ObservableObject {
             // survive a restart. Drop any persisted `flash_state` entry on
             // restore so external agents reading `surface.get_metadata`
             // do not see an attention state with no live timer behind it.
-            values.removeValue(forKey: "flash_state")
-            sources.removeValue(forKey: "flash_state")
+            values.removeValue(forKey: FlashState.metadataKey)
+            sources.removeValue(forKey: FlashState.metadataKey)
             SurfaceMetadataStore.shared.restoreFromSnapshot(
                 workspaceId: id,
                 surfaceId: newPanelId,
@@ -9102,6 +9102,20 @@ final class Workspace: Identifiable, ObservableObject {
 
     // MARK: - Flash/Notification Support
 
+    /// CMUX-10: typed values for the `flash_state` surface-manifest key.
+    /// The JSON wire format stays a plain string ("persistent"), so existing
+    /// socket clients (CLI, Python e2e, agent polling) keep working unchanged.
+    /// The enum exists only to narrow the in-process write/read sites so a
+    /// future second state value cannot drift across call sites as a typo.
+    enum FlashState: String {
+        case persistent
+
+        /// Manifest key under which the value is written. Centralized here so
+        /// the start, cancel, and session-restore paths all reference the
+        /// same constant instead of repeating the literal.
+        static let metadataKey = "flash_state"
+    }
+
     /// Single fan-out for a focus flash. Drives, in order:
     ///   (a) the targeted panel's pane-content flash (existing behavior),
     ///   (b) the Bonsplit tab strip — scrolls the matching tab into view and
@@ -9165,7 +9179,7 @@ final class Workspace: Identifiable, ObservableObject {
             try SurfaceMetadataStore.shared.setMetadata(
                 workspaceId: id,
                 surfaceId: panelId,
-                partial: ["flash_state": "persistent"],
+                partial: [FlashState.metadataKey: FlashState.persistent.rawValue],
                 mode: .merge,
                 source: .declare
             )
@@ -9183,7 +9197,7 @@ final class Workspace: Identifiable, ObservableObject {
             try SurfaceMetadataStore.shared.clearMetadata(
                 workspaceId: id,
                 surfaceId: panelId,
-                keys: ["flash_state"],
+                keys: [FlashState.metadataKey],
                 source: .declare
             )
         } catch {
