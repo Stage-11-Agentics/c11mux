@@ -17,12 +17,12 @@ final class WorkspaceFlashTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        UserDefaults.standard.set(pinnedMs, forKey: NotificationFlashDurationSettings.enabledKey)
+        UserDefaults.standard.set(pinnedMs, forKey: NotificationFlashDurationSettings.storageKey)
         UserDefaults.standard.set(true, forKey: NotificationPaneFlashSettings.enabledKey)
     }
 
     override func tearDown() {
-        UserDefaults.standard.removeObject(forKey: NotificationFlashDurationSettings.enabledKey)
+        UserDefaults.standard.removeObject(forKey: NotificationFlashDurationSettings.storageKey)
         UserDefaults.standard.removeObject(forKey: NotificationPaneFlashSettings.enabledKey)
         super.tearDown()
     }

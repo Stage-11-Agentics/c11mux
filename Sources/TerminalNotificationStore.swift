@@ -549,21 +549,21 @@ enum NotificationPaneFlashSettings {
 /// its `peakScale` (commit 3), so a single duration tunes the whole signal.
 /// Persisted in UserDefaults under `notificationFlashDurationMs`.
 enum NotificationFlashDurationSettings {
-    static let enabledKey = "notificationFlashDurationMs"
+    static let storageKey = "notificationFlashDurationMs"
     static let defaultMs: Int = 1500
     static let minMs: Int = 500
     static let maxMs: Int = 4000
 
     static func currentMs(defaults: UserDefaults = .standard) -> Int {
-        if defaults.object(forKey: enabledKey) == nil {
+        if defaults.object(forKey: storageKey) == nil {
             return defaultMs
         }
-        let raw = defaults.integer(forKey: enabledKey)
+        let raw = defaults.integer(forKey: storageKey)
         return clamp(raw)
     }
 
     static func setMs(_ ms: Int, defaults: UserDefaults = .standard) {
-        defaults.set(clamp(ms), forKey: enabledKey)
+        defaults.set(clamp(ms), forKey: storageKey)
     }
 
     private static func clamp(_ ms: Int) -> Int {

@@ -271,11 +271,11 @@ final class FocusFlashPatternTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        UserDefaults.standard.set(pinnedMs, forKey: NotificationFlashDurationSettings.enabledKey)
+        UserDefaults.standard.set(pinnedMs, forKey: NotificationFlashDurationSettings.storageKey)
     }
 
     override func tearDown() {
-        UserDefaults.standard.removeObject(forKey: NotificationFlashDurationSettings.enabledKey)
+        UserDefaults.standard.removeObject(forKey: NotificationFlashDurationSettings.storageKey)
         super.tearDown()
     }
 
