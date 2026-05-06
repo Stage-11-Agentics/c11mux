@@ -73,7 +73,7 @@ c11 is **host and primitive, not configurator.** It provides surfaces, panes, a 
 
 Consequences:
 
-- **`c11 install <tui>` remains rejected.** Any proposal that writes to a user's persistent tool config is a non-starter, even with consent prompts and markers. The wrapper pattern is the upper bound on what c11 reaches for; persistent writes to tenant config are still off-limits. The 691-line spec at `docs/c11mux-module-4-integration-installers-spec.md` exists as a historical artifact only — do not revive it.
+- **`c11 install <tui>` remains rejected.** Any proposal that writes to a user's persistent tool config is a non-starter, even with consent prompts and markers. The wrapper pattern is the upper bound on what c11 reaches for; persistent writes to tenant config are still off-limits. An earlier Module 4 implementation and its spec doc were removed in C11-17; do not revive that work.
 - **Skill-driven self-reporting is still the standard pattern** for status/lifecycle telemetry. Agents that read the c11 skill learn to call `c11 set-metadata` / `c11 set-status` from their own lifecycle. The `cmux` CLI is a compat alias that dispatches to the same binary. The session-resume wrappers do not replace this — they handle only the resume capture path that the skill cannot, because they have to run *before* the agent process exists.
 - **The skill file is the only outgoing touch for behavior.** How it reaches each TUI (cc's `~/.claude/skills/`, codex's equivalent, etc.) is the operator's problem, not c11's.
 
