@@ -772,6 +772,7 @@ extension Workspace {
             type: panel.panelType,
             title: panelTitle,
             customTitle: customTitle,
+            customColor: panelCustomColors[panelId],
             directory: directory,
             isPinned: isPinned,
             isManuallyUnread: isManuallyUnread,
@@ -978,6 +979,7 @@ extension Workspace {
         }
 
         setPanelCustomTitle(panelId: panelId, title: snapshot.customTitle)
+        setPanelCustomColor(panelId: panelId, color: snapshot.customColor)
         setPanelPinned(panelId: panelId, pinned: snapshot.isPinned)
 
         if snapshot.isManuallyUnread {
@@ -5335,6 +5337,10 @@ final class Workspace: Identifiable, ObservableObject {
     @Published var panelDirectories: [UUID: String] = [:]
     @Published var panelTitles: [UUID: String] = [:]
     @Published private(set) var panelCustomTitles: [UUID: String] = [:]
+    /// Per-surface custom color, normalized as `#RRGGBB`. Identity marker for
+    /// individual pane tabs; distinct from workspace-level `customColor` which
+    /// drives sidebar/theme chrome. See ticket C11-10.
+    @Published private(set) var panelCustomColors: [UUID: String] = [:]
     /// M7 per-surface title-bar collapse state (in-memory, session-scoped).
     @Published var titleBarCollapsed: [UUID: Bool] = [:]
     /// M7 per-surface flag: user explicitly collapsed this surface (suppresses auto-expand).
@@ -5708,6 +5714,7 @@ final class Workspace: Identifiable, ObservableObject {
         )
         self.bonsplitController = BonsplitController(configuration: config)
         bonsplitController.contextMenuShortcuts = Self.buildContextMenuShortcuts()
+        bonsplitController.tabColorPalette = Self.bonsplitTabColorPalette()
 
         // Remove the default "Welcome" tab that bonsplit creates
         let welcomeTabIds = bonsplitController.allTabIds
@@ -5915,6 +5922,7 @@ final class Workspace: Identifiable, ObservableObject {
         let directory: String?
         let cachedTitle: String?
         let customTitle: String?
+        let customColor: String?
         let manuallyUnread: Bool
     }
 
@@ -6240,6 +6248,37 @@ final class Workspace: Identifiable, ObservableObject {
         }
 
         syncPanelTitleFromMetadata(panelId: panelId)
+    }
+
+    /// Set or clear the surface tab color for a panel. Pass nil or an empty/whitespace
+    /// string to clear; otherwise the input is normalized to `#RRGGBB` via
+    /// `WorkspaceTabColorSettings.normalizedHex`. Invalid hex inputs are ignored
+    /// (state unchanged) so callers can pass user input directly.
+    func setPanelCustomColor(panelId: UUID, color: String?) {
+        guard panels[panelId] != nil else { return }
+        let next: String?
+        if let raw = color?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
+            guard let normalized = WorkspaceTabColorSettings.normalizedHex(raw) else { return }
+            next = normalized
+        } else {
+            next = nil
+        }
+        let previous = panelCustomColors[panelId]
+        guard previous != next else { return }
+        if let next {
+            panelCustomColors[panelId] = next
+        } else {
+            panelCustomColors.removeValue(forKey: panelId)
+        }
+        if let tabId = surfaceIdFromPanelId(panelId) {
+            bonsplitController.updateTab(tabId, customColorHex: .some(next))
+        }
+    }
+
+    /// Returns the current normalized surface tab color for a panel, or nil if
+    /// none is set.
+    func panelCustomColor(panelId: UUID) -> String? {
+        panelCustomColors[panelId]
     }
 
     func isPanelPinned(_ panelId: UUID) -> Bool {
@@ -6968,6 +7007,7 @@ final class Workspace: Identifiable, ObservableObject {
         panelDirectories = panelDirectories.filter { validSurfaceIds.contains($0.key) }
         panelTitles = panelTitles.filter { validSurfaceIds.contains($0.key) }
         panelCustomTitles = panelCustomTitles.filter { validSurfaceIds.contains($0.key) }
+        panelCustomColors = panelCustomColors.filter { validSurfaceIds.contains($0.key) }
         pinnedPanelIds = pinnedPanelIds.filter { validSurfaceIds.contains($0) }
         manualUnreadPanelIds = manualUnreadPanelIds.filter { validSurfaceIds.contains($0) }
         panelGitBranches = panelGitBranches.filter { validSurfaceIds.contains($0.key) }
@@ -8537,6 +8577,11 @@ final class Workspace: Identifiable, ObservableObject {
         if let customTitle = detached.customTitle {
             panelCustomTitles[detached.panelId] = customTitle
         }
+        if let customColor = detached.customColor {
+            panelCustomColors[detached.panelId] = customColor
+        } else {
+            panelCustomColors.removeValue(forKey: detached.panelId)
+        }
         if detached.isPinned {
             pinnedPanelIds.insert(detached.panelId)
         } else {
@@ -8559,12 +8604,14 @@ final class Workspace: Identifiable, ObservableObject {
             isDirty: detached.panel.isDirty,
             isLoading: detached.isLoading,
             isPinned: detached.isPinned,
+            customColorHex: detached.customColor,
             inPane: paneId
         ) else {
             panels.removeValue(forKey: detached.panelId)
             panelDirectories.removeValue(forKey: detached.panelId)
             panelTitles.removeValue(forKey: detached.panelId)
             panelCustomTitles.removeValue(forKey: detached.panelId)
+            panelCustomColors.removeValue(forKey: detached.panelId)
             pinnedPanelIds.remove(detached.panelId)
             manualUnreadPanelIds.remove(detached.panelId)
             manualUnreadMarkedAt.removeValue(forKey: detached.panelId)
@@ -8944,6 +8991,21 @@ final class Workspace: Identifiable, ObservableObject {
             }
         }
         return shortcuts
+    }
+
+    /// Snapshot of the workspace tab color palette mapped into the Bonsplit
+    /// menu shape. Built once at workspace init; the user-defaults-backed
+    /// palette can grow during a session, but we accept the slight staleness
+    /// here in exchange for not adding a defaults observer in slice 4. A
+    /// follow-up can refresh this on UserDefaults change if needed.
+    static func bonsplitTabColorPalette() -> [BonsplitTabColorMenuItem] {
+        WorkspaceTabColorSettings.palette().map { entry in
+            BonsplitTabColorMenuItem(
+                id: entry.id,
+                label: entry.name,
+                hex: entry.hex
+            )
+        }
     }
 
     // MARK: - Flash/Notification Support
@@ -10544,6 +10606,7 @@ extension Workspace: BonsplitDelegate {
                 directory: panelDirectories[panelId],
                 cachedTitle: cachedTitle,
                 customTitle: panelCustomTitles[panelId],
+                customColor: panelCustomColors[panelId],
                 manuallyUnread: manualUnreadPanelIds.contains(panelId)
             )
         } else {
@@ -10567,6 +10630,7 @@ extension Workspace: BonsplitDelegate {
         panelPullRequests.removeValue(forKey: panelId)
         panelTitles.removeValue(forKey: panelId)
         panelCustomTitles.removeValue(forKey: panelId)
+        panelCustomColors.removeValue(forKey: panelId)
         pinnedPanelIds.remove(panelId)
         manualUnreadPanelIds.remove(panelId)
         manualUnreadMarkedAt.removeValue(forKey: panelId)
@@ -10730,6 +10794,7 @@ extension Workspace: BonsplitDelegate {
                 panelPullRequests.removeValue(forKey: panelId)
                 panelTitles.removeValue(forKey: panelId)
                 panelCustomTitles.removeValue(forKey: panelId)
+                panelCustomColors.removeValue(forKey: panelId)
                 pinnedPanelIds.remove(panelId)
                 manualUnreadPanelIds.remove(panelId)
                 panelSubscriptions.removeValue(forKey: panelId)
@@ -11212,9 +11277,78 @@ extension Workspace: BonsplitDelegate {
         case .toggleZoom:
             guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
             toggleSplitZoom(panelId: panelId)
+        case .clearColor:
+            guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
+            setPanelCustomColor(panelId: panelId, color: nil)
+        case .chooseCustomColor:
+            guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
+            promptCustomTabColor(panelId: panelId)
         @unknown default:
             break
         }
+    }
+
+    func splitTabBar(_ controller: BonsplitController, didSelectTabColorPaletteEntry hex: String, for tab: Bonsplit.Tab, inPane pane: PaneID) {
+        guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
+        setPanelCustomColor(panelId: panelId, color: hex)
+    }
+
+    private func promptCustomTabColor(panelId: UUID) {
+        let seed = panelCustomColors[panelId] ?? "#1565C0"
+        let alert = NSAlert()
+        alert.messageText = String(
+            localized: "alert.tabColor.title",
+            defaultValue: "Custom Tab Color"
+        )
+        alert.informativeText = String(
+            localized: "alert.tabColor.message",
+            defaultValue: "Enter a hex color in the format #RRGGBB."
+        )
+
+        let input = NSTextField(string: seed)
+        input.placeholderString = "#1565C0"
+        input.frame = NSRect(x: 0, y: 0, width: 240, height: 22)
+        alert.accessoryView = input
+        alert.addButton(withTitle: String(
+            localized: "alert.tabColor.apply",
+            defaultValue: "Apply"
+        ))
+        alert.addButton(withTitle: String(
+            localized: "alert.tabColor.cancel",
+            defaultValue: "Cancel"
+        ))
+
+        let alertWindow = alert.window
+        alertWindow.initialFirstResponder = input
+        DispatchQueue.main.async {
+            alertWindow.makeFirstResponder(input)
+            input.selectText(nil)
+        }
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else { return }
+        let raw = input.stringValue
+        guard let normalized = WorkspaceTabColorSettings.addCustomColor(raw) else {
+            // Reuse the existing invalid-color path; mirror messaging used by
+            // the workspace color flow so users see a consistent explanation.
+            let invalid = NSAlert()
+            invalid.alertStyle = .warning
+            invalid.messageText = String(
+                localized: "alert.invalidColor.title",
+                defaultValue: "Invalid Color"
+            )
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            invalid.informativeText = trimmed.isEmpty
+                ? String(localized: "alert.invalidColor.emptyMessage", defaultValue: "Enter a hex color in the format #RRGGBB.")
+                : String(localized: "alert.invalidColor.invalidMessage", defaultValue: "\"\(trimmed)\" is not a valid hex color. Use #RRGGBB.")
+            invalid.addButton(withTitle: String(localized: "alert.invalidColor.ok", defaultValue: "OK"))
+            _ = invalid.runModal()
+            return
+        }
+        setPanelCustomColor(panelId: panelId, color: normalized)
+        // Refresh the bonsplit palette so newly-added custom colors are
+        // immediately visible in subsequent submenu opens.
+        bonsplitController.tabColorPalette = Self.bonsplitTabColorPalette()
     }
 
     func splitTabBar(_ controller: BonsplitController, didChangeGeometry snapshot: LayoutSnapshot) {
