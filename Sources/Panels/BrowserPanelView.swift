@@ -563,7 +563,12 @@ struct BrowserPanelView: View {
         }
     }
 
-    var body: some View {
+    // Body split into a structural `rootView` plus a flat handler chain in
+    // `body`. Multi-statement closures are extracted into named methods so the
+    // type-checker resolves each independently. Inlining the whole tree pushed
+    // the expression past the type-checker's budget on hosted-runner CI.
+
+    private var rootView: some View {
         // Layering contract: browser Cmd+F UI is mounted in the portal-hosted AppKit
         // container. Rendering it here can hide it behind the portal-hosted WKWebView.
         VStack(spacing: 0) {
@@ -583,227 +588,270 @@ struct BrowserPanelView: View {
         .onPreferenceChange(BrowserAddressBarHeightPreferenceKey.self) { height in
             addressBarHeight = height
         }
-        .onReceive(NotificationCenter.default.publisher(for: .webViewDidReceiveClick).filter { [weak panel] note in
+        .onReceive(webViewClickPublisher) { _ in
+            handleWebViewClickIntent()
+        }
+    }
+
+    var body: some View {
+        rootView
+            .onAppear { handleViewAppear() }
+            .onChange(of: panel.focusFlashToken) { _ in triggerFocusFlashAnimation() }
+            .onChange(of: panel.currentURL) { _ in handleCurrentURLChange() }
+            .onChange(of: browserThemeModeRaw) { _ in handleBrowserThemeModeChange() }
+            .onChange(of: colorScheme) { _ in handleColorSchemeChange() }
+            .onChange(of: toggleBrowserDeveloperToolsShortcutData) { _ in
+                refreshToggleBrowserDeveloperToolsShortcut()
+            }
+            .onChange(of: panel.pendingAddressBarFocusRequestId) { _ in
+                applyPendingAddressBarFocusRequestIfNeeded()
+            }
+            .onChange(of: panel.profileID) { _ in handleProfileIDChange() }
+            .onChange(of: isVisibleInUI) { visibleInUI in
+                handleVisibilityChange(visibleInUI)
+            }
+            .onAppear { panel.applyVisibility(isVisibleInUI) }
+            .onChange(of: isFocused) { focused in
+                handlePanelFocusChange(focused)
+            }
+            .onChange(of: addressBarFocused) { focused in
+                handleAddressBarFocusChange(focused)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .browserMoveOmnibarSelection)) { notification in
+                handleMoveOmnibarSelection(notification)
+            }
+            .onReceive(panel.historyStore.$entries) { _ in
+                guard addressBarFocused else { return }
+                refreshSuggestions()
+            }
+            .onReceive(addressBarBlurPublisher) { _ in
+                handleAddressBarExternalBlur()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .ghosttyDefaultBackgroundDidChange)) { _ in
+                refreshBrowserChromeStyle()
+            }
+    }
+
+    // MARK: - Body publishers (extracted to keep `rootView` and `body` flat)
+
+    private var webViewClickPublisher: Publishers.Filter<NotificationCenter.Publisher> {
+        NotificationCenter.default.publisher(for: .webViewDidReceiveClick).filter { [weak panel] note in
             // Only handle clicks from our own webview.
             guard let webView = note.object as? CmuxWebView else { return false }
             return webView === panel?.webView
-        }) { _ in
-#if DEBUG
-            dlog(
-                "browser.focus.clickIntent panel=\(panel.id.uuidString.prefix(5)) " +
-                "isFocused=\(isFocused ? 1 : 0) " +
-                "addressFocused=\(addressBarFocused ? 1 : 0)"
-            )
-#endif
-            if addressBarFocused {
-#if DEBUG
-                logBrowserFocusState(event: "addressBarFocus.webViewClickBlur")
-#endif
-                setAddressBarFocused(false, reason: "webView.clickIntent")
-            }
-            if !isFocused {
-                onRequestPanelFocus()
-            }
         }
-        .onAppear {
-            UserDefaults.standard.register(defaults: [
-                BrowserSearchSettings.searchEngineKey: BrowserSearchSettings.defaultSearchEngine.rawValue,
-                BrowserSearchSettings.searchSuggestionsEnabledKey: BrowserSearchSettings.defaultSearchSuggestionsEnabled,
-                BrowserToolbarAccessorySpacingDebugSettings.key: BrowserToolbarAccessorySpacingDebugSettings.defaultSpacing,
-                BrowserProfilePopoverDebugSettings.horizontalPaddingKey: BrowserProfilePopoverDebugSettings.defaultHorizontalPadding,
-                BrowserProfilePopoverDebugSettings.verticalPaddingKey: BrowserProfilePopoverDebugSettings.defaultVerticalPadding,
-                BrowserThemeSettings.modeKey: BrowserThemeSettings.defaultMode.rawValue,
-            ])
-            refreshBrowserChromeStyle()
-            refreshToggleBrowserDeveloperToolsShortcut()
-            let resolvedThemeMode = BrowserThemeSettings.mode(defaults: .standard)
-            if browserThemeModeRaw != resolvedThemeMode.rawValue {
-                browserThemeModeRaw = resolvedThemeMode.rawValue
-            }
-            let resolvedHintVariant = BrowserImportHintSettings.variant(for: browserImportHintVariantRaw)
-            if browserImportHintVariantRaw != resolvedHintVariant.rawValue {
-                browserImportHintVariantRaw = resolvedHintVariant.rawValue
-            }
-            let resolvedToolbarAccessorySpacing = BrowserToolbarAccessorySpacingDebugSettings.resolved(browserToolbarAccessorySpacingRaw)
-            if browserToolbarAccessorySpacingRaw != resolvedToolbarAccessorySpacing {
-                browserToolbarAccessorySpacingRaw = resolvedToolbarAccessorySpacing
-            }
-            let resolvedProfilePopoverHorizontalPadding = BrowserProfilePopoverDebugSettings.resolvedHorizontalPadding(browserProfilePopoverHorizontalPaddingRaw)
-            if browserProfilePopoverHorizontalPaddingRaw != resolvedProfilePopoverHorizontalPadding {
-                browserProfilePopoverHorizontalPaddingRaw = resolvedProfilePopoverHorizontalPadding
-            }
-            let resolvedProfilePopoverVerticalPadding = BrowserProfilePopoverDebugSettings.resolvedVerticalPadding(browserProfilePopoverVerticalPaddingRaw)
-            if browserProfilePopoverVerticalPaddingRaw != resolvedProfilePopoverVerticalPadding {
-                browserProfilePopoverVerticalPaddingRaw = resolvedProfilePopoverVerticalPadding
-            }
-            panel.refreshAppearanceDrivenColors()
-            panel.setBrowserThemeMode(browserThemeMode)
-            applyPendingAddressBarFocusRequestIfNeeded()
-            syncURLFromPanel()
-            // If the browser surface is focused but has no URL loaded yet, auto-focus the omnibar.
-            autoFocusOmnibarIfBlank()
-            syncWebViewResponderPolicyWithViewState(reason: "onAppear")
-            refreshEmptyStateImportBrowsers()
-            panel.historyStore.loadIfNeeded()
-#if DEBUG
-            logBrowserFocusState(event: "view.onAppear")
-#endif
-        }
-        .onChange(of: panel.focusFlashToken) { _ in
-            triggerFocusFlashAnimation()
-        }
-        .onChange(of: panel.currentURL) { _ in
-            let addressWasEmpty = omnibarState.buffer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            syncURLFromPanel()
-            // If we auto-focused a blank omnibar but then a URL loads programmatically, move focus
-            // into WebKit unless the user had already started typing.
-            if addressBarFocused,
-               !panel.shouldSuppressWebViewFocus(),
-               addressWasEmpty,
-               !isWebViewBlank() {
-                setAddressBarFocused(false, reason: "panel.currentURL.loaded")
-            }
-            if isWebViewBlank() {
-                refreshEmptyStateImportBrowsers()
-            }
-        }
-        .onChange(of: browserThemeModeRaw) { _ in
-            let normalizedMode = BrowserThemeSettings.mode(for: browserThemeModeRaw)
-            if browserThemeModeRaw != normalizedMode.rawValue {
-                browserThemeModeRaw = normalizedMode.rawValue
-            }
-            panel.setBrowserThemeMode(normalizedMode)
-        }
-        .onChange(of: colorScheme) { _ in
-            refreshBrowserChromeStyle()
-            panel.refreshAppearanceDrivenColors()
-        }
-        .onChange(of: toggleBrowserDeveloperToolsShortcutData) { _ in
-            refreshToggleBrowserDeveloperToolsShortcut()
-        }
-        .onChange(of: panel.pendingAddressBarFocusRequestId) { _ in
-            applyPendingAddressBarFocusRequestIfNeeded()
-        }
-        .onChange(of: panel.profileID) { _ in
-            panel.historyStore.loadIfNeeded()
-            if addressBarFocused {
-                refreshSuggestions()
-            }
-        }
-        .onChange(of: isVisibleInUI) { visibleInUI in
-            // C11-25: drive per-surface lifecycle (active ↔ throttled) from
-            // the same flag the rest of the panel reads. Edge-event only.
-            panel.applyVisibility(visibleInUI)
-            if visibleInUI {
-                panel.cancelPendingDeveloperToolsVisibilityLossCheck()
-                return
-            }
-            // Pane/workspace churn can briefly mark the browser hidden before the
-            // final host settles. Only treat a stable hide as a signal to consume
-            // an attached-inspector X-close.
-            panel.scheduleDeveloperToolsVisibilityLossCheck()
-        }
-        .onAppear {
-            // C11-25: seed the lifecycle state from the initial visibility at
-            // panel mount. Workspaces created in the background mount with
-            // `isVisibleInUI == false` and want to start in `.throttled`.
-            panel.applyVisibility(isVisibleInUI)
-        }
-        .onChange(of: isFocused) { focused in
-#if DEBUG
-            logBrowserFocusState(
-                event: "panelFocus.onChange",
-                detail: "next=\(focused ? 1 : 0)"
-            )
-#endif
-            // Ensure this view doesn't retain focus while hidden (bonsplit keepAllAlive).
-            if focused {
-                applyPendingAddressBarFocusRequestIfNeeded()
-                autoFocusOmnibarIfBlank()
-            } else {
-                panel.invalidateAddressBarPageFocusRestoreAttempts()
-                hideSuggestions()
-                setAddressBarFocused(false, reason: "panelFocus.onChange.unfocused")
-                // Surface switches in split layouts can keep the browser visible, so
-                // `isVisibleInUI` never flips to false. Check for an attached-inspector
-                // X-close when focus leaves as well so the persisted intent stays in sync.
-                DispatchQueue.main.async {
-                    panel.scheduleDeveloperToolsVisibilityLossCheck()
-                }
-            }
-            syncWebViewResponderPolicyWithViewState(
-                reason: "panelFocusChanged",
-                isPanelFocusedOverride: focused
-            )
-        }
-        .onChange(of: addressBarFocused) { focused in
-#if DEBUG
-            logBrowserFocusState(
-                event: "addressBarFocus.onChange",
-                detail: "next=\(focused ? 1 : 0)"
-            )
-#endif
-            let urlString = panel.preferredURLStringForOmnibar() ?? ""
-            if focused {
-                panel.beginSuppressWebViewFocusForAddressBar()
-                NotificationCenter.default.post(name: .browserDidFocusAddressBar, object: panel.id)
-                // Only request panel focus if this pane isn't currently focused. When already
-                // focused (e.g. Cmd+L), forcing focus can steal first responder back to WebKit.
-                if !isFocused {
-#if DEBUG
-                    logBrowserFocusState(event: "addressBarFocus.requestPanelFocus")
-#endif
-                    onRequestPanelFocus()
-                }
-                let effects = omnibarReduce(state: &omnibarState, event: .focusGained(currentURLString: urlString))
-                applyOmnibarEffects(effects)
-                refreshInlineCompletion()
-            } else {
-                panel.endSuppressWebViewFocusForAddressBar()
-                NotificationCenter.default.post(name: .browserDidBlurAddressBar, object: panel.id)
-                if suppressNextFocusLostRevert {
-                    suppressNextFocusLostRevert = false
-                    let effects = omnibarReduce(state: &omnibarState, event: .focusLostPreserveBuffer(currentURLString: urlString))
-                    applyOmnibarEffects(effects)
-                } else {
-                    let effects = omnibarReduce(state: &omnibarState, event: .focusLostRevertBuffer(currentURLString: urlString))
-                    applyOmnibarEffects(effects)
-                }
-                inlineCompletion = nil
-            }
-            syncWebViewResponderPolicyWithViewState(reason: "addressBarFocusChanged")
-#if DEBUG
-            logBrowserFocusState(event: "addressBarFocus.onChange.applied")
-#endif
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .browserMoveOmnibarSelection)) { notification in
-            guard let panelId = notification.object as? UUID, panelId == panel.id else { return }
-            guard addressBarFocused, !omnibarState.suggestions.isEmpty else { return }
-            guard let delta = notification.userInfo?["delta"] as? Int, delta != 0 else { return }
-#if DEBUG
-            logBrowserFocusState(event: "addressBarFocus.moveSelection", detail: "delta=\(delta)")
-#endif
-            let effects = omnibarReduce(state: &omnibarState, event: .moveSelection(delta: delta))
-            applyOmnibarEffects(effects)
-            refreshInlineCompletion()
-        }
-        .onReceive(panel.historyStore.$entries) { _ in
-            guard addressBarFocused else { return }
-            refreshSuggestions()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .browserDidBlurAddressBar).filter { note in
+    }
+
+    private var addressBarBlurPublisher: Publishers.Filter<NotificationCenter.Publisher> {
+        NotificationCenter.default.publisher(for: .browserDidBlurAddressBar).filter { note in
             guard let panelId = note.object as? UUID else { return false }
             return panelId == panel.id
-        }) { _ in
-            if addressBarFocused {
+        }
+    }
+
+    // MARK: - Body event handlers (extracted from view-body closures)
+
+    private func handleWebViewClickIntent() {
 #if DEBUG
-                logBrowserFocusState(event: "addressBarFocus.externalBlur")
+        dlog(
+            "browser.focus.clickIntent panel=\(panel.id.uuidString.prefix(5)) " +
+            "isFocused=\(isFocused ? 1 : 0) " +
+            "addressFocused=\(addressBarFocused ? 1 : 0)"
+        )
 #endif
-                setAddressBarFocused(false, reason: "notification.externalBlur")
+        if addressBarFocused {
+#if DEBUG
+            logBrowserFocusState(event: "addressBarFocus.webViewClickBlur")
+#endif
+            setAddressBarFocused(false, reason: "webView.clickIntent")
+        }
+        if !isFocused {
+            onRequestPanelFocus()
+        }
+    }
+
+    private func handleViewAppear() {
+        UserDefaults.standard.register(defaults: [
+            BrowserSearchSettings.searchEngineKey: BrowserSearchSettings.defaultSearchEngine.rawValue,
+            BrowserSearchSettings.searchSuggestionsEnabledKey: BrowserSearchSettings.defaultSearchSuggestionsEnabled,
+            BrowserToolbarAccessorySpacingDebugSettings.key: BrowserToolbarAccessorySpacingDebugSettings.defaultSpacing,
+            BrowserProfilePopoverDebugSettings.horizontalPaddingKey: BrowserProfilePopoverDebugSettings.defaultHorizontalPadding,
+            BrowserProfilePopoverDebugSettings.verticalPaddingKey: BrowserProfilePopoverDebugSettings.defaultVerticalPadding,
+            BrowserThemeSettings.modeKey: BrowserThemeSettings.defaultMode.rawValue,
+        ])
+        refreshBrowserChromeStyle()
+        refreshToggleBrowserDeveloperToolsShortcut()
+        let resolvedThemeMode = BrowserThemeSettings.mode(defaults: .standard)
+        if browserThemeModeRaw != resolvedThemeMode.rawValue {
+            browserThemeModeRaw = resolvedThemeMode.rawValue
+        }
+        let resolvedHintVariant = BrowserImportHintSettings.variant(for: browserImportHintVariantRaw)
+        if browserImportHintVariantRaw != resolvedHintVariant.rawValue {
+            browserImportHintVariantRaw = resolvedHintVariant.rawValue
+        }
+        let resolvedToolbarAccessorySpacing = BrowserToolbarAccessorySpacingDebugSettings.resolved(browserToolbarAccessorySpacingRaw)
+        if browserToolbarAccessorySpacingRaw != resolvedToolbarAccessorySpacing {
+            browserToolbarAccessorySpacingRaw = resolvedToolbarAccessorySpacing
+        }
+        let resolvedProfilePopoverHorizontalPadding = BrowserProfilePopoverDebugSettings.resolvedHorizontalPadding(browserProfilePopoverHorizontalPaddingRaw)
+        if browserProfilePopoverHorizontalPaddingRaw != resolvedProfilePopoverHorizontalPadding {
+            browserProfilePopoverHorizontalPaddingRaw = resolvedProfilePopoverHorizontalPadding
+        }
+        let resolvedProfilePopoverVerticalPadding = BrowserProfilePopoverDebugSettings.resolvedVerticalPadding(browserProfilePopoverVerticalPaddingRaw)
+        if browserProfilePopoverVerticalPaddingRaw != resolvedProfilePopoverVerticalPadding {
+            browserProfilePopoverVerticalPaddingRaw = resolvedProfilePopoverVerticalPadding
+        }
+        panel.refreshAppearanceDrivenColors()
+        panel.setBrowserThemeMode(browserThemeMode)
+        applyPendingAddressBarFocusRequestIfNeeded()
+        syncURLFromPanel()
+        // If the browser surface is focused but has no URL loaded yet, auto-focus the omnibar.
+        autoFocusOmnibarIfBlank()
+        syncWebViewResponderPolicyWithViewState(reason: "onAppear")
+        refreshEmptyStateImportBrowsers()
+        panel.historyStore.loadIfNeeded()
+#if DEBUG
+        logBrowserFocusState(event: "view.onAppear")
+#endif
+    }
+
+    private func handleCurrentURLChange() {
+        let addressWasEmpty = omnibarState.buffer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        syncURLFromPanel()
+        // If we auto-focused a blank omnibar but then a URL loads programmatically, move focus
+        // into WebKit unless the user had already started typing.
+        if addressBarFocused,
+           !panel.shouldSuppressWebViewFocus(),
+           addressWasEmpty,
+           !isWebViewBlank() {
+            setAddressBarFocused(false, reason: "panel.currentURL.loaded")
+        }
+        if isWebViewBlank() {
+            refreshEmptyStateImportBrowsers()
+        }
+    }
+
+    private func handleBrowserThemeModeChange() {
+        let normalizedMode = BrowserThemeSettings.mode(for: browserThemeModeRaw)
+        if browserThemeModeRaw != normalizedMode.rawValue {
+            browserThemeModeRaw = normalizedMode.rawValue
+        }
+        panel.setBrowserThemeMode(normalizedMode)
+    }
+
+    private func handleColorSchemeChange() {
+        refreshBrowserChromeStyle()
+        panel.refreshAppearanceDrivenColors()
+    }
+
+    private func handleProfileIDChange() {
+        panel.historyStore.loadIfNeeded()
+        if addressBarFocused {
+            refreshSuggestions()
+        }
+    }
+
+    private func handleVisibilityChange(_ visibleInUI: Bool) {
+        // C11-25: drive per-surface lifecycle (active ↔ throttled) from
+        // the same flag the rest of the panel reads. Edge-event only.
+        panel.applyVisibility(visibleInUI)
+        if visibleInUI {
+            panel.cancelPendingDeveloperToolsVisibilityLossCheck()
+            return
+        }
+        // Pane/workspace churn can briefly mark the browser hidden before the
+        // final host settles. Only treat a stable hide as a signal to consume
+        // an attached-inspector X-close.
+        panel.scheduleDeveloperToolsVisibilityLossCheck()
+    }
+
+    private func handlePanelFocusChange(_ focused: Bool) {
+#if DEBUG
+        logBrowserFocusState(
+            event: "panelFocus.onChange",
+            detail: "next=\(focused ? 1 : 0)"
+        )
+#endif
+        // Ensure this view doesn't retain focus while hidden (bonsplit keepAllAlive).
+        if focused {
+            applyPendingAddressBarFocusRequestIfNeeded()
+            autoFocusOmnibarIfBlank()
+        } else {
+            panel.invalidateAddressBarPageFocusRestoreAttempts()
+            hideSuggestions()
+            setAddressBarFocused(false, reason: "panelFocus.onChange.unfocused")
+            // Surface switches in split layouts can keep the browser visible, so
+            // `isVisibleInUI` never flips to false. Check for an attached-inspector
+            // X-close when focus leaves as well so the persisted intent stays in sync.
+            DispatchQueue.main.async {
+                panel.scheduleDeveloperToolsVisibilityLossCheck()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .ghosttyDefaultBackgroundDidChange)) { _ in
-            refreshBrowserChromeStyle()
+        syncWebViewResponderPolicyWithViewState(
+            reason: "panelFocusChanged",
+            isPanelFocusedOverride: focused
+        )
+    }
+
+    private func handleAddressBarFocusChange(_ focused: Bool) {
+#if DEBUG
+        logBrowserFocusState(
+            event: "addressBarFocus.onChange",
+            detail: "next=\(focused ? 1 : 0)"
+        )
+#endif
+        let urlString = panel.preferredURLStringForOmnibar() ?? ""
+        if focused {
+            panel.beginSuppressWebViewFocusForAddressBar()
+            NotificationCenter.default.post(name: .browserDidFocusAddressBar, object: panel.id)
+            // Only request panel focus if this pane isn't currently focused. When already
+            // focused (e.g. Cmd+L), forcing focus can steal first responder back to WebKit.
+            if !isFocused {
+#if DEBUG
+                logBrowserFocusState(event: "addressBarFocus.requestPanelFocus")
+#endif
+                onRequestPanelFocus()
+            }
+            let effects = omnibarReduce(state: &omnibarState, event: .focusGained(currentURLString: urlString))
+            applyOmnibarEffects(effects)
+            refreshInlineCompletion()
+        } else {
+            panel.endSuppressWebViewFocusForAddressBar()
+            NotificationCenter.default.post(name: .browserDidBlurAddressBar, object: panel.id)
+            if suppressNextFocusLostRevert {
+                suppressNextFocusLostRevert = false
+                let effects = omnibarReduce(state: &omnibarState, event: .focusLostPreserveBuffer(currentURLString: urlString))
+                applyOmnibarEffects(effects)
+            } else {
+                let effects = omnibarReduce(state: &omnibarState, event: .focusLostRevertBuffer(currentURLString: urlString))
+                applyOmnibarEffects(effects)
+            }
+            inlineCompletion = nil
+        }
+        syncWebViewResponderPolicyWithViewState(reason: "addressBarFocusChanged")
+#if DEBUG
+        logBrowserFocusState(event: "addressBarFocus.onChange.applied")
+#endif
+    }
+
+    private func handleMoveOmnibarSelection(_ notification: Notification) {
+        guard let panelId = notification.object as? UUID, panelId == panel.id else { return }
+        guard addressBarFocused, !omnibarState.suggestions.isEmpty else { return }
+        guard let delta = notification.userInfo?["delta"] as? Int, delta != 0 else { return }
+#if DEBUG
+        logBrowserFocusState(event: "addressBarFocus.moveSelection", detail: "delta=\(delta)")
+#endif
+        let effects = omnibarReduce(state: &omnibarState, event: .moveSelection(delta: delta))
+        applyOmnibarEffects(effects)
+        refreshInlineCompletion()
+    }
+
+    private func handleAddressBarExternalBlur() {
+        if addressBarFocused {
+#if DEBUG
+            logBrowserFocusState(event: "addressBarFocus.externalBlur")
+#endif
+            setAddressBarFocused(false, reason: "notification.externalBlur")
         }
     }
 
