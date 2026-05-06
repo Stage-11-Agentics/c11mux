@@ -2159,6 +2159,19 @@ struct ContentView: View {
                     // delay handoff completion and make browser returns feel laggy.
                     let isInputActive = isSelectedWorkspace
                     let portalPriority = isSelectedWorkspace ? 2 : (isRetiringWorkspace ? 1 : 0)
+                    // Phase 4 of C11-32: push the per-workspace presentation slice into the
+                    // workspace's own store. The setter is idempotent — workspaces whose
+                    // values didn't change emit no `objectWillChange`, so their
+                    // `WorkspaceContentView` body skips re-evaluation entirely. Combined
+                    // with `WorkspaceContentView: Equatable` + `.equatable()` below, only
+                    // the two workspaces actually crossing the selection boundary do work.
+                    let _ = {
+                        tab.presentationStore.update(
+                            isVisible: presentation.isPanelVisible,
+                            isInputActive: isInputActive,
+                            portalPriority: portalPriority
+                        )
+                    }()
                     // Phase 1: wrap in AppKitHiddenWrapper so off-screen workspaces
                     // are isHidden=true at the AppKit level, which lets the
                     // _layoutSubtreeWithOldSize: walk short-circuit their subtrees
@@ -2166,9 +2179,7 @@ struct ContentView: View {
                     AppKitHiddenWrapper(isHidden: !presentation.isRenderedVisible) {
                         WorkspaceContentView(
                             workspace: tab,
-                            isWorkspaceVisible: presentation.isPanelVisible,
-                            isWorkspaceInputActive: isInputActive,
-                            workspacePortalPriority: portalPriority,
+                            presentation: tab.presentationStore,
                             onThemeRefreshRequest: { reason, eventId, source, payloadHex in
                                 scheduleTitlebarThemeRefreshFromWorkspace(
                                     workspaceId: tab.id,
@@ -2179,6 +2190,7 @@ struct ContentView: View {
                                 )
                             }
                         )
+                        .equatable()
                     }
                     .opacity(presentation.renderOpacity)
                     .allowsHitTesting(isSelectedWorkspace)

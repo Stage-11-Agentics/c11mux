@@ -3,13 +3,68 @@ import Foundation
 import AppKit
 import Bonsplit
 
+/// Per-workspace presentation slice driving `WorkspaceContentView`.
+///
+/// Phase 4 of C11-32 (workspace-switch perf): the parent `ContentView.terminalContent`
+/// `ForEach(mountedWorkspaces)` used to recreate three flat prop bindings
+/// (`isWorkspaceVisible`, `isWorkspaceInputActive`, `workspacePortalPriority`)
+/// for every mounted workspace on every `selectedTabId` flip. Even when only
+/// two workspaces (going inactive + going active) actually changed, all 7
+/// mounted workspace bodies re-evaluated, dragging the BonsplitView content
+/// closure + every PanelContentView's `updateNSView` along with them.
+///
+/// Hoisting these three values into a per-workspace `ObservableObject` means
+/// `ForEach`'s body becomes prop-stable: the per-iteration parameters passed
+/// to `WorkspaceContentView` are just a stable workspace reference plus a
+/// stable store reference. With `WorkspaceContentView: Equatable`, SwiftUI
+/// skips body re-eval when neither identity changed. Stores whose values
+/// didn't change emit no `objectWillChange`, so their child workspaces stay
+/// idle.
+@MainActor
+final class WorkspacePresentationStore: ObservableObject {
+    @Published private(set) var isVisible: Bool = false
+    @Published private(set) var isInputActive: Bool = false
+    @Published private(set) var portalPriority: Int = 0
+
+    /// Idempotent setter — only emits `objectWillChange` for fields that
+    /// actually changed. ContentView calls this from inside its ForEach body
+    /// every parent re-eval; steady-state runs do zero work.
+    func update(isVisible: Bool, isInputActive: Bool, portalPriority: Int) {
+        if self.isVisible != isVisible {
+            self.isVisible = isVisible
+        }
+        if self.isInputActive != isInputActive {
+            self.isInputActive = isInputActive
+        }
+        if self.portalPriority != portalPriority {
+            self.portalPriority = portalPriority
+        }
+    }
+}
+
 /// View that renders a Workspace's content using BonsplitView
-struct WorkspaceContentView: View {
+// PERF: WorkspaceContentView is Equatable so SwiftUI skips body re-evaluation
+// when the parent ContentView re-evaluates with unchanged inputs (e.g. when
+// `selectedTabId` flips but this particular workspace's presentation slice
+// didn't change). Without this, every mounted workspace's body re-evaluates
+// per switch, and the BonsplitView content closure re-fires for every tab
+// it owns. See Phase 4 of C11-32.
+//
+// `==` compares by reference identity (workspace, presentation store) and
+// excludes the closure (`onThemeRefreshRequest`). The closure is recreated
+// every parent body run but its captured behavior is stable — it always
+// dispatches to ContentView's `scheduleTitlebarThemeRefreshFromWorkspace`
+// keyed on `tab.id`. If you add new properties, update == below and keep
+// `.equatable()` on the call site in ContentView.terminalContent.
+struct WorkspaceContentView: View, Equatable {
+    nonisolated static func == (lhs: WorkspaceContentView, rhs: WorkspaceContentView) -> Bool {
+        lhs.workspace === rhs.workspace &&
+        lhs.presentation === rhs.presentation
+    }
+
     @ObservedObject var workspace: Workspace
+    @ObservedObject var presentation: WorkspacePresentationStore
     @ObservedObject private var themeManager = ThemeManager.shared
-    let isWorkspaceVisible: Bool
-    let isWorkspaceInputActive: Bool
-    let workspacePortalPriority: Int
     let onThemeRefreshRequest: ((
         _ reason: String,
         _ backgroundEventId: UInt64?,
@@ -55,6 +110,9 @@ struct WorkspaceContentView: View {
         let appearance = PanelAppearance.fromConfig(config)
         let isSplit = workspace.bonsplitController.allPaneIds.count > 1 ||
             workspace.panels.count > 1
+        let isWorkspaceVisible = presentation.isVisible
+        let isWorkspaceInputActive = presentation.isInputActive
+        let workspacePortalPriority = presentation.portalPriority
 
         // Inactive workspaces are kept alive in a ZStack (for state preservation) but their
         // AppKit-backed views can still intercept drags. Disable drop acceptance for them.
@@ -206,7 +264,7 @@ struct WorkspaceContentView: View {
             WorkspaceFrame(
                 workspace: workspace,
                 themeManager: themeManager,
-                isWorkspaceActive: isWorkspaceInputActive,
+                isWorkspaceActive: presentation.isInputActive,
                 isWindowFocused: NSApp.keyWindow?.isKeyWindow ?? true
             )
         )
