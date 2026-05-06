@@ -144,6 +144,16 @@ struct WorkspaceContentView: View {
                 )
             )
         })
+        // Workspace-scoped close-confirmation anchor. Reports its window-coord
+        // frame to `workspaceCloseOverlayController` so the AppKit-portal
+        // overlay (themeFrame mount) covers exactly the workspace content
+        // area, sidebar excluded. Hidden + non-hit-testing — purely a frame
+        // publisher.
+        .background(
+            WorkspaceCloseOverlayHostView(
+                controller: workspace.workspaceCloseOverlayController
+            )
+        )
         // Split zoom swaps Bonsplit between the full split tree and a single pane view.
         // Recreate the Bonsplit subtree on zoom enter/exit so stale pre-zoom pane chrome
         // cannot remain stacked above portal-hosted browser content.
