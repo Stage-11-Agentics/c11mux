@@ -61,30 +61,12 @@ enum FocusFlashPattern {
     }
 }
 
-/// Single-pulse, low-peak envelope used for the sidebar workspace row flash.
-/// Calibrated to be a polite ambient nudge: noticeable enough to draw the eye,
-/// gentle enough not to startle when it fires from a workspace the operator
-/// is not actively viewing.
-enum SidebarFlashPattern {
-    static let values: [Double] = [0, 0.18, 0]
-    static let keyTimes: [Double] = [0, 0.5, 1]
-    static let duration: TimeInterval = 0.6
-    static let curves: [FocusFlashCurve] = [.easeOut, .easeIn]
-
-    static var segments: [FocusFlashSegment] {
-        let stepCount = min(curves.count, values.count - 1, keyTimes.count - 1)
-        return (0..<stepCount).map { index in
-            let startTime = keyTimes[index]
-            let endTime = keyTimes[index + 1]
-            return FocusFlashSegment(
-                delay: startTime * duration,
-                duration: (endTime - startTime) * duration,
-                targetOpacity: values[index + 1],
-                curve: curves[index]
-            )
-        }
-    }
-}
+// CMUX-10: the historical `SidebarFlashPattern` (single-peak, 0.6s, peak 0.18)
+// was retired in favor of a single unified envelope shared across the pane
+// ring and the sidebar workspace row. The sidebar now reuses
+// `FocusFlashPattern` with `FlashEnvelope.sidebarFill.peakScale` (0.6) applied
+// at render time, so a flash signal is a single recognizable shape across
+// surfaces rather than two visually-distinct treatments.
 
 /// Protocol for all panel types (terminal, browser, etc.)
 @MainActor

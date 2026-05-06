@@ -11684,9 +11684,13 @@ private struct TabItemView: View, Equatable {
     }
 
     private func runSidebarFlashAnimation(token: Int) {
-        // Reset to the envelope start in case a prior flash is mid-flight.
-        sidebarFlashOpacity = SidebarFlashPattern.values.first ?? 0
-        for segment in SidebarFlashPattern.segments {
+        // CMUX-10: drive the sidebar pulse from the unified `FocusFlashPattern`
+        // envelope (same temporal shape as the pane ring), with the per-channel
+        // peak scalar applied so the row tint reads as a signal without
+        // overpowering the sidebar.
+        let peakScale = FlashEnvelope.sidebarFill.peakScale
+        sidebarFlashOpacity = (FocusFlashPattern.values.first ?? 0) * peakScale
+        for segment in FocusFlashPattern.segments {
             DispatchQueue.main.asyncAfter(deadline: .now() + segment.delay) {
                 // Bail if a newer flash superseded this run.
                 guard token == lastObservedSidebarFlashToken else { return }
@@ -11698,7 +11702,7 @@ private struct TabItemView: View, Equatable {
                     animation = .easeOut(duration: segment.duration)
                 }
                 withAnimation(animation) {
-                    sidebarFlashOpacity = segment.targetOpacity
+                    sidebarFlashOpacity = segment.targetOpacity * peakScale
                 }
             }
         }

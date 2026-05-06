@@ -13,16 +13,24 @@ import SwiftUI
 // default color (#F5C518) and unify the envelope.
 
 public enum FlashEnvelope: Equatable {
-    /// Two-peak ring envelope used by the pane ring (`FocusFlashPattern`,
-    /// 0.9s, peaks at full opacity). Carried forward unchanged from the
-    /// pre-CMUX-10 implementation.
+    /// Pane ring channel: drives the ring overlay around the focused pane at
+    /// full peak amplitude (1.0).
     case paneRing
 
-    /// Single-peak low-amplitude envelope used by the sidebar workspace row
-    /// (`SidebarFlashPattern`, 0.6s, peak 0.18). Carried forward unchanged for
-    /// the refactor commit; commit 3 retires this in favor of `.paneRing` with
-    /// a per-channel amplitude scalar.
+    /// Sidebar workspace-row channel: same temporal pattern as `.paneRing` but
+    /// with peak amplitude scaled to 0.6 so the row tint reads as a signal
+    /// without overpowering the rest of the sidebar.
     case sidebarFill
+
+    /// Per-channel amplitude scalar applied to the unified envelope's
+    /// `targetOpacity` values. CMUX-10 retired the historical "polite ambient
+    /// nudge" sidebar envelope in favor of this single shared envelope.
+    public var peakScale: Double {
+        switch self {
+        case .paneRing: return 1.0
+        case .sidebarFill: return 0.6
+        }
+    }
 }
 
 public struct FlashAppearance: Equatable {
