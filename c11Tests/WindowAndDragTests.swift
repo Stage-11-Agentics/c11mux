@@ -263,10 +263,26 @@ final class AppDelegateLaunchServicesRegistrationTests: XCTestCase {
 
 
 final class FocusFlashPatternTests: XCTestCase {
+    /// CMUX-10 made `FocusFlashPattern.duration` a computed `static var` that
+    /// reads from `NotificationFlashDurationSettings`. Pin a known value in
+    /// setUp so the segment math is deterministic regardless of any leaked
+    /// UserDefaults state from prior runs.
+    private let pinnedMs: Int = 900
+
+    override func setUp() {
+        super.setUp()
+        UserDefaults.standard.set(pinnedMs, forKey: NotificationFlashDurationSettings.enabledKey)
+    }
+
+    override func tearDown() {
+        UserDefaults.standard.removeObject(forKey: NotificationFlashDurationSettings.enabledKey)
+        super.tearDown()
+    }
+
     func testFocusFlashPatternMatchesTerminalDoublePulseShape() {
         XCTAssertEqual(FocusFlashPattern.values, [0, 1, 0, 1, 0])
         XCTAssertEqual(FocusFlashPattern.keyTimes, [0, 0.25, 0.5, 0.75, 1])
-        XCTAssertEqual(FocusFlashPattern.duration, 0.9, accuracy: 0.0001)
+        XCTAssertEqual(FocusFlashPattern.duration, Double(pinnedMs) / 1000.0, accuracy: 0.0001)
         XCTAssertEqual(FocusFlashPattern.curves, [.easeOut, .easeIn, .easeOut, .easeIn])
         XCTAssertEqual(FocusFlashPattern.ringInset, 6, accuracy: 0.0001)
         XCTAssertEqual(FocusFlashPattern.ringCornerRadius, 10, accuracy: 0.0001)

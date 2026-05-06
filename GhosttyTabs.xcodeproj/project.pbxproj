@@ -42,6 +42,8 @@
 		D8007BF0A1B2C3D4E5F60718 /* AgentRestartRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8007BF1A1B2C3D4E5F60718 /* AgentRestartRegistry.swift */; };
 		D8008BF0A1B2C3D4E5F60718 /* WorkspaceSnapshotConverterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8008BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotConverterTests.swift */; };
 		D8009BF0A1B2C3D4E5F60718 /* AgentRestartRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8009BF1A1B2C3D4E5F60718 /* AgentRestartRegistryTests.swift */; };
+		A5FA5710 /* WorkspaceFlashTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5FA5711 /* WorkspaceFlashTests.swift */; };
+		A5FA5712 /* FlashColorParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5FA5713 /* FlashColorParsingTests.swift */; };
 		DH010BF0A1B2C3D4E5F60718 /* HealthIPSParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH010BF1A1B2C3D4E5F60718 /* HealthIPSParserTests.swift */; };
 		DH011BF0A1B2C3D4E5F60718 /* HealthSentryParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH011BF1A1B2C3D4E5F60718 /* HealthSentryParserTests.swift */; };
 		DH012BF0A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH012BF1A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift */; };
@@ -362,6 +364,8 @@
 		D8007BF1A1B2C3D4E5F60718 /* AgentRestartRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRestartRegistry.swift; sourceTree = "<group>"; };
 		D8008BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotConverterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotConverterTests.swift; sourceTree = "<group>"; };
 		D8009BF1A1B2C3D4E5F60718 /* AgentRestartRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRestartRegistryTests.swift; sourceTree = "<group>"; };
+		A5FA5711 /* WorkspaceFlashTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceFlashTests.swift; sourceTree = "<group>"; };
+		A5FA5713 /* FlashColorParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlashColorParsingTests.swift; sourceTree = "<group>"; };
 		DH010BF1A1B2C3D4E5F60718 /* HealthIPSParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthIPSParserTests.swift; sourceTree = "<group>"; };
 		DH011BF1A1B2C3D4E5F60718 /* HealthSentryParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSentryParserTests.swift; sourceTree = "<group>"; };
 		DH012BF1A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthMetricKitParserTests.swift; sourceTree = "<group>"; };
@@ -961,6 +965,8 @@
 					D8004BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutorAcceptanceTests.swift */,
 					D8008BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotConverterTests.swift */,
 					D8009BF1A1B2C3D4E5F60718 /* AgentRestartRegistryTests.swift */,
+					A5FA5711 /* WorkspaceFlashTests.swift */,
+					A5FA5713 /* FlashColorParsingTests.swift */,
 					DH010BF1A1B2C3D4E5F60718 /* HealthIPSParserTests.swift */,
 					DH011BF1A1B2C3D4E5F60718 /* HealthSentryParserTests.swift */,
 					DH012BF1A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift */,
@@ -1359,6 +1365,8 @@
 					D8004BF0A1B2C3D4E5F60718 /* WorkspaceLayoutExecutorAcceptanceTests.swift in Sources */,
 					D8008BF0A1B2C3D4E5F60718 /* WorkspaceSnapshotConverterTests.swift in Sources */,
 					D8009BF0A1B2C3D4E5F60718 /* AgentRestartRegistryTests.swift in Sources */,
+				A5FA5710 /* WorkspaceFlashTests.swift in Sources */,
+				A5FA5712 /* FlashColorParsingTests.swift in Sources */,
 					DH010BF0A1B2C3D4E5F60718 /* HealthIPSParserTests.swift in Sources */,
 					DH011BF0A1B2C3D4E5F60718 /* HealthSentryParserTests.swift in Sources */,
 					DH012BF0A1B2C3D4E5F60718 /* HealthMetricKitParserTests.swift in Sources */,
