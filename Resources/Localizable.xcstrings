@@ -3040,6 +3040,42 @@
             "state": "translated",
             "value": "Thanks — Full Disk Access granted. Continuing…"
           }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ありがとうございます。Full Disk Access が許可されました。続けます…"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дякуємо — Full Disk Access надано. Продовжуємо…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "감사해요. Full Disk Access가 허용됐어요. 계속할게요…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "感谢，Full Disk Access 已授予。继续中……"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "感謝，Full Disk Access 已授予。繼續中……"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спасибо — Full Disk Access предоставлен. Продолжаем…"
+          }
         }
       }
     },
