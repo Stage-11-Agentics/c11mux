@@ -73,6 +73,7 @@
 		D7012BF0A1B2C3D4E5F60718 /* PaneMetadataPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7012BF1A1B2C3D4E5F60718 /* PaneMetadataPersistenceTests.swift */; };
 		D7015BF0A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7015BF1A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift */; };
 		D7016BF0A1B2C3D4E5F60718 /* TCCPrimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7016BF1A1B2C3D4E5F60718 /* TCCPrimerTests.swift */; };
+		D7016CF0A1B2C3D4E5F60718 /* LegacyPrefsMigrationGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7016CF1A1B2C3D4E5F60718 /* LegacyPrefsMigrationGateTests.swift */; };
 		D7006BF0A1B2C3D4E5F60718 /* MetadataPersistenceRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7006BF1A1B2C3D4E5F60718 /* MetadataPersistenceRoundTripTests.swift */; };
 		D7007BF0A1B2C3D4E5F60718 /* MetadataPersistencePrecedenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7007BF1A1B2C3D4E5F60718 /* MetadataPersistencePrecedenceTests.swift */; };
 		D7008BF0A1B2C3D4E5F60718 /* MetadataPersistenceUncoercibleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7008BF1A1B2C3D4E5F60718 /* MetadataPersistenceUncoercibleTests.swift */; };
@@ -397,6 +398,7 @@
 		D7012BF1A1B2C3D4E5F60718 /* PaneMetadataPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneMetadataPersistenceTests.swift; sourceTree = "<group>"; };
 		D7015BF1A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultGridSettingsTests.swift; sourceTree = "<group>"; };
 		D7016BF1A1B2C3D4E5F60718 /* TCCPrimerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCPrimerTests.swift; sourceTree = "<group>"; };
+		D7016CF1A1B2C3D4E5F60718 /* LegacyPrefsMigrationGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyPrefsMigrationGateTests.swift; sourceTree = "<group>"; };
 		D7006BF1A1B2C3D4E5F60718 /* MetadataPersistenceRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPersistenceRoundTripTests.swift; sourceTree = "<group>"; };
 		D7007BF1A1B2C3D4E5F60718 /* MetadataPersistencePrecedenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPersistencePrecedenceTests.swift; sourceTree = "<group>"; };
 		D7008BF1A1B2C3D4E5F60718 /* MetadataPersistenceUncoercibleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataPersistenceUncoercibleTests.swift; sourceTree = "<group>"; };
@@ -961,6 +963,7 @@
 					C116000800A1B2C3D4E5F013 /* ChromeScaleObserverTests.swift */,
 					C116000A00A1B2C3D4E5F014 /* WorkspaceApplyChromeScaleTests.swift */,
 					D7016BF1A1B2C3D4E5F60718 /* TCCPrimerTests.swift */,
+					D7016CF1A1B2C3D4E5F60718 /* LegacyPrefsMigrationGateTests.swift */,
 					D8002BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlanCodableTests.swift */,
 					D8004BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutorAcceptanceTests.swift */,
 					D8008BF1A1B2C3D4E5F60718 /* WorkspaceSnapshotConverterTests.swift */,
@@ -1351,6 +1354,7 @@
 					C116000700A1B2C3D4E5F013 /* ChromeScaleObserverTests.swift in Sources */,
 					C116000900A1B2C3D4E5F014 /* WorkspaceApplyChromeScaleTests.swift in Sources */,
 					D7016BF0A1B2C3D4E5F60718 /* TCCPrimerTests.swift in Sources */,
+					D7016CF0A1B2C3D4E5F60718 /* LegacyPrefsMigrationGateTests.swift in Sources */,
 					D7101BF0A1B2C3D4E5F60718 /* MailboxLayoutTests.swift in Sources */,
 					D7104BF0A1B2C3D4E5F60718 /* MailboxIOTests.swift in Sources */,
 					D7105BF0A1B2C3D4E5F60718 /* MailboxULIDTests.swift in Sources */,

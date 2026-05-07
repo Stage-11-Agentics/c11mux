@@ -2316,6 +2316,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let defaults = UserDefaults.standard
         guard !defaults.bool(forKey: migratedFlagKey) else { return }
 
+        let bundleId = Bundle.main.bundleIdentifier ?? ""
+        let env = ProcessInfo.processInfo.environment
+        if Self.legacyMigrationShouldSkip(bundleId: bundleId, env: env) {
+            // Mark as "complete" so we don't keep re-evaluating the gate on
+            // every launch. A debug bundle that later flips back to a
+            // release-style id (essentially never) would simply not migrate;
+            // the flag is bundle-scoped, so production users are unaffected.
+            defaults.set(true, forKey: migratedFlagKey)
+#if DEBUG
+            dlog("prefs.migrate: skipped; bundleId=\(bundleId) gate=debug-or-env-disable")
+#endif
+            return
+        }
+
         let legacyDomains = ["ai.manaflow.cmuxterm", "com.cmuxterm.app"]
         for domain in legacyDomains {
             guard let legacyPrefs = UserDefaults(suiteName: domain)?.persistentDomain(forName: domain),
@@ -2334,6 +2348,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 #if DEBUG
         dlog("prefs.migrate: complete; flag=\(migratedFlagKey) set")
 #endif
+    }
+
+    /// Decide whether to skip the one-shot legacy-prefs migration. Pure
+    /// function for testability — no UserDefaults or Bundle access. Marked
+    /// `nonisolated` so unit tests can call it off the main actor.
+    ///
+    /// Skip when:
+    ///   - the bundle id is a debug variant (`com.stage11.c11.debug` and any
+    ///     future `.debug.<suffix>` tagged form). Debug builds want clean
+    ///     profiles for repeatable first-run UX testing (welcome workspace,
+    ///     TCC primer, agent-skills onboarding) instead of inheriting state
+    ///     from a pre-existing `com.cmuxterm.app` install on the same machine.
+    ///   - `CMUX_DISABLE_LEGACY_MIGRATION=1` is set. Escape hatch for forcing
+    ///     skip on a release bundle (e.g. a release build run from a CI
+    ///     fixture or a maintainer's clean-install validation). Any other
+    ///     value (including `0`, empty, unset) does NOT force-enable.
+    nonisolated static func legacyMigrationShouldSkip(
+        bundleId: String,
+        env: [String: String]
+    ) -> Bool {
+        if env["CMUX_DISABLE_LEGACY_MIGRATION"] == "1" { return true }
+        if bundleId.hasSuffix(".debug") { return true }
+        if bundleId.range(of: ".debug.") != nil { return true }
+        return false
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
