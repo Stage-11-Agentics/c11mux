@@ -183,19 +183,20 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             build
 
-      - name: Compile c11Tests target (build-for-testing only — no execution)
-        # Catches the failure mode discovered 2026-05-07: production-code refactors
-        # silently broke compilation of c11Tests files (`@MainActor` inheritance,
-        # missing struct fields, signature drift). The c11.xcscheme TestAction
-        # only includes c11UITests, so neither `Build app` above nor any other
-        # CI workflow caught it. This step compiles the unit-test target without
-        # executing tests — fast, independent of runtime stability, and the
-        # narrowest gate that prevents the rot pattern from recurring.
+      - name: Test c11Tests target
+        # Catches both the compile-rot failure mode discovered 2026-05-07
+        # (production-code refactors silently breaking c11Tests compilation —
+        # `@MainActor` inheritance, missing struct fields, signature drift) and
+        # runtime regressions, since the c11.xcscheme TestAction only includes
+        # c11UITests. Without this step, neither `Build app` above nor any
+        # other CI workflow exercises c11Tests at all.
         #
-        # Test execution is intentionally excluded for now: the c11Tests target
-        # has 4 known latent runtime failures from the same period of test rot
-        # (filed as a follow-up). Once those land, swap `build-for-testing` for
-        # `test` to gate on green tests too.
+        # Promoted from `build-for-testing` to `test` on C11-35 closing: the
+        # 4 latent runtime failures that gated execution have been fixed
+        # (ThemeManagerLifecycleTests.testDividerColorRoleResolvesAgainstWorkspaceColor,
+        # TomlSubsetParserTests.testParsesStringEscapes, and the two
+        # WorkspaceBlueprintStoreTests .md tests). The narrower
+        # `build-for-testing` guard is no longer needed.
         run: |
           set -euo pipefail
           SOURCE_PACKAGES_DIR="$PWD/.ci-source-packages"
@@ -204,4 +205,4 @@ jobs:
             -disableAutomaticPackageResolution \
             -destination "platform=macOS" \
             COMPILER_INDEX_STORE_ENABLE=NO \
-            build-for-testing
+            test
