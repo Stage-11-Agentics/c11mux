@@ -98,6 +98,27 @@ func portalLog(_ event: String, _ fields: @autoclosure () -> String = "") {
     C11PortalDebug.write(event: event, fields: fields())
 }
 
+/// Compact pointer token for diagnostics. Stable across calls for the same
+/// object instance, and empty/`nil` for missing references. Available from
+/// release builds (not gated on `#if DEBUG` like `portalDebugToken`).
+@inline(__always)
+func portalLogToken(_ view: NSView?) -> String {
+    guard let view else { return "nil" }
+    let ptr = Unmanaged.passUnretained(view).toOpaque()
+    return String(describing: ptr)
+}
+
+@inline(__always)
+func portalLogToken(_ id: ObjectIdentifier?) -> String {
+    guard let id else { return "nil" }
+    return "0x" + String(UInt(bitPattern: id.hashValue), radix: 16)
+}
+
+@inline(__always)
+func portalLogFrame(_ rect: NSRect) -> String {
+    String(format: "%.1f,%.1f %.1fx%.1f", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height)
+}
+
 #if DEBUG
 private func portalDebugToken(_ view: NSView?) -> String {
     guard let view else { return "nil" }
@@ -1041,6 +1062,10 @@ final class WindowTerminalPortal: NSObject {
 
     fileprivate func synchronizeAllEntriesFromExternalGeometryChange() {
         guard ensureInstalled() else { return }
+        portalLog("geom.external",
+            "windowNumber=\(window?.windowNumber ?? -1) " +
+            "entryCount=\(entriesByHostedId.count)"
+        )
         synchronizeLayoutHierarchy()
         // An orphan entry is one whose anchor is no longer attached to this window:
         // either the weak reference deallocated, or the AppKit view was detached
@@ -1104,7 +1129,6 @@ final class WindowTerminalPortal: NSObject {
             entriesByHostedId[hostedId] = entry
             entry.hostedView?.isHidden = true
             didHide = true
-#if DEBUG
             let anchorWindowDesc: String
             if anchor == nil {
                 anchorWindowDesc = "deallocated"
@@ -1115,11 +1139,19 @@ final class WindowTerminalPortal: NSObject {
             } else {
                 anchorWindowDesc = "other"
             }
+#if DEBUG
             dlog(
                 "portal.orphan.hide hosted=\(portalDebugToken(entry.hostedView)) " +
                 "anchor=\(portalDebugToken(anchor)) anchorWindow=\(anchorWindowDesc)"
             )
 #endif
+            portalLog("orphan.hide",
+                "hostedId=\(portalLogToken(hostedId)) " +
+                "anchorId=\(portalLogToken(anchor.map { ObjectIdentifier($0) })) " +
+                "anchor=\(anchorWindowDesc) " +
+                "frame=\(portalLogFrame(entry.hostedView?.frame ?? .zero)) " +
+                "entryCount=\(entriesByHostedId.count)"
+            )
         }
         return didHide
     }
@@ -1401,13 +1433,19 @@ final class WindowTerminalPortal: NSObject {
         if let anchor = entry.anchorView {
             hostedByAnchorId.removeValue(forKey: ObjectIdentifier(anchor))
         }
-#if DEBUG
         let hadSuperview = (entry.hostedView?.superview === hostView) ? 1 : 0
+#if DEBUG
         dlog(
             "portal.detach hosted=\(portalDebugToken(entry.hostedView)) " +
             "anchor=\(portalDebugToken(entry.anchorView)) hadSuperview=\(hadSuperview)"
         )
 #endif
+        portalLog("detach",
+            "hostedId=\(portalLogToken(hostedId)) " +
+            "anchorId=\(portalLogToken(entry.anchorView.map { ObjectIdentifier($0) })) " +
+            "hadSuperview=\(hadSuperview) " +
+            "entryCount=\(entriesByHostedId.count)"
+        )
         if let hostedView = entry.hostedView, hostedView.superview === hostView {
             hostedView.removeFromSuperview()
         }
@@ -1427,6 +1465,11 @@ final class WindowTerminalPortal: NSObject {
 #if DEBUG
         dlog("portal.hideEntry hosted=\(portalDebugToken(entry.hostedView)) reason=workspaceUnmount")
 #endif
+        portalLog("hideEntry",
+            "hostedId=\(portalLogToken(hostedId)) " +
+            "anchorId=\(portalLogToken(entry.anchorView.map { ObjectIdentifier($0) })) " +
+            "entryCount=\(entriesByHostedId.count)"
+        )
     }
 
     /// Update the visibleInUI flag on an existing entry without rebinding.
@@ -1460,6 +1503,25 @@ final class WindowTerminalPortal: NSObject {
         let hostedId = ObjectIdentifier(hostedView)
         let anchorId = ObjectIdentifier(anchorView)
         let previousEntry = entriesByHostedId[hostedId]
+
+        if C11PortalDebug.isEnabled {
+            let prevHostedAtAnchor = hostedByAnchorId[anchorId]
+            let prevEntryHostedAtAnchor: NSView? = prevHostedAtAnchor.flatMap {
+                entriesByHostedId[$0]?.hostedView
+            }
+            let anchorWindowNumber = anchorView.window?.windowNumber ?? -1
+            let anchorSuperviewToken = portalLogToken(anchorView.superview)
+            portalLog("bind.before",
+                "hostedId=\(portalLogToken(hostedId)) " +
+                "anchorId=\(portalLogToken(anchorId)) " +
+                "anchorWindowNumber=\(anchorWindowNumber) " +
+                "anchorSuperview=\(anchorSuperviewToken) " +
+                "visibleInUI=\(visibleInUI ? 1 : 0) " +
+                "prevHostedIdForAnchor=\(portalLogToken(prevHostedAtAnchor)) " +
+                "prevEntryHostedView=\(portalLogToken(prevEntryHostedAtAnchor)) " +
+                "entryCount=\(entriesByHostedId.count)"
+            )
+        }
 
         if let previousHostedId = hostedByAnchorId[anchorId], previousHostedId != hostedId {
 #if DEBUG
@@ -1560,6 +1622,14 @@ final class WindowTerminalPortal: NSObject {
         synchronizeHostedView(withId: hostedId)
         scheduleDeferredFullSynchronizeAll()
         pruneDeadEntries()
+
+        portalLog("bind.after",
+            "hostedId=\(portalLogToken(hostedId)) " +
+            "anchorId=\(portalLogToken(anchorId)) " +
+            "seededFrame=\(portalLogFrame(hostedView.frame)) " +
+            "superviewIsHostView=\(hostedView.superview === hostView ? 1 : 0) " +
+            "entryCount=\(entriesByHostedId.count)"
+        )
     }
 
     func synchronizeHostedViewForAnchor(_ anchorView: NSView) {
@@ -1651,6 +1721,13 @@ final class WindowTerminalPortal: NSObject {
             return
         }
         guard let anchorView = entry.anchorView, let window else {
+            portalLog("sync.skip.orphan",
+                "hostedId=\(portalLogToken(hostedId)) " +
+                "anchorWindow=\(entry.anchorView == nil ? "anchorNil" : "windowNil") " +
+                "visibleInUI=\(entry.visibleInUI ? 1 : 0) " +
+                "frame=\(portalLogFrame(hostedView.frame)) " +
+                "reason=missingAnchorOrWindow"
+            )
             // Only hide if the entry is not marked visibleInUI. When a workspace is
             // remounting, updateNSView sets visibleInUI=true before the deferred bind
             // provides an anchor — hiding here would race with that and cause a flash.
@@ -1673,6 +1750,14 @@ final class WindowTerminalPortal: NSObject {
             return
         }
         guard anchorView.window === window else {
+            let anchorWindowDesc: String = (anchorView.window == nil) ? "nil" : "other"
+            portalLog("sync.skip.orphan",
+                "hostedId=\(portalLogToken(hostedId)) " +
+                "anchorWindow=\(anchorWindowDesc) " +
+                "visibleInUI=\(entry.visibleInUI ? 1 : 0) " +
+                "frame=\(portalLogFrame(hostedView.frame)) " +
+                "reason=anchorWindowMismatch"
+            )
 #if DEBUG
             if !hostedView.isHidden {
                 dlog(
@@ -1935,6 +2020,16 @@ final class WindowTerminalPortal: NSObject {
             "hostBounds=\(portalDebugFrame(hostBounds))"
         )
 #endif
+
+        portalLog("sync.result",
+            "hostedId=\(portalLogToken(hostedId)) " +
+            "oldFrame=\(portalLogFrame(oldFrame)) " +
+            "targetFrame=\(portalLogFrame(targetFrame)) " +
+            "shouldHide=\(shouldHide ? 1 : 0) " +
+            "revealReady=\(revealReadyForDisplay ? 1 : 0) " +
+            "hostedHidden=\(hostedView.isHidden ? 1 : 0) " +
+            "entryCount=\(entriesByHostedId.count)"
+        )
 
         ensureDividerOverlayOnTop()
     }
