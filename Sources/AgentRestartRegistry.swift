@@ -123,13 +123,26 @@ struct AgentRestartRegistry: Sendable {
     /// future in-process writer that bypasses the store must not become a
     /// command-injection vector.
     ///
-    /// The trailing `"\n"` is part of the row's output: the registry
-    /// returns the **submit form** of the command, not the typed form.
-    /// How to submit is the registry's concern, not the executor's —
-    /// otherwise every executor caller would have to remember to append
-    /// one. Without it, `TerminalPanel.sendText` writes the bytes verbatim
-    /// and the command sits at the prompt unexecuted. Phase 5 rows for
-    /// codex/opencode/kimi follow the same "return submit form" contract.
+    /// The row output ends in `"\r"` as a "submit form" affordance.
+    /// **However**, callers that route through `TextBoxSubmit.send` (the
+    /// reliable path — see `Workspace.scheduleAgentRestart`) trim trailing
+    /// newlines and dispatch a synthetic Return key *outside* the
+    /// bracketed-paste sequence, because Ghostty's `sendText` wraps input
+    /// in bracket-paste markers (`ESC[200~…ESC[201~`) and zsh ZLE / bash
+    /// readline / Claude CLI all ignore embedded newlines inside a paste.
+    /// So a raw `sendText("…\n")` types the command but leaves it sitting
+    /// at the prompt — the well-known "Enter sometimes doesn't fire" flake.
+    ///
+    /// CR (`\r`) — not LF (`\n`) — for codebase consistency: `TabManager`
+    /// callers (split-marker probe, browser-pane exit, `exec cat`) all
+    /// submit via `\r`. The trailing byte is moot for `TextBoxSubmit.send`
+    /// (trimmed at the receiver), but kept for any caller that wants a
+    /// "submit form" string.
+    ///
+    /// **Do not** call `sendText(cmd)` directly with the registry's output
+    /// and expect it to execute — use `TextBoxSubmit.send(cmd, via: surface)`
+    /// (or the equivalent paste-then-Return sequence). This is the rule
+    /// `WorkspaceLayoutExecutor` follows for registry-synthesised commands.
     ///
     /// Use `claude --dangerously-skip-permissions --resume <id>` rather than
     /// `cc`: `cc` resolves to the C compiler in c11 terminal environments,
@@ -158,22 +171,22 @@ struct AgentRestartRegistry: Sendable {
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                !raw.isEmpty,
                isValidClaudeSessionProjectDir(raw) {
-                return "cd \(shellSingleQuote(raw)) && \(resume)\n"
+                return "cd \(shellSingleQuote(raw)) && \(resume)\r"
             }
-            return "\(resume)\n"
+            return "\(resume)\r"
         },
         Row(terminalType: "codex") { _, _ in
             // codex resume --last resumes the most recent codex session globally.
             // Best-effort: may not match the exact session in the snapshot.
-            "codex resume --last\n"
+            "codex resume --last\r"
         },
         Row(terminalType: "opencode") { _, _ in
             // no stable resume flag known; launches fresh.
-            "opencode\n"
+            "opencode\r"
         },
         Row(terminalType: "kimi") { _, _ in
             // no stable resume flag known; launches fresh.
-            "kimi\n"
+            "kimi\r"
         }
     ])
 }
