@@ -952,7 +952,7 @@ final class WindowTerminalPortal: NSObject {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.scheduleExternalGeometrySynchronize()
+                self?.scheduleExternalGeometrySynchronize(trigger: "windowResize")
             }
         })
         geometryObservers.append(center.addObserver(
@@ -961,7 +961,7 @@ final class WindowTerminalPortal: NSObject {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.scheduleExternalGeometrySynchronize()
+                self?.scheduleExternalGeometrySynchronize(trigger: "windowEndLiveResize")
             }
         })
         geometryObservers.append(center.addObserver(
@@ -974,7 +974,7 @@ final class WindowTerminalPortal: NSObject {
                       let splitView = notification.object as? NSSplitView,
                       let window = self.window,
                       splitView.window === window else { return }
-                self.scheduleExternalGeometrySynchronize()
+                self.scheduleExternalGeometrySynchronize(trigger: "splitViewResize")
             }
         })
         geometryObservers.append(center.addObserver(
@@ -983,7 +983,7 @@ final class WindowTerminalPortal: NSObject {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.scheduleExternalGeometrySynchronize()
+                self?.scheduleExternalGeometrySynchronize(trigger: "frameDidChange")
             }
         })
         geometryObservers.append(center.addObserver(
@@ -992,7 +992,7 @@ final class WindowTerminalPortal: NSObject {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.scheduleExternalGeometrySynchronize()
+                self?.scheduleExternalGeometrySynchronize(trigger: "boundsDidChange")
             }
         })
     }
@@ -1004,7 +1004,7 @@ final class WindowTerminalPortal: NSObject {
         geometryObservers.removeAll()
     }
 
-    fileprivate func scheduleExternalGeometrySynchronize() {
+    fileprivate func scheduleExternalGeometrySynchronize(trigger: String) {
         guard !hasExternalGeometrySyncScheduled else { return }
         hasExternalGeometrySyncScheduled = true
         let isDragEvent = TerminalWindowPortalRegistry.isInteractiveGeometryResizeActive
@@ -1013,7 +1013,7 @@ final class WindowTerminalPortal: NSObject {
             guard let self else { return }
             let performSync = {
                 self.hasExternalGeometrySyncScheduled = false
-                self.synchronizeAllEntriesFromExternalGeometryChange()
+                self.synchronizeAllEntriesFromExternalGeometryChange(trigger: trigger)
             }
             if requiresSettledLayout {
                 DispatchQueue.main.async(execute: performSync)
@@ -1060,10 +1060,11 @@ final class WindowTerminalPortal: NSObject {
         return frameInContainer.width > 1 && frameInContainer.height > 1
     }
 
-    fileprivate func synchronizeAllEntriesFromExternalGeometryChange() {
+    fileprivate func synchronizeAllEntriesFromExternalGeometryChange(trigger: String) {
         guard ensureInstalled() else { return }
         portalLog("geom.external",
             "windowNumber=\(window?.windowNumber ?? -1) " +
+            "trigger=\(trigger) " +
             "entryCount=\(entriesByHostedId.count)"
         )
         synchronizeLayoutHierarchy()
@@ -2367,8 +2368,8 @@ enum TerminalWindowPortalRegistry {
         portal.synchronizeHostedViewForAnchor(anchorView)
     }
 
-    static func scheduleExternalGeometrySynchronize(for window: NSWindow) {
-        existingPortal(for: window)?.scheduleExternalGeometrySynchronize()
+    static func scheduleExternalGeometrySynchronize(for window: NSWindow, trigger: String) {
+        existingPortal(for: window)?.scheduleExternalGeometrySynchronize(trigger: trigger)
     }
 
     static func beginInteractiveGeometryResize() {
@@ -2379,7 +2380,7 @@ enum TerminalWindowPortalRegistry {
         interactiveGeometryResizeCount = max(0, interactiveGeometryResizeCount - 1)
     }
 
-    static func scheduleExternalGeometrySynchronizeForAllWindows() {
+    static func scheduleExternalGeometrySynchronizeForAllWindows(trigger: String) {
         guard !Self.hasPendingExternalGeometrySyncForAllWindows else { return }
         Self.hasPendingExternalGeometrySyncForAllWindows = true
         let isDragEvent = Self.isInteractiveGeometryResizeActive
@@ -2387,7 +2388,7 @@ enum TerminalWindowPortalRegistry {
             let performSync = {
                 Self.hasPendingExternalGeometrySyncForAllWindows = false
                 for portal in Self.portalsByWindowId.values {
-                    portal.synchronizeAllEntriesFromExternalGeometryChange()
+                    portal.synchronizeAllEntriesFromExternalGeometryChange(trigger: trigger)
                 }
             }
             if isDragEvent {
