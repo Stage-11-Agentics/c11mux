@@ -2539,15 +2539,22 @@ class TabManager: ObservableObject {
         }
 
         let plan = closeWorkspacesPlan(for: workspaces)
-        guard confirmClose(
-            title: plan.title,
-            message: plan.message,
-            acceptCmdD: plan.acceptCmdD
-        ) else { return }
-
-        for workspace in plan.workspaces {
-            guard tabs.contains(where: { $0.id == workspace.id }) else { continue }
-            closeWorkspaceIfRunningProcess(workspace, requiresConfirmation: false)
+        // Anchor on the currently-displayed workspace (per delegator decision):
+        // consistent with the previous window-modal NSAlert behavior, avoids
+        // flash-cycling across the multi-select. The plan listing tells the
+        // user exactly which workspaces are about to close — the anchor only
+        // matters for *where* the overlay is mounted.
+        guard let host = selectedWorkspace ?? workspaces.first else { return }
+        Task { @MainActor [weak self] in
+            let accepted = await host.presentConfirmCloseWorkspace(
+                title: plan.title,
+                message: plan.message,
+                source: .local
+            )
+            guard accepted, let self else { return }
+            for workspace in plan.workspaces where self.tabs.contains(where: { $0.id == workspace.id }) {
+                self.closeWorkspaceIfRunningProcess(workspace, requiresConfirmation: false)
+            }
         }
     }
 
