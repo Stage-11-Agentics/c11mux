@@ -519,6 +519,28 @@
         }
       }
     },
+    "accessibility.closeWorkspaceOverlay.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press Return to close the workspace, or Escape to cancel."
+          }
+        }
+      }
+    },
+    "accessibility.closeWorkspaceOverlay.label": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close workspace confirmation"
+          }
+        }
+      }
+    },
     "accessibility.workspacePosition": {
       "extractionState": "manual",
       "localizations": {
@@ -21897,6 +21919,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Закрыть окно?"
+          }
+        }
+      }
+    },
+    "dialog.closeWorkspace.confirmButton": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close Workspace"
           }
         }
       }
