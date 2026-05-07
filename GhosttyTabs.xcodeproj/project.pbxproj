@@ -109,6 +109,10 @@
 		DH001BF0A1B2C3D4E5F60718 /* HealthCommandCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH001BF1A1B2C3D4E5F60718 /* HealthCommandCore.swift */; };
 		DH001BF0A1B2C3D4E5F60719 /* HealthCommandCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH001BF1A1B2C3D4E5F60718 /* HealthCommandCore.swift */; };
 		DH002BF0A1B2C3D4E5F60719 /* HealthCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH002BF1A1B2C3D4E5F60719 /* HealthCommand.swift */; };
+		DH020BF0A1B2C3D4E5F60718 /* CLIResolutionSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH020BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshot.swift */; };
+		DH020BF0A1B2C3D4E5F60719 /* CLIResolutionSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH020BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshot.swift */; };
+		DH021BF0A1B2C3D4E5F60719 /* DoctorCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH021BF1A1B2C3D4E5F60719 /* DoctorCommand.swift */; };
+		DH022BF0A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH022BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift */; };
 		A5001621 /* AppleScriptSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001620 /* AppleScriptSupport.swift */; };
 		A5001400 /* Panel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001410 /* Panel.swift */; };
 		A5001401 /* TerminalPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001411 /* TerminalPanel.swift */; };
@@ -449,6 +453,9 @@
 		A5001600 /* SentryHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryHelper.swift; sourceTree = "<group>"; };
 		DH001BF1A1B2C3D4E5F60718 /* HealthCommandCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCommandCore.swift; sourceTree = "<group>"; };
 		DH002BF1A1B2C3D4E5F60719 /* HealthCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCommand.swift; sourceTree = "<group>"; };
+		DH020BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIResolutionSnapshot.swift; sourceTree = "<group>"; };
+		DH021BF1A1B2C3D4E5F60719 /* DoctorCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoctorCommand.swift; sourceTree = "<group>"; };
+		DH022BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIResolutionSnapshotTests.swift; sourceTree = "<group>"; };
 		A5001620 /* AppleScriptSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleScriptSupport.swift; sourceTree = "<group>"; };
 			A5001510 /* CmuxWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/CmuxWebView.swift; sourceTree = "<group>"; };
 			A5001511 /* UITestRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestRecorder.swift; sourceTree = "<group>"; };
@@ -785,6 +792,7 @@
 				A5001225 /* SocketControlSettings.swift */,
 				A5001600 /* SentryHelper.swift */,
 				DH001BF1A1B2C3D4E5F60718 /* HealthCommandCore.swift */,
+				DH020BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshot.swift */,
 				A5001620 /* AppleScriptSupport.swift */,
 				A5001090 /* AppDelegate.swift */,
 				A5001091 /* NotificationsPage.swift */,
@@ -840,6 +848,7 @@
 			children = (
 				B9000001A1B2C3D4E5F60719 /* c11.swift */,
 				DH002BF1A1B2C3D4E5F60719 /* HealthCommand.swift */,
+				DH021BF1A1B2C3D4E5F60719 /* DoctorCommand.swift */,
 			);
 			path = CLI;
 			sourceTree = "<group>";
@@ -973,6 +982,7 @@
 					DH013BF1A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift */,
 					DH014BF1A1B2C3D4E5F60718 /* HealthFlagsTests.swift */,
 					DH015BF1A1B2C3D4E5F60718 /* CLIHealthRuntimeTests.swift */,
+					DH022BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift */,
 					C112400B1B2C3D4E5F60718 /* WorkspaceRestartCommandsTests.swift */,
 					D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */,
 					D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */,
@@ -1214,6 +1224,7 @@
 				A5001226 /* SocketControlSettings.swift in Sources */,
 				A5001601 /* SentryHelper.swift in Sources */,
 				DH001BF0A1B2C3D4E5F60718 /* HealthCommandCore.swift in Sources */,
+				DH020BF0A1B2C3D4E5F60718 /* CLIResolutionSnapshot.swift in Sources */,
 				A5001621 /* AppleScriptSupport.swift in Sources */,
 				A5001093 /* AppDelegate.swift in Sources */,
 				A5001094 /* NotificationsPage.swift in Sources */,
@@ -1373,6 +1384,7 @@
 					DH013BF0A1B2C3D4E5F60718 /* HealthSentinelParserTests.swift in Sources */,
 					DH014BF0A1B2C3D4E5F60718 /* HealthFlagsTests.swift in Sources */,
 					DH015BF0A1B2C3D4E5F60718 /* CLIHealthRuntimeTests.swift in Sources */,
+					DH022BF0A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift in Sources */,
 					C112400A1B2C3D4E5F60718 /* WorkspaceRestartCommandsTests.swift in Sources */,
 					D800CBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift in Sources */,
 					D800DBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift in Sources */,
@@ -1396,6 +1408,8 @@
 				B9000002A1B2C3D4E5F60719 /* c11.swift in Sources */,
 				DH001BF0A1B2C3D4E5F60719 /* HealthCommandCore.swift in Sources */,
 				DH002BF0A1B2C3D4E5F60719 /* HealthCommand.swift in Sources */,
+				DH020BF0A1B2C3D4E5F60719 /* CLIResolutionSnapshot.swift in Sources */,
+				DH021BF0A1B2C3D4E5F60719 /* DoctorCommand.swift in Sources */,
 				CC401003A1B2C3D4E5F60719 /* SkillInstaller.swift in Sources */,
 				D7200BF0A1B2C3D4E5F60719 /* MailboxLayout.swift in Sources */,
 				D7202BF0A1B2C3D4E5F60719 /* MailboxIO.swift in Sources */,

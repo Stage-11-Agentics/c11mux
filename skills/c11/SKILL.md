@@ -525,6 +525,10 @@ C11_SESSION_RESUME=1 c11 restore 01KQ0XYZ…
 
 The snapshot wraps a `WorkspaceApplyPlan`; the same shape Blueprints and the debug `c11 workspace apply` use. Explicit `SurfaceSpec.command` always wins over any registry synthesis — the registry only fires when a terminal surface has no command and its metadata declares a known `terminal_type`. See [`references/claude-resume.md`](references/claude-resume.md) for the full wire-up (the SessionStart hook operators paste into `~/.claude/settings.json`, the `C11_SESSION_RESUME` gate, troubleshooting).
 
+## Troubleshooting
+
+If `c11` on your PATH does not resolve to the active bundle's CLI (or you're unsure which `c11`/`cmux` your shell will invoke), run `c11 doctor` (`--json` for machine-readable output). It reports the bundled CLI path, what `c11`/`cmux` resolve to on PATH, whether `_cmux_fix_path` has run, and a `status` of `ok | mismatch | missing | no_bundle`.
+
 ## References
 
 - **[references/api.md](references/api.md)** — full command surface: addressing, discovery, workspace/pane/surface management, surface initialization quirks, sidebar metadata, notifications, troubleshooting
