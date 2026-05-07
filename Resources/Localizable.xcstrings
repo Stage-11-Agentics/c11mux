@@ -3032,6 +3032,17 @@
         }
       }
     },
+    "tccPrimer.body.granted": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thanks — Full Disk Access granted. Continuing…"
+          }
+        }
+      }
+    },
     "tccPrimer.body.sayNo.lead": {
       "extractionState": "manual",
       "localizations": {
