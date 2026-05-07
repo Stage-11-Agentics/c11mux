@@ -113,6 +113,7 @@
 		DH020BF0A1B2C3D4E5F60719 /* CLIResolutionSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH020BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshot.swift */; };
 		DH021BF0A1B2C3D4E5F60719 /* DoctorCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH021BF1A1B2C3D4E5F60719 /* DoctorCommand.swift */; };
 		DH022BF0A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH022BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift */; };
+		DH023BF0A1B2C3D4E5F60718 /* TerminalControllerTelemetryWorkerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH023BF1A1B2C3D4E5F60718 /* TerminalControllerTelemetryWorkerTests.swift */; };
 		A5001621 /* AppleScriptSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001620 /* AppleScriptSupport.swift */; };
 		A5001400 /* Panel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001410 /* Panel.swift */; };
 		A5001401 /* TerminalPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001411 /* TerminalPanel.swift */; };
@@ -456,6 +457,7 @@
 		DH020BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIResolutionSnapshot.swift; sourceTree = "<group>"; };
 		DH021BF1A1B2C3D4E5F60719 /* DoctorCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoctorCommand.swift; sourceTree = "<group>"; };
 		DH022BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIResolutionSnapshotTests.swift; sourceTree = "<group>"; };
+		DH023BF1A1B2C3D4E5F60718 /* TerminalControllerTelemetryWorkerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalControllerTelemetryWorkerTests.swift; sourceTree = "<group>"; };
 		A5001620 /* AppleScriptSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleScriptSupport.swift; sourceTree = "<group>"; };
 			A5001510 /* CmuxWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/CmuxWebView.swift; sourceTree = "<group>"; };
 			A5001511 /* UITestRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestRecorder.swift; sourceTree = "<group>"; };
@@ -983,6 +985,7 @@
 					DH014BF1A1B2C3D4E5F60718 /* HealthFlagsTests.swift */,
 					DH015BF1A1B2C3D4E5F60718 /* CLIHealthRuntimeTests.swift */,
 					DH022BF1A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift */,
+					DH023BF1A1B2C3D4E5F60718 /* TerminalControllerTelemetryWorkerTests.swift */,
 					C112400B1B2C3D4E5F60718 /* WorkspaceRestartCommandsTests.swift */,
 					D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */,
 					D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */,
@@ -1385,6 +1388,7 @@
 					DH014BF0A1B2C3D4E5F60718 /* HealthFlagsTests.swift in Sources */,
 					DH015BF0A1B2C3D4E5F60718 /* CLIHealthRuntimeTests.swift in Sources */,
 					DH022BF0A1B2C3D4E5F60718 /* CLIResolutionSnapshotTests.swift in Sources */,
+					DH023BF0A1B2C3D4E5F60718 /* TerminalControllerTelemetryWorkerTests.swift in Sources */,
 					C112400A1B2C3D4E5F60718 /* WorkspaceRestartCommandsTests.swift in Sources */,
 					D800CBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift in Sources */,
 					D800DBF0A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift in Sources */,
