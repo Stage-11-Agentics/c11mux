@@ -7,6 +7,97 @@ import Bonsplit
 private var cmuxWindowTerminalPortalKey: UInt8 = 0
 private var cmuxWindowTerminalPortalCloseObserverKey: UInt8 = 0
 
+// MARK: - C11-18 portal diagnostics
+//
+// Env-var-gated structured logger for portal lifecycle events. Off by default
+// (zero work in shipped builds when the gate is unset). Enable with
+// C11_PORTAL_DEBUG=1 (CMUX_PORTAL_DEBUG=1 also accepted, for parity with the
+// existing CMUX_DEBUG_* family) to capture state during reproduction of
+// C11-18 (Ghostty surface duplicated/overdraws above pane bounds during
+// portal sync).
+//
+// Default sink: /tmp/c11-portal.log. Override with C11_PORTAL_LOG=<path>.
+// First call after process start truncates the log; subsequent calls append.
+// Pattern mirrors `logBackground` at Sources/GhosttyTerminalView.swift:2470-2492
+// (NSLock + monotonic UInt64 sequence + open/seek-to-end/close per write).
+//
+// Hot-path safety: emit sites must NOT include WindowTerminalHostView.hitTest(),
+// TerminalSurface.forceRefresh(), or TabItemView body. Portal lifecycle paths
+// (bind / detach / hideEntry / synchronizeHostedView / external geometry sync /
+// orphan hide) are off the typing/per-frame hot paths and are the only call sites.
+
+enum C11PortalDebug {
+    static let isEnabled: Bool = {
+        let env = ProcessInfo.processInfo.environment
+        let truthy: (String?) -> Bool = { value in
+            guard let value, !value.isEmpty else { return false }
+            let lowered = value.lowercased()
+            return lowered != "0" && lowered != "false" && lowered != "no" && lowered != "off"
+        }
+        return truthy(env["C11_PORTAL_DEBUG"]) || truthy(env["CMUX_PORTAL_DEBUG"])
+    }()
+
+    static let logPath: String = {
+        if let override = ProcessInfo.processInfo.environment["C11_PORTAL_LOG"], !override.isEmpty {
+            return override
+        }
+        return "/tmp/c11-portal.log"
+    }()
+
+    private static let lock = NSLock()
+    private nonisolated(unsafe) static var sequence: UInt64 = 0
+    private nonisolated(unsafe) static var hasTruncated = false
+    private static let startUptime = ProcessInfo.processInfo.systemUptime
+    private static let timestampFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    fileprivate static func write(event: String, fields: String) {
+        let timestamp = timestampFormatter.string(from: Date())
+        let uptimeMs = (ProcessInfo.processInfo.systemUptime - startUptime) * 1000
+        let threadLabel = Thread.isMainThread ? "main" : "bg"
+        let suffix = fields.isEmpty ? "" : " \(fields)"
+
+        lock.lock()
+        defer { lock.unlock() }
+        sequence &+= 1
+        let seq = sequence
+        let line =
+            "\(timestamp) seq=\(seq) t+\(String(format: "%.3f", uptimeMs))ms " +
+            "thread=\(threadLabel) portal: \(event)\(suffix)\n"
+        guard let data = line.data(using: .utf8) else { return }
+
+        let url = URL(fileURLWithPath: logPath)
+        if !hasTruncated {
+            hasTruncated = true
+            // Truncate-on-first-call so each cold start gives the operator a clean
+            // log corresponding to one repro run (avoids unbounded growth across
+            // repeated `repro-c11-18.sh` invocations).
+            try? Data().write(to: url)
+        } else if !FileManager.default.fileExists(atPath: logPath) {
+            FileManager.default.createFile(atPath: logPath, contents: nil)
+        }
+        if let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            try? handle.seekToEnd()
+            try? handle.write(contentsOf: data)
+        }
+    }
+}
+
+/// Emit a structured portal lifecycle event when `C11_PORTAL_DEBUG` is set.
+///
+/// The `fields` autoclosure is only evaluated when the env-var gate is on, so
+/// shipped builds pay nothing beyond the boolean check. Callers should pass a
+/// pre-formatted "k=v k=v" string for the event-specific fields.
+@inline(__always)
+func portalLog(_ event: String, _ fields: @autoclosure () -> String = "") {
+    guard C11PortalDebug.isEnabled else { return }
+    C11PortalDebug.write(event: event, fields: fields())
+}
+
 #if DEBUG
 private func portalDebugToken(_ view: NSView?) -> String {
     guard let view else { return "nil" }
