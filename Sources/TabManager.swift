@@ -2608,7 +2608,6 @@ class TabManager: ObservableObject {
         let workspaces: [Workspace]
         let title: String
         let message: String
-        let acceptCmdD: Bool
     }
 
     private func closeOtherTabsInFocusedPanePlan() -> CloseOtherTabsInFocusedPanePlan? {
@@ -2689,8 +2688,7 @@ class TabManager: ObservableObject {
         return CloseWorkspacesPlan(
             workspaces: workspaces,
             title: title,
-            message: message,
-            acceptCmdD: willCloseWindow
+            message: message
         )
     }
 
