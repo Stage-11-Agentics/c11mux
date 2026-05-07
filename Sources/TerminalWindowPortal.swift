@@ -98,9 +98,10 @@ func portalLog(_ event: String, _ fields: @autoclosure () -> String = "") {
     C11PortalDebug.write(event: event, fields: fields())
 }
 
-/// Compact pointer token for diagnostics. Stable across calls for the same
-/// object instance, and empty/`nil` for missing references. Available from
-/// release builds (not gated on `#if DEBUG` like `portalDebugToken`).
+/// Compact pointer token (NSView opaque pointer) for diagnostics. Stable
+/// across calls for the same object instance, and empty/`nil` for missing
+/// references. Available from release builds (not gated on `#if DEBUG` like
+/// `portalDebugToken`).
 @inline(__always)
 func portalLogToken(_ view: NSView?) -> String {
     guard let view else { return "nil" }
@@ -108,6 +109,11 @@ func portalLogToken(_ view: NSView?) -> String {
     return String(describing: ptr)
 }
 
+/// Hashed handle (NOT a real pointer) for `ObjectIdentifier` diagnostics.
+/// Returns a hex rendering of `id.hashValue`; comparable across log lines that
+/// share the same `ObjectIdentifier` namespace, but not directly comparable to
+/// the NSView pointer overload above even when both reference the same
+/// underlying view.
 @inline(__always)
 func portalLogToken(_ id: ObjectIdentifier?) -> String {
     guard let id else { return "nil" }
