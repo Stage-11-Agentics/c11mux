@@ -6,6 +6,15 @@ import SwiftUI
 /// The scrim is painted by the AppKit host (`WorkspaceCloseOverlayHost`) so
 /// this view renders the card alone. Click-through outside the card is
 /// swallowed by the host's hit-testing — explicit Cancel button or Esc only.
+///
+/// Visual treatment is intentionally hard-coded to "critical destructive"
+/// (red icon, red border + shadow, red destructive button). The fields
+/// `content.style`, `content.role`, and `content.detailLines` are part of
+/// the shared `ConfirmContent` shape and are intentionally ignored here:
+/// every workspace-close prompt is destructive at workspace scale, and the
+/// multi-close detail listing is already inlined into `content.message` by
+/// `closeWorkspacesPlan`. If a non-destructive variant is ever needed, the
+/// card should branch on `content.style` instead of growing a sibling view.
 struct WorkspaceCloseCardView: View {
     let content: ConfirmContent
     @ObservedObject var runtime: WorkspaceCloseInteractionRuntime
