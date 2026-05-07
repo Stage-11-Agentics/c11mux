@@ -1516,10 +1516,10 @@ final class WindowTerminalPortal: NSObject {
                 "hostedId=\(portalLogToken(hostedId)) " +
                 "anchorId=\(portalLogToken(anchorId)) " +
                 "anchorWindowNumber=\(anchorWindowNumber) " +
-                "anchorSuperview=\(anchorSuperviewToken) " +
+                "anchorSuperviewPtr=\(anchorSuperviewToken) " +
                 "visibleInUI=\(visibleInUI ? 1 : 0) " +
                 "prevHostedIdForAnchor=\(portalLogToken(prevHostedAtAnchor)) " +
-                "prevEntryHostedView=\(portalLogToken(prevEntryHostedAtAnchor)) " +
+                "prevEntryHostedViewPtr=\(portalLogToken(prevEntryHostedAtAnchor)) " +
                 "entryCount=\(entriesByHostedId.count)"
             )
         }
