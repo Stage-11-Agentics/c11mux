@@ -131,11 +131,14 @@ extension CLIResolutionSnapshot {
             return trimmed.isEmpty ? nil : trimmed
         }
 
-        // Detect whether `_cmux_fix_path` (or its bash equivalent) has run:
-        // the directory that holds the bundled CLI must be the first entry on
-        // PATH. We treat the path-fix as load-bearing for resolution status,
-        // so callers can see at a glance whether the operator is on the
-        // shell-integration path or fell back to whatever brew installed.
+        // Structural proxy for "did the shell integration's `_cmux_fix_path`
+        // (or its bash equivalent) run?" — we report `path_fix_applied` as
+        // true whenever the bundled CLI's directory is the first entry on
+        // PATH. Any mechanism that prepends the same directory will flip the
+        // bool, not just the c11 shell integration; treat it as a load-bearing
+        // *resolution* signal, not a literal "did our function execute" gate.
+        // (If a stricter signal is ever needed, have the integration export a
+        // sentinel env var — e.g. `__CMUX_FIX_PATH_RAN=1` — and read it here.)
         var pathFixApplied = false
         if let bundled {
             let bundledDir = (bundled as NSString).deletingLastPathComponent
@@ -206,9 +209,12 @@ extension CLIResolutionSnapshot {
         )
     }
 
-    /// Two paths agree if their canonical forms (after symlink/.. resolution
-    /// to the extent we can do without I/O) are equal. Without `realpath`
-    /// available in the pure path, we standardize URL form and compare.
+    /// Two paths agree if their canonical forms (path normalization only —
+    /// `..` and trailing-slash resolution) are equal. We deliberately do
+    /// NOT resolve symlinks: `URL.standardizedFileURL` does not call
+    /// `realpath`. For `Resources/bin/c11` in a real bundle this is fine
+    /// (no symlinks), but if a future deployment introduces one, this
+    /// helper will report `mismatch` until updated.
     private static func pathsAgree(_ lhs: String, _ rhs: String) -> Bool {
         if lhs == rhs { return true }
         let l = URL(fileURLWithPath: lhs).standardizedFileURL.path
@@ -335,7 +341,7 @@ public func defaultVersionLookup(_ path: String) -> String? {
     process.arguments = ["--version"]
     let pipe = Pipe()
     process.standardOutput = pipe
-    process.standardError = Pipe()
+    process.standardError = FileHandle.nullDevice
     do {
         try process.run()
     } catch {
@@ -348,6 +354,7 @@ public func defaultVersionLookup(_ path: String) -> String? {
     }
     if process.isRunning {
         process.terminate()
+        try? process.waitUntilExit()
         return nil
     }
 

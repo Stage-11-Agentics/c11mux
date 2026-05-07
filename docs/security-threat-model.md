@@ -176,8 +176,9 @@ Evidence:
 ```
 Resources/Info.plist:74-138                            (NSAppleScriptEnabled, OSAScriptingDefinition, NSServices)
 Resources/c11.sdef                                     (scripting dictionary)
-Sources/AppDelegate.swift:5711                         (openWindow)
-Sources/AppDelegate.swift:5719                         (openTab)
+Sources/AppDelegate.swift:5711-5717                    (openWindow service entry)
+Sources/AppDelegate.swift:5719-5725                    (openTab service entry)
+Sources/AppDelegate.swift:5732                         (openFromServicePasteboard)
 ```
 
 ---

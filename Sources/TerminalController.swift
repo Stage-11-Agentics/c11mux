@@ -1965,6 +1965,16 @@ class TerminalController {
             return nil
         }
 
+        // Note: the @MainActor `reportPwd` early-returns "ERROR: TabManager
+        // not available" when `self.tabManager` is nil. The worker variant
+        // skips that guard intentionally — when `--tab=<uuid>` is provided,
+        // we resolve the manager via `AppDelegate.shared?.tabManagerFor(...)`
+        // below, which finds the correct manager regardless of the
+        // controller's bound `tabManager`. The visible behavioral diff is
+        // "ERROR: TabManager not available" → silent async no-op when
+        // neither path can resolve a manager. In practice this fires only
+        // before the app finishes wiring its TabManager, well before any
+        // socket accepts commands.
         let directory = parsed.positional.joined(separator: " ")
         DispatchQueue.main.async {
             MainActor.assumeIsolated {

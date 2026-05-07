@@ -8179,7 +8179,11 @@ struct CMUXCLI {
                            cmux_on_path         absolute path | omitted
                            bundled_cli_version  first line of `--version` | omitted
                            c11_on_path_version  first line of `--version` | omitted
-                           path_fix_applied     bool
+                           path_fix_applied     bool — true when the bundled
+                                                CLI's directory is the first
+                                                entry on PATH (structural
+                                                proxy for the shell
+                                                integration having run)
                            path                 PATH split into entries
                            notes                array of human-readable warnings
 
