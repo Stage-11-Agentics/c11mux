@@ -225,6 +225,15 @@ enum WorkspaceLayoutExecutor {
                 continue
             }
             let effectiveCommand: String?
+            // Track whether the command came from the registry. Registry
+            // outputs are paste-bracketed-aware "submit forms" and must
+            // reach the surface via `TextBoxSubmit.send` so a real
+            // synthetic Return fires *outside* the bracketed-paste
+            // sequence — `sendText("…\r")` alone leaves the line typed
+            // but unsubmitted (zsh ZLE / Claude CLI ignore embedded
+            // newlines inside a paste). See `AgentRestartRegistry`
+            // and `TextBoxSubmit` for the full rationale.
+            var isRegistrySynthesized = false
             if let rawCommand = surfaceSpec.command {
                 // Explicit command — Phase 0 rule: deliver verbatim,
                 // including whitespace-only strings. Registry is not
@@ -250,6 +259,7 @@ enum WorkspaceLayoutExecutor {
                     ))
                 }
                 effectiveCommand = synthesized
+                isRegistrySynthesized = synthesized != nil
             } else {
                 effectiveCommand = nil
             }
@@ -259,7 +269,11 @@ enum WorkspaceLayoutExecutor {
             // commands are NOT empty; they reach sendText unchanged.
             guard let cmd = effectiveCommand, !cmd.isEmpty else { continue }
             let cmdClock = StepClock()
-            terminalPanel.sendText(cmd)
+            if isRegistrySynthesized {
+                TextBoxSubmit.send(cmd, via: terminalPanel.surface)
+            } else {
+                terminalPanel.sendText(cmd)
+            }
             walkState.timings.append(StepTiming(
                 step: "surface[\(surfaceSpec.id)].command.enqueue",
                 durationMs: cmdClock.elapsedMs
