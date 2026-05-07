@@ -9511,8 +9511,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         // key window's portal/SwiftUI hierarchy. Gate the same shortcuts here so the
         // overlay sees the Cmd+D accept and other app shortcuts stay suppressed while
         // a dialog is visible (plan §4.8).
+        //
+        // C11-30: workspace-scoped close-confirmation overlay follows the same
+        // contract — Cmd+D accepts, app-level shortcuts stay suppressed.
         let shortcutTabManager = tabManagerForShortcutEvent(event)
         let paneInteractionActive = shortcutTabManager?.hasActivePaneInteraction ?? false
+        let workspaceCloseOverlayActive = shortcutTabManager?.hasActiveWorkspaceCloseInteraction ?? false
 
         if let closeConfirmationPanel {
             // Special-case: Cmd+D should confirm destructive close on alerts.
@@ -9531,6 +9535,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 return true
             }
             return false
+        }
+
+        if workspaceCloseOverlayActive {
+            // C11-30: workspace-scoped close-confirmation overlay. Cmd+D accepts
+            // the destructive close — same contract as the NSPanel and pane-
+            // interaction paths. All app-level shortcuts stay suppressed so
+            // keybindings don't fire through the overlay.
+            if matchShortcut(
+                event: event,
+                shortcut: StoredShortcut(key: "d", command: true, shift: false, option: false, control: false)
+            ), shortcutTabManager?.acceptActiveWorkspaceCloseInteractionInKeyWorkspace() == true {
+                return true
+            }
+            // Esc fallback for cases where the overlay host did not receive
+            // keyDown directly (WKWebView responder edge cases). keyCode 53 = Esc.
+            let hasAppShortcutModifier = hasCommand || hasControl || hasOption
+            if !hasAppShortcutModifier,
+               event.keyCode == 53,
+               shortcutTabManager?.cancelActiveWorkspaceCloseInteractionInKeyWorkspace() == true {
+                return true
+            }
+            return hasAppShortcutModifier
         }
 
         if paneInteractionActive {

@@ -751,6 +751,49 @@ class TabManager: ObservableObject {
         return workspace.paneInteractionRuntime.hasAnyActive
     }
 
+    /// True when the selected workspace has an active workspace-close
+    /// confirmation overlay. Distinct from `hasActivePaneInteraction` so
+    /// AppDelegate can route Cmd+D / Esc / Return through the workspace
+    /// runtime, and so app-level shortcuts stay suppressed while the
+    /// destructive close prompt is visible.
+    @MainActor
+    var hasActiveWorkspaceCloseInteraction: Bool {
+        guard let selectedTabId,
+              let workspace = tabs.first(where: { $0.id == selectedTabId }) else {
+            return false
+        }
+        return workspace.workspaceCloseInteractionRuntime.hasActive
+    }
+
+    /// Accept the active workspace-close interaction in the selected
+    /// workspace. Used by the Cmd+D dispatcher: Cmd+D on a destructive
+    /// confirm should accept (matches the pane-interaction path).
+    @MainActor
+    @discardableResult
+    func acceptActiveWorkspaceCloseInteractionInKeyWorkspace() -> Bool {
+        guard let selectedTabId,
+              let workspace = tabs.first(where: { $0.id == selectedTabId }) else {
+            return false
+        }
+        return workspace.workspaceCloseInteractionRuntime.accept()
+    }
+
+    /// Cancel the active workspace-close interaction in the selected
+    /// workspace. Used as an Esc fallback when the overlay host did not
+    /// receive keyDown directly (WKWebView responder edge cases).
+    @MainActor
+    @discardableResult
+    func cancelActiveWorkspaceCloseInteractionInKeyWorkspace() -> Bool {
+        guard let selectedTabId,
+              let workspace = tabs.first(where: { $0.id == selectedTabId }) else {
+            return false
+        }
+        let runtime = workspace.workspaceCloseInteractionRuntime
+        guard let active = runtime.active else { return false }
+        runtime.cancel(ifInteractionId: active.id)
+        return true
+    }
+
     /// Accept the topmost pane interaction in the currently selected workspace,
     /// preferring the focused panel when it has an active interaction. Used by the
     /// Cmd+D dispatcher (plan §4.8). Returns true when an interaction resolved —
@@ -2656,39 +2699,25 @@ class TabManager: ObservableObject {
     }
 
     private func closeWorkspaceIfRunningProcess(_ workspace: Workspace, requiresConfirmation: Bool = true) {
-        let willCloseWindow = tabs.count <= 1
         if requiresConfirmation, workspaceNeedsConfirmClose(workspace) {
-            // Prefer the pane-anchored overlay — it lands on the workspace's focused
-            // panel (typically the running-process terminal that triggered the prompt).
-            // Fall back to the legacy NSAlert when the feature is disabled OR no panel
-            // is resolvable (e.g. race during workspace teardown), which preserves the
-            // existing CloseWorkspaceCmdDUITests contract (plan §3.4, §4.4).
-            if PaneInteractionFeatureFlag.isEnabled,
-               let panelId = workspace.focusedPanelId {
-                Task { @MainActor [weak self, weak workspace] in
-                    guard let self, let workspace else { return }
-                    let accepted = await workspace.presentConfirmClose(
-                        panelId: panelId,
-                        title: String(localized: "dialog.closeWorkspace.title", defaultValue: "Close workspace?"),
-                        message: String(localized: "dialog.closeWorkspace.message", defaultValue: "This will close the workspace and all of its panes."),
-                        source: .local
-                    )
-                    guard accepted else { return }
-                    // Acceptance-time revalidation — workspace may have closed or
-                    // been destroyed while the overlay was visible.
-                    guard self.tabs.contains(where: { $0.id == workspace.id }) else { return }
-                    self.finishCloseWorkspace(workspace)
-                }
-                return
+            // Workspace-scoped overlay: a near-black scrim covering the workspace
+            // content area only, with a centered confirm/cancel card. Lands above
+            // portal-hosted terminal/browser content via themeFrame mount. Sidebar
+            // stays visible. Plan §3.1, §3.3.
+            Task { @MainActor [weak self, weak workspace] in
+                guard let self, let workspace else { return }
+                let accepted = await workspace.presentConfirmCloseWorkspace(
+                    title: String(localized: "dialog.closeWorkspace.title", defaultValue: "Close workspace?"),
+                    message: String(localized: "dialog.closeWorkspace.message", defaultValue: "This will close the workspace and all of its panes."),
+                    source: .local
+                )
+                guard accepted else { return }
+                // Acceptance-time revalidation — workspace may have closed or
+                // been destroyed while the overlay was visible.
+                guard self.tabs.contains(where: { $0.id == workspace.id }) else { return }
+                self.finishCloseWorkspace(workspace)
             }
-
-            // NSAlert fallback — no focused panel to anchor on.
-            let accepted = confirmClose(
-                title: String(localized: "dialog.closeWorkspace.title", defaultValue: "Close workspace?"),
-                message: String(localized: "dialog.closeWorkspace.message", defaultValue: "This will close the workspace and all of its panes."),
-                acceptCmdD: willCloseWindow
-            )
-            guard accepted else { return }
+            return
         }
         finishCloseWorkspace(workspace)
     }
