@@ -1023,6 +1023,12 @@ class TabManager: ObservableObject {
     private var pendingWorkspaceUnfocusTarget: (tabId: UUID, panelId: UUID)?
     private var sidebarSelectedWorkspaceIds: Set<UUID> = []
     var confirmCloseHandler: ((String, String, Bool) -> Bool)?
+    /// Test seam for the workspace-scoped close-confirmation overlay (C11-30).
+    /// When set, replaces the async overlay flow with a synchronous callback so
+    /// unit tests can drive `closeWorkspaceIfRunningProcess` /
+    /// `closeWorkspacesWithConfirmation` without a running AppKit window.
+    /// Production callers route through `Workspace.presentConfirmCloseWorkspace`.
+    var workspaceCloseConfirmationHandler: ((_ title: String, _ message: String) -> Bool)?
     private struct WorkspaceCreationSnapshot {
         let tabs: [Workspace]
         let selectedTabId: UUID?
@@ -2539,6 +2545,15 @@ class TabManager: ObservableObject {
         }
 
         let plan = closeWorkspacesPlan(for: workspaces)
+        // Test seam: synchronous handler short-circuits the overlay flow so
+        // unit tests can exercise the multi-close path without a window.
+        if let handler = workspaceCloseConfirmationHandler {
+            guard handler(plan.title, plan.message) else { return }
+            for workspace in plan.workspaces where tabs.contains(where: { $0.id == workspace.id }) {
+                closeWorkspaceIfRunningProcess(workspace, requiresConfirmation: false)
+            }
+            return
+        }
         // Anchor on the currently-displayed workspace (per delegator decision):
         // consistent with the previous window-modal NSAlert behavior, avoids
         // flash-cycling across the multi-select. The plan listing tells the
@@ -2705,6 +2720,21 @@ class TabManager: ObservableObject {
 
     private func closeWorkspaceIfRunningProcess(_ workspace: Workspace, requiresConfirmation: Bool = true) {
         if requiresConfirmation, workspaceNeedsConfirmClose(workspace) {
+            let title = String(
+                localized: "dialog.closeWorkspace.title",
+                defaultValue: "Close workspace?"
+            )
+            let message = String(
+                localized: "dialog.closeWorkspace.message",
+                defaultValue: "This will close the workspace and all of its panes."
+            )
+            // Test seam: synchronous handler short-circuits the overlay flow so
+            // unit tests can exercise the close path without a window.
+            if let handler = workspaceCloseConfirmationHandler {
+                guard handler(title, message) else { return }
+                finishCloseWorkspace(workspace)
+                return
+            }
             // Workspace-scoped overlay: a near-black scrim covering the workspace
             // content area only, with a centered confirm/cancel card. Lands above
             // portal-hosted terminal/browser content via themeFrame mount. Sidebar
@@ -2712,8 +2742,8 @@ class TabManager: ObservableObject {
             Task { @MainActor [weak self, weak workspace] in
                 guard let self, let workspace else { return }
                 let accepted = await workspace.presentConfirmCloseWorkspace(
-                    title: String(localized: "dialog.closeWorkspace.title", defaultValue: "Close workspace?"),
-                    message: String(localized: "dialog.closeWorkspace.message", defaultValue: "This will close the workspace and all of its panes."),
+                    title: title,
+                    message: message,
                     source: .local
                 )
                 guard accepted else { return }
