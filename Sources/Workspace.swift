@@ -5482,7 +5482,14 @@ final class Workspace: Identifiable, ObservableObject {
     /// `NotificationCenter` — just in/out value-type mutation. Both the static
     /// factory and the live-update path call this so behavior is identical and
     /// testable in isolation. (C11-6)
-    static func applyChromeScale(
+    ///
+    /// `nonisolated` because the function touches no main-actor state — pure
+    /// value-type mutation — so the actor inheritance from `Workspace` is
+    /// incidental, not load-bearing. Without this, `WorkspaceApplyChromeScaleTests`
+    /// fails to compile under Swift 6 strict concurrency: XCTestCase methods
+    /// are non-main-actor by default, and calling a `@MainActor`-isolated
+    /// static method from a synchronous context is a compile error.
+    nonisolated static func applyChromeScale(
         _ tokens: ChromeScaleTokens,
         to appearance: inout BonsplitConfiguration.Appearance
     ) {
