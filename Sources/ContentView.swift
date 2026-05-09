@@ -2286,7 +2286,13 @@ struct ContentView: View {
                     anchorView: fullscreenControlsViewModel.notificationsAnchorView
                 )
             },
-            onNewTab: { tabManager.addTab() },
+            onNewTab: {
+                if let appDelegate = AppDelegate.shared {
+                    appDelegate.presentCreateWorkspaceSheet()
+                } else {
+                    tabManager.addTab()
+                }
+            },
             visibilityMode: .alwaysVisible
         )
     }
@@ -3254,7 +3260,11 @@ struct ContentView: View {
     }
 
     private func addTab() {
-        tabManager.addTab()
+        if let appDelegate = AppDelegate.shared {
+            appDelegate.presentCreateWorkspaceSheet()
+        } else {
+            tabManager.addTab()
+        }
         sidebarSelectionState.selection = .tabs
     }
 
