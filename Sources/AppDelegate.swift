@@ -5888,6 +5888,85 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         return workspace.id
     }
 
+    /// Materializes a workspace from a `WorkspaceApplyPlan` chosen via the
+    /// New Workspace dialog. Injects the dialog's working directory and
+    /// (optionally) the configured agent's launch command on the first
+    /// terminal surface that has none, then runs the plan through
+    /// `WorkspaceLayoutExecutor`.
+    @MainActor
+    @discardableResult
+    func applyWorkspacePlanInPreferredMainWindow(
+        plan: WorkspaceApplyPlan,
+        workingDirectory: String,
+        launchAgent: Bool,
+        debugSource: String = "createWorkspaceSheet"
+    ) -> UUID? {
+        guard let context = preferredMainWindowContextForWorkspaceCreation(debugSource: debugSource) else {
+            return nil
+        }
+        guard let window = resolvedWindow(for: context) else {
+            discardOrphanedMainWindowContext(context)
+            return nil
+        }
+        setActiveMainWindow(window)
+        bringToFront(window)
+
+        var injected = plan
+        injected.workspace.workingDirectory = workingDirectory
+        if launchAgent {
+            let command = AgentLauncherSettings.current().shellCommand
+            if let idx = injected.surfaces.firstIndex(where: { surface in
+                surface.kind == .terminal && (surface.command?.isEmpty ?? true)
+            }) {
+                injected.surfaces[idx].command = command
+            }
+        }
+
+        let dependencies = WorkspaceLayoutExecutorDependencies(
+            tabManager: context.tabManager,
+            workspaceRefMinter: { uuid in "workspace:\(uuid.uuidString)" },
+            surfaceRefMinter: { uuid in "surface:\(uuid.uuidString)" },
+            paneRefMinter: { uuid in "pane:\(uuid.uuidString)" }
+        )
+        let result = WorkspaceLayoutExecutor.apply(
+            injected,
+            options: ApplyOptions(select: true),
+            dependencies: dependencies
+        )
+        #if DEBUG
+        for failure in result.failures {
+            FocusLogStore.shared.append(
+                "createWorkspace.apply failure code=\(failure.code) step=\(failure.step) message=\(failure.message)"
+            )
+        }
+        #endif
+
+        guard !result.workspaceRef.isEmpty else { return nil }
+        CreateWorkspaceRecents.record(workingDirectory)
+        let prefix = "workspace:"
+        let uuidPart = result.workspaceRef.hasPrefix(prefix)
+            ? String(result.workspaceRef.dropFirst(prefix.count))
+            : result.workspaceRef
+        return UUID(uuidString: uuidPart)
+    }
+
+    /// Returns the working directory of the workspace currently selected in
+    /// the window that would host a new workspace. Used to pre-fill the
+    /// New Workspace dialog. Returns `nil` if no main window is available
+    /// or the focused workspace has no recorded cwd.
+    @MainActor
+    func focusedWorkspaceWorkingDirectory() -> String? {
+        guard let context = preferredMainWindowContextForWorkspaceCreation(debugSource: "createWorkspaceSheet.cwd") else {
+            return nil
+        }
+        guard let selectedId = context.tabManager.selectedTabId,
+              let workspace = context.tabManager.tabs.first(where: { $0.id == selectedId }) else {
+            return nil
+        }
+        let dir = workspace.currentDirectory
+        return dir.isEmpty ? nil : dir
+    }
+
     private func preferredMainWindowContextForWorkspaceCreation(
         event: NSEvent? = nil,
         debugSource: String = "unspecified"
@@ -6266,6 +6345,77 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 UserDefaults.standard.set(true, forKey: WelcomeSettings.shownKey)
             }
             WelcomeSettings.performQuadLayout(on: workspace, initialPanel: initialPanel)
+        }
+    }
+
+    // MARK: - New Workspace sheet
+
+    /// Strong reference for the New Workspace dialog window. Same AppKit
+    /// retention gotcha as `agentSkillsOnboardingWindow` — the willClose
+    /// observer below clears this on user-initiated close.
+    private var createWorkspaceSheetWindow: NSWindow?
+    private var createWorkspaceSheetCloseObserver: NSObjectProtocol?
+
+    /// Show the New Workspace dialog. Called from File → New Workspace, the
+    /// ⌘N shortcut, and the "+" buttons. If no main window exists yet, falls
+    /// back to spawning a new main window — the dialog has nothing to host
+    /// the new workspace into otherwise.
+    @MainActor
+    func presentCreateWorkspaceSheet() {
+        if mainWindowContexts.isEmpty {
+            openNewMainWindow(nil)
+            return
+        }
+        if let existing = createWorkspaceSheetWindow {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let initialDirectory = focusedWorkspaceWorkingDirectory()
+            ?? FileManager.default.homeDirectoryForCurrentUser.path
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 480),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = String(
+            localized: "createWorkspace.windowTitle",
+            defaultValue: "New Workspace"
+        )
+        window.isReleasedWhenClosed = false
+        window.level = .modalPanel
+
+        let rootView = CreateWorkspaceSheet(
+            initialDirectory: initialDirectory,
+            onCancel: { [weak window] in window?.close() },
+            onCreate: { [weak self, weak window] outcome in
+                guard let self else { return }
+                _ = self.applyWorkspacePlanInPreferredMainWindow(
+                    plan: outcome.plan,
+                    workingDirectory: outcome.workingDirectory,
+                    launchAgent: outcome.launchAgent
+                )
+                window?.close()
+            }
+        )
+        window.contentView = NSHostingView(rootView: rootView)
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        createWorkspaceSheetWindow = window
+        createWorkspaceSheetCloseObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            if let observer = self.createWorkspaceSheetCloseObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+            self.createWorkspaceSheetCloseObserver = nil
+            self.createWorkspaceSheetWindow = nil
         }
     }
 
@@ -9878,32 +10028,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 #if DEBUG
             dlog("shortcut.action name=newWorkspace \(debugShortcutRouteSnapshot(event: event))")
 #endif
-            // Cmd+N semantics:
-            // - If there are no main windows, create a new window.
-            // - Otherwise, create a new workspace in the active window.
-            if mainWindowContexts.isEmpty {
-                #if DEBUG
-                logWorkspaceCreationRouting(
-                    phase: "fallback_new_window",
-                    source: "shortcut.cmdN",
-                    reason: "no_main_windows",
-                    event: event,
-                    chosenContext: nil
-                )
-                #endif
-                openNewMainWindow(nil)
-            } else if addWorkspaceInPreferredMainWindow(event: event, debugSource: "shortcut.cmdN") == nil {
-                #if DEBUG
-                logWorkspaceCreationRouting(
-                    phase: "fallback_new_window",
-                    source: "shortcut.cmdN",
-                    reason: "workspace_creation_returned_nil",
-                    event: event,
-                    chosenContext: nil
-                )
-                #endif
-                openNewMainWindow(nil)
-            }
+            // Cmd+N: present the New Workspace dialog. The presenter falls
+            // back to `openNewMainWindow` when there are no main windows
+            // yet, so all callers (menu, shortcut, "+") share one entry
+            // point.
+            presentCreateWorkspaceSheet()
             return true
         }
 

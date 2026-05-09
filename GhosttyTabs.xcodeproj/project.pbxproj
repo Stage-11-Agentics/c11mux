@@ -172,6 +172,7 @@
 		CC401003A1B2C3D4E5F60719 /* SkillInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC401001A1B2C3D4E5F60719 /* SkillInstaller.swift */; };
 		CC401005A1B2C3D4E5F60719 /* AgentSkillsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC401004A1B2C3D4E5F60719 /* AgentSkillsView.swift */; };
 		CC401007A1B2C3D4E5F60719 /* TCCPrimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC401006A1B2C3D4E5F60719 /* TCCPrimerView.swift */; };
+		CC401009A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC401008A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift */; };
 		B900000BA1B2C3D4E5F60719 /* c11 in Copy CLI */ = {isa = PBXBuildFile; fileRef = B9000004A1B2C3D4E5F60719 /* c11 */; };
 		C1ADE00002A1B2C3D4E5F719 /* claude in Copy CLI */ = {isa = PBXBuildFile; fileRef = C1ADE00001A1B2C3D4E5F719 /* claude */; };
 		C1CDE00002A1B2C3D4E5F719 /* codex in Copy CLI */ = {isa = PBXBuildFile; fileRef = C1CDE00001A1B2C3D4E5F719 /* codex */; };
@@ -519,6 +520,7 @@
 		CC401001A1B2C3D4E5F60719 /* SkillInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillInstaller.swift; sourceTree = "<group>"; };
 		CC401004A1B2C3D4E5F60719 /* AgentSkillsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSkillsView.swift; sourceTree = "<group>"; };
 		CC401006A1B2C3D4E5F60719 /* TCCPrimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCPrimerView.swift; sourceTree = "<group>"; };
+		CC401008A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateWorkspaceSheet.swift; sourceTree = "<group>"; };
 		B9000004A1B2C3D4E5F60719 /* c11 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = c11; sourceTree = BUILT_PRODUCTS_DIR; };
 				B9000011A1B2C3D4E5F60719 /* AutomationSocketUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationSocketUITests.swift; sourceTree = "<group>"; };
 					B9000013A1B2C3D4E5F60719 /* JumpToUnreadUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JumpToUnreadUITests.swift; sourceTree = "<group>"; };
@@ -831,6 +833,7 @@
 				CC401001A1B2C3D4E5F60719 /* SkillInstaller.swift */,
 				CC401004A1B2C3D4E5F60719 /* AgentSkillsView.swift */,
 				CC401006A1B2C3D4E5F60719 /* TCCPrimerView.swift */,
+				CC401008A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -1260,6 +1263,7 @@
 				CC401002A1B2C3D4E5F60719 /* SkillInstaller.swift in Sources */,
 				CC401005A1B2C3D4E5F60719 /* AgentSkillsView.swift in Sources */,
 				CC401007A1B2C3D4E5F60719 /* TCCPrimerView.swift in Sources */,
+				CC401009A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
