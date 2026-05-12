@@ -2766,6 +2766,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             PostHogAnalytics.shared.trackActive(reason: "didBecomeActive")
         }
 
+        // Offer the agent-skills install sheet on activation when a supported
+        // agent (`~/.claude`, `~/.codex`, …) is detected and the bundled
+        // skill set isn't installed yet. The previous trigger lived only
+        // inside `openWelcomeWorkspace()` (Help → Welcome), so a fresh
+        // install whose first launch ran the auto-welcome path never saw
+        // the prompt. `shouldPresent()` self-suppresses across launches via
+        // `cmuxAgentSkillsOnboardingShown` and within a launch via the
+        // window's willClose observer, so calling on every activation is
+        // safe and lets us catch users who install a supported agent after
+        // c11 is already running. Skip under XCTest so a tester's `~/.claude`
+        // doesn't pop a modal mid-test.
+        if !isRunningUnderXCTestCached {
+            presentAgentSkillsOnboardingIfNeeded()
+        }
+
         guard let notificationStore else { return }
         notificationStore.handleApplicationDidBecomeActive()
         guard let tabManager else { return }
