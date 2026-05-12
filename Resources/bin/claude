@@ -111,6 +111,13 @@ fi
 # Find real claude.
 REAL_CLAUDE="$(find_real_claude)" || { echo "Error: claude not found in PATH" >&2; exit 127; }
 
+# Unset CLAUDECODE to avoid "nested session" detection — c11 terminals are
+# independent sessions even when the parent shell was launched from Claude Code.
+# Applied before the passthrough case below so Agent View subcommands like
+# `claude agents` and `claude attach <id>` (which open interactive Claude UIs)
+# do not inherit a stale nested-session marker from the c11 parent.
+unset CLAUDECODE
+
 # Pass through subcommands that don't support session/hook flags.
 #
 # Agent View (Claude Code 2.1.139+, shipped 2026-05-11) added a family of
@@ -127,10 +134,6 @@ case "${1:-}" in
         exec "$REAL_CLAUDE" "$@"
         ;;
 esac
-
-# Unset CLAUDECODE to avoid "nested session" detection — c11 terminals are
-# independent sessions even when the parent shell was launched from Claude Code.
-unset CLAUDECODE
 
 # Check if the user already specified a session/resume flag.
 # If so, don't inject our own --session-id (it would conflict).
