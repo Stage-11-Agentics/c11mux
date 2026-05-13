@@ -18,3 +18,5 @@ Headline deliverables:
 Validation: 8 mechanical steps on Atlas (preflight → scp → spawn → verify → SSH-detach test → output → negative test → cleanup). The load-bearing assertion is step 5: window survives SSH disconnect.
 
 Out of scope for slice 1: crash/restart logic, reboot persistence, transcript capture, Lattice status reporting, the local-side `c11 remote spawn` wrapper (slice 3 / C11-39), Hetzner (slice 2 / C11-38), bootstrap automation.
+
+## Reset 2026-05-13 by agent:claude-opus-4
