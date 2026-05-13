@@ -4,6 +4,12 @@ All notable changes to c11 (and, before the fork, cmux) are documented here.
 
 Note: historical entries below pre-date the `c11mux` → `c11` rename and reference the old binary / cask / artifact / bundle-ID names (`cmux`, `c11mux`, `c11mux-macos.dmg`, `stage-11-agentics/c11mux`, `com.stage11.c11mux`). Those entries are preserved as-is for historical accuracy; see the 0.38.0 section for the rename.
 
+## [Unreleased]
+
+### Added
+
+- **`Resources/bin/c11-spawn-agent` — server-side primitive for Autonomous Connections.** Portable bash script (macOS bash 3.2 / Linux bash 5+) that launches one Claude Code agent in a named tmux window on a dedicated `tmux -L agents` socket, so the agent fleet stays isolated from operator-driven tmux sessions and survives SSH detach on the host. Required flags: `--workspace`, `--window`, exactly one of `--prompt-file` / `--prompt`. Optional: `--cwd` (default `$HOME`), `--model` (default `claude-opus-4-7`), `--socket` (default `agents`). A duplicate-window guard refuses to clobber a live agent — re-running the same invocation errors out rather than racing against the running window. The script handles no credentials; auth is whatever `claude login` already wrote on the target host. Slice 1 of C11-36 (Autonomous Connections).
+
 ## [0.46.0] - 2026-05-06
 
 ### Added
