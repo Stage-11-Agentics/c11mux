@@ -30,6 +30,18 @@ struct MarkdownPanelView: View {
                 markdownContentView
             }
         }
+        .contextMenu {
+            Button(String(
+                localized: "surfaceManifest.menuItem",
+                defaultValue: "Show surface manifest…"
+            )) {
+                SurfaceManifestViewerWindowController.show(
+                    workspaceId: panel.workspaceId,
+                    surfaceId: panel.id,
+                    kind: .markdown
+                )
+            }
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(backgroundColor)
         .overlay {

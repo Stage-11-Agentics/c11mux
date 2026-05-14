@@ -29,6 +29,8 @@
 		D70A4BF0A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */; };
 		D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */; };
 		D7010BF0A1B2C3D4E5F60718 /* PaneMetadataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */; };
+		D7C24001A1B2C3D4E5F60718 /* SurfaceManifestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C24002A1B2C3D4E5F60718 /* SurfaceManifestView.swift */; };
+		D7C24003A1B2C3D4E5F60718 /* SurfaceManifestViewerWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C24004A1B2C3D4E5F60718 /* SurfaceManifestViewerWindowController.swift */; };
 		D7C11250A1B2C3D4E5F60718 /* SurfaceLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11251A1B2C3D4E5F60718 /* SurfaceLifecycle.swift */; };
 		D7C11252A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11253A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift */; };
 		D7C11254A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C11255A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift */; };
@@ -363,6 +365,8 @@
 		D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataValidatorTests.swift; sourceTree = "<group>"; };
 		D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedMetadata.swift; sourceTree = "<group>"; };
 		D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneMetadataStore.swift; sourceTree = "<group>"; };
+		D7C24002A1B2C3D4E5F60718 /* SurfaceManifestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceManifestView.swift; sourceTree = "<group>"; };
+		D7C24004A1B2C3D4E5F60718 /* SurfaceManifestViewerWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceManifestViewerWindowController.swift; sourceTree = "<group>"; };
 		D7C11251A1B2C3D4E5F60718 /* SurfaceLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceLifecycle.swift; sourceTree = "<group>"; };
 		D7C11253A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserSnapshotStore.swift; sourceTree = "<group>"; };
 		D7C11255A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceMetricsSampler.swift; sourceTree = "<group>"; };
@@ -756,6 +760,8 @@
 				D70B3CF1A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift */,
 				D7005BF1A1B2C3D4E5F60718 /* PersistedMetadata.swift */,
 				D7010BF1A1B2C3D4E5F60718 /* PaneMetadataStore.swift */,
+				D7C24002A1B2C3D4E5F60718 /* SurfaceManifestView.swift */,
+				D7C24004A1B2C3D4E5F60718 /* SurfaceManifestViewerWindowController.swift */,
 				D7C11251A1B2C3D4E5F60718 /* SurfaceLifecycle.swift */,
 				D7C11253A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift */,
 				D7C11255A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift */,
@@ -1196,6 +1202,8 @@
 				D70B3CF0A1B2C3D4E5F60718 /* SessionEndShutdownPolicy.swift in Sources */,
 				D7005BF0A1B2C3D4E5F60718 /* PersistedMetadata.swift in Sources */,
 				D7010BF0A1B2C3D4E5F60718 /* PaneMetadataStore.swift in Sources */,
+				D7C24001A1B2C3D4E5F60718 /* SurfaceManifestView.swift in Sources */,
+				D7C24003A1B2C3D4E5F60718 /* SurfaceManifestViewerWindowController.swift in Sources */,
 				D7C11250A1B2C3D4E5F60718 /* SurfaceLifecycle.swift in Sources */,
 				D7C11252A1B2C3D4E5F60718 /* BrowserSnapshotStore.swift in Sources */,
 				D7C11254A1B2C3D4E5F60718 /* SurfaceMetricsSampler.swift in Sources */,

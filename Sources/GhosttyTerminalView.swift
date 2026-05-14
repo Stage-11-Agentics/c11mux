@@ -5963,7 +5963,29 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
             systemSymbolName: "rectangle.righthalf.inset.filled",
             accessibilityDescription: nil
         )
+        if tabId != nil, terminalSurface?.id != nil {
+            menu.addItem(.separator())
+            let manifestItem = menu.addItem(
+                withTitle: String(
+                    localized: "surfaceManifest.menuItem",
+                    defaultValue: "Show surface manifest…"
+                ),
+                action: #selector(showSurfaceManifest(_:)),
+                keyEquivalent: ""
+            )
+            manifestItem.target = self
+        }
         return menu
+    }
+
+    @objc private func showSurfaceManifest(_ sender: Any?) {
+        guard let workspaceId = tabId,
+              let surfaceId = terminalSurface?.id else { return }
+        SurfaceManifestViewerWindowController.show(
+            workspaceId: workspaceId,
+            surfaceId: surfaceId,
+            kind: .terminal
+        )
     }
 
     private func canSplitCurrentSurface() -> Bool {
