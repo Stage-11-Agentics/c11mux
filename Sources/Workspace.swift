@@ -11110,6 +11110,12 @@ extension Workspace: BonsplitDelegate {
         // pane-close confirmation that survived the close path) so its
         // continuation resolves with .dismissed instead of leaking.
         paneCloseInteractionRuntime.clear(panelId: paneId.id)
+        // Authoritative anchor cleanup for the close-pane overlay. AnchorView
+        // dismantleNSView deliberately does NOT remove the anchor (SwiftUI
+        // dismantles transient AnchorViews during sibling re-layout, and
+        // removing on every dismantle orphans surviving panes). This is the
+        // one place where we know the pane is actually gone.
+        paneCloseOverlayController.removeAnchor(paneIdentity: paneId.id)
 
         let closedPanelIds = pendingPaneClosePanelIds.removeValue(forKey: paneId.id) ?? []
         let shouldScheduleFocusReconcile = !isDetachingCloseTransaction
