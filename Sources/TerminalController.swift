@@ -1685,6 +1685,24 @@ class TerminalController {
         "surface.clear_history",
     ]
 
+    // C11-4: v1 telemetry commands the worker is allowed to handle off-main.
+    // Each entry has a fast-path branch in its handler that runs only when
+    // `Self.explicitSocketScope(options:)` returns non-nil — i.e. when the
+    // caller passed `--tab=<uuid>` and `--panel=<uuid>` (or `--surface=<uuid>`).
+    // For requests without explicit IDs (the slow path that reads "current
+    // focused tab"), the worker entry returns nil so the dispatcher falls
+    // through to its existing main-sync path. The shell integrations (zsh +
+    // bash) always include explicit IDs so the prompt-frequency telemetry
+    // hits the fast path; only ad-hoc CLI invocations land on the slow path.
+    private nonisolated static let socketWorkerV1Commands: Set<String> = [
+        "report_pwd",
+        "report_shell_state",
+        "report_git_branch",
+        "clear_git_branch",
+        "ports_kick",
+        "agent_kick",
+    ]
+
     private nonisolated static func executionPolicy(forV2Method method: String) -> SocketCommandExecutionPolicy {
         if socketWorkerV2Methods.contains(method) {
             return .socketWorker
@@ -1748,12 +1766,362 @@ class TerminalController {
             return response
         }
 
+        if let response = socketWorkerV1ResponseIfNeeded(for: command) {
+            return response
+        }
+
         if Thread.isMainThread {
             return MainActor.assumeIsolated { self.processCommand(command) }
         }
         return DispatchQueue.main.sync {
             MainActor.assumeIsolated { self.processCommand(command) }
         }
+    }
+
+    /// v1 telemetry worker entry. Parses head and args off-main, checks the
+    /// allowlist, and routes to a per-command worker variant when the args
+    /// carry an explicit `--tab=`/`--panel=` selector. Returns nil to make
+    /// the dispatcher fall through to the existing main-sync path when:
+    ///   - The command is not a v1 telemetry command we know how to migrate.
+    ///   - The args do not contain an explicit selector (handler would need
+    ///     a focused-tab read, which requires a main hop anyway — the
+    ///     current main-sync path already handles that correctly).
+    private nonisolated func socketWorkerV1ResponseIfNeeded(for command: String) -> String? {
+        let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("{") else { return nil }
+        let parts = trimmed.split(separator: " ", maxSplits: 1).map(String.init)
+        guard !parts.isEmpty else { return nil }
+        let head = parts[0].lowercased()
+        guard Self.socketWorkerV1Commands.contains(head) else { return nil }
+        let args = parts.count > 1 ? parts[1] : ""
+
+        return withSocketCommandPolicy(commandKey: head, isV2: false) {
+            socketWorkerV1Response(head: head, args: args)
+        }
+    }
+
+    /// Dispatch a v1 telemetry command to its nonisolated worker variant.
+    /// Each variant returns nil if the command must fall through to the
+    /// main-actor path (slow-path callers without an explicit selector).
+    private nonisolated func socketWorkerV1Response(head: String, args: String) -> String? {
+        switch head {
+        case "report_pwd":
+            return reportPwdWorker(args)
+        case "report_shell_state":
+            return reportShellStateWorker(args)
+        case "report_git_branch":
+            return reportGitBranchWorker(args)
+        case "clear_git_branch":
+            return clearGitBranchWorker(args)
+        case "ports_kick":
+            return portsKickWorker(args)
+        case "agent_kick":
+            return agentKickWorker(args)
+        default:
+            return nil
+        }
+    }
+
+    // MARK: - Pure parser helpers (off-main safe)
+    //
+    // These mirror the @MainActor instance methods `tokenizeArgs`,
+    // `parseOptions`, and `parseOptionsNoStop` exactly. They are pure string
+    // operations; making them static + nonisolated lets the v1 telemetry
+    // worker run them off the main thread without touching the existing
+    // call sites (which still want the shorter instance-method names).
+
+    nonisolated static func tokenizeArgsStatic(_ args: String) -> [String] {
+        let trimmed = args.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        var tokens: [String] = []
+        var current = ""
+        var inQuote = false
+        var quoteChar: Character = "\""
+        var cursor = trimmed.startIndex
+
+        while cursor < trimmed.endIndex {
+            let char = trimmed[cursor]
+            if inQuote {
+                if char == quoteChar {
+                    inQuote = false
+                    cursor = trimmed.index(after: cursor)
+                    continue
+                }
+                if char == "\\" {
+                    let nextIndex = trimmed.index(after: cursor)
+                    if nextIndex < trimmed.endIndex {
+                        let next = trimmed[nextIndex]
+                        switch next {
+                        case "n":
+                            current.append("\n")
+                            cursor = trimmed.index(after: nextIndex)
+                            continue
+                        case "r":
+                            current.append("\r")
+                            cursor = trimmed.index(after: nextIndex)
+                            continue
+                        case "t":
+                            current.append("\t")
+                            cursor = trimmed.index(after: nextIndex)
+                            continue
+                        case "\"", "'", "\\":
+                            current.append(next)
+                            cursor = trimmed.index(after: nextIndex)
+                            continue
+                        default:
+                            break
+                        }
+                    }
+                }
+                current.append(char)
+                cursor = trimmed.index(after: cursor)
+                continue
+            }
+
+            if char == "'" || char == "\"" {
+                inQuote = true
+                quoteChar = char
+                cursor = trimmed.index(after: cursor)
+                continue
+            }
+
+            if char.isWhitespace {
+                if !current.isEmpty {
+                    tokens.append(current)
+                    current = ""
+                }
+                cursor = trimmed.index(after: cursor)
+                continue
+            }
+
+            current.append(char)
+            cursor = trimmed.index(after: cursor)
+        }
+
+        if !current.isEmpty {
+            tokens.append(current)
+        }
+        return tokens
+    }
+
+    nonisolated static func parseOptionsStatic(
+        _ args: String
+    ) -> (positional: [String], options: [String: String]) {
+        let tokens = tokenizeArgsStatic(args)
+        guard !tokens.isEmpty else { return ([], [:]) }
+
+        var positional: [String] = []
+        var options: [String: String] = [:]
+        var stopParsingOptions = false
+        var i = 0
+        while i < tokens.count {
+            let token = tokens[i]
+            if stopParsingOptions {
+                positional.append(token)
+            } else if token == "--" {
+                stopParsingOptions = true
+            } else if token.hasPrefix("--") {
+                if let eqIndex = token.firstIndex(of: "=") {
+                    let key = String(token[token.index(token.startIndex, offsetBy: 2)..<eqIndex])
+                    let value = String(token[token.index(after: eqIndex)...])
+                    options[key] = value
+                } else {
+                    let key = String(token.dropFirst(2))
+                    if i + 1 < tokens.count && !tokens[i + 1].hasPrefix("--") {
+                        options[key] = tokens[i + 1]
+                        i += 1
+                    } else {
+                        options[key] = ""
+                    }
+                }
+            } else {
+                positional.append(token)
+            }
+            i += 1
+        }
+        return (positional, options)
+    }
+
+    // MARK: - V1 telemetry worker variants (nonisolated, fast-path only)
+    //
+    // Each worker variant handles the explicit-scope fast path of a
+    // high-frequency telemetry command. They mirror the corresponding @MainActor
+    // handler bit-for-bit *only* on the fast path — when the args do not
+    // contain explicit `--tab=<uuid>` and `--panel=<uuid>`, they return nil
+    // so the dispatcher falls through to the main-sync path and the @MainActor
+    // handler runs unchanged. The behavioral contract for callers (shell
+    // integrations etc.) is identical: parse-time errors still come back as
+    // "ERROR: ..." synchronously, and the actual UI mutation is enqueued via
+    // `DispatchQueue.main.async` exactly as the @MainActor variant does.
+
+    private nonisolated func reportPwdWorker(_ args: String) -> String? {
+        let parsed = Self.parseOptionsStatic(args)
+        guard !parsed.positional.isEmpty else {
+            return "ERROR: Missing path — usage: report_pwd <path> [--tab=X] [--panel=Y]"
+        }
+
+        guard let scope = Self.explicitSocketScope(options: parsed.options) else {
+            return nil
+        }
+
+        // Note: the @MainActor `reportPwd` early-returns "ERROR: TabManager
+        // not available" when `self.tabManager` is nil. The worker variant
+        // skips that guard intentionally — when `--tab=<uuid>` is provided,
+        // we resolve the manager via `AppDelegate.shared?.tabManagerFor(...)`
+        // below, which finds the correct manager regardless of the
+        // controller's bound `tabManager`. The visible behavioral diff is
+        // "ERROR: TabManager not available" → silent async no-op when
+        // neither path can resolve a manager. In practice this fires only
+        // before the app finishes wiring its TabManager, well before any
+        // socket accepts commands.
+        let directory = parsed.positional.joined(separator: " ")
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                guard let tabManager = AppDelegate.shared?.tabManagerFor(tabId: scope.workspaceId),
+                      let tab = tabManager.tabs.first(where: { $0.id == scope.workspaceId }) else {
+                    return
+                }
+                let validSurfaceIds = Set(tab.panels.keys)
+                tab.pruneSurfaceMetadata(validSurfaceIds: validSurfaceIds)
+                guard validSurfaceIds.contains(scope.panelId) else { return }
+                tabManager.updateSurfaceDirectory(
+                    tabId: scope.workspaceId,
+                    surfaceId: scope.panelId,
+                    directory: directory
+                )
+            }
+        }
+        return "OK"
+    }
+
+    private nonisolated func reportShellStateWorker(_ args: String) -> String? {
+        let parsed = Self.parseOptionsStatic(args)
+        guard let rawState = parsed.positional.first, !rawState.isEmpty else {
+            return "ERROR: Missing shell state — usage: report_shell_state <prompt|running> [--tab=X] [--panel=Y]"
+        }
+        guard let state = Self.parseReportedShellActivityState(rawState) else {
+            return "ERROR: Invalid shell state '\(rawState)' — expected prompt or running"
+        }
+
+        guard let scope = Self.explicitSocketScope(options: parsed.options) else {
+            return nil
+        }
+
+        guard Self.socketFastPathState.shouldPublishShellActivity(
+            workspaceId: scope.workspaceId,
+            panelId: scope.panelId,
+            state: state
+        ) else {
+            return "OK"
+        }
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                guard let tabManager = AppDelegate.shared?.tabManagerFor(tabId: scope.workspaceId) else { return }
+                tabManager.updateSurfaceShellActivity(
+                    tabId: scope.workspaceId,
+                    surfaceId: scope.panelId,
+                    state: state
+                )
+            }
+        }
+        return "OK"
+    }
+
+    private nonisolated func reportGitBranchWorker(_ args: String) -> String? {
+        let parsed = Self.parseOptionsStatic(args)
+        guard let branch = parsed.positional.first else {
+            return "ERROR: Missing branch name — usage: report_git_branch <branch> [--status=dirty] [--tab=X]"
+        }
+        let isDirty = parsed.options["status"]?.lowercased() == "dirty"
+
+        guard let scope = Self.explicitSocketScope(options: parsed.options) else {
+            return nil
+        }
+
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                guard let tabManager = AppDelegate.shared?.tabManagerFor(tabId: scope.workspaceId),
+                      let tab = tabManager.tabs.first(where: { $0.id == scope.workspaceId }) else {
+                    return
+                }
+                let validSurfaceIds = Set(tab.panels.keys)
+                tab.pruneSurfaceMetadata(validSurfaceIds: validSurfaceIds)
+                guard validSurfaceIds.contains(scope.panelId) else { return }
+                tabManager.updateSurfaceGitBranch(
+                    tabId: scope.workspaceId,
+                    surfaceId: scope.panelId,
+                    branch: branch,
+                    isDirty: isDirty
+                )
+            }
+        }
+        return "OK"
+    }
+
+    private nonisolated func clearGitBranchWorker(_ args: String) -> String? {
+        let parsed = Self.parseOptionsStatic(args)
+        guard let scope = Self.explicitSocketScope(options: parsed.options) else {
+            return nil
+        }
+
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                guard let tabManager = AppDelegate.shared?.tabManagerFor(tabId: scope.workspaceId),
+                      let tab = tabManager.tabs.first(where: { $0.id == scope.workspaceId }) else {
+                    return
+                }
+                let validSurfaceIds = Set(tab.panels.keys)
+                tab.pruneSurfaceMetadata(validSurfaceIds: validSurfaceIds)
+                guard validSurfaceIds.contains(scope.panelId) else { return }
+                tabManager.clearSurfaceGitBranch(
+                    tabId: scope.workspaceId,
+                    surfaceId: scope.panelId
+                )
+            }
+        }
+        return "OK"
+    }
+
+    private nonisolated func portsKickWorker(_ args: String) -> String? {
+        let parsed = Self.parseOptionsStatic(args)
+        guard let scope = Self.explicitSocketScope(options: parsed.options) else {
+            return nil
+        }
+
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                guard let tabManager = AppDelegate.shared?.tabManagerFor(tabId: scope.workspaceId),
+                      let tab = tabManager.tabs.first(where: { $0.id == scope.workspaceId }) else {
+                    return
+                }
+                let validSurfaceIds = Set(tab.panels.keys)
+                tab.pruneSurfaceMetadata(validSurfaceIds: validSurfaceIds)
+                guard validSurfaceIds.contains(scope.panelId) else { return }
+                PortScanner.shared.kick(workspaceId: scope.workspaceId, panelId: scope.panelId)
+            }
+        }
+        return "OK"
+    }
+
+    private nonisolated func agentKickWorker(_ args: String) -> String? {
+        let parsed = Self.parseOptionsStatic(args)
+        guard let scope = Self.explicitSocketScope(options: parsed.options) else {
+            return nil
+        }
+
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                guard let tabManager = AppDelegate.shared?.tabManagerFor(tabId: scope.workspaceId),
+                      let tab = tabManager.tabs.first(where: { $0.id == scope.workspaceId }) else {
+                    return
+                }
+                let validSurfaceIds = Set(tab.panels.keys)
+                guard validSurfaceIds.contains(scope.panelId) else { return }
+                AgentDetector.shared.kick(workspaceId: scope.workspaceId, panelId: scope.panelId)
+            }
+        }
+        return "OK"
     }
 
     private func processCommand(_ command: String) -> String {
@@ -7821,7 +8189,9 @@ class TerminalController {
     // MARK: - V2 Surface Metadata (Module 2)
 
     /// Resolve the (workspaceId, surfaceId) pair for a metadata call.
-    /// Runs off-main — touches only `TabManager.tabs` snapshot + v2 handle refs.
+    /// Resolves on the main actor via `v2MainSync`; safe to call from any
+    /// queue. (The earlier comment claimed "Runs off-main" — it does not;
+    /// the v2 metadata handlers reach this from a main-sync hop today.)
     private func v2ResolveSurfaceForMetadata(
         params: [String: Any]
     ) -> (workspaceId: UUID, surfaceId: UUID, tabManager: TabManager)? {

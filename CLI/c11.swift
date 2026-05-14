@@ -1648,6 +1648,11 @@ struct CMUXCLI {
             return
         }
 
+        if command == "doctor" {
+            try runDoctor(commandArgs: commandArgs, jsonOutput: jsonOutput)
+            return
+        }
+
         if command == "welcome" {
             printWelcome()
             return
@@ -8140,6 +8145,38 @@ struct CMUXCLI {
               c11 health --since 30m
               c11 health --since-boot --rail sentinel
               c11 health --json
+            """
+        case "doctor":
+            return """
+            Usage: c11 doctor [--json]
+
+            Live-environment introspection for CLI resolution: which `c11` and
+            `cmux` binaries the current shell will invoke, what the active
+            bundle's CLI is, and whether they agree. Companion to `c11 health`,
+            which inspects post-mortem crash rails.
+
+            Best run inside a c11 terminal so CMUX_BUNDLED_CLI_PATH is set.
+
+            Flags:
+              --json     Emit a stable lowercase-snake JSON object instead of
+                         the default table. Schema:
+                           status               ok | mismatch | missing | no_bundle
+                           bundled_cli_path     absolute path | omitted
+                           c11_on_path          absolute path | omitted
+                           cmux_on_path         absolute path | omitted
+                           bundled_cli_version  first line of `--version` | omitted
+                           c11_on_path_version  first line of `--version` | omitted
+                           path_fix_applied     bool — true when the bundled
+                                                CLI's directory is the first
+                                                entry on PATH (structural
+                                                proxy for the shell
+                                                integration having run)
+                           path                 PATH split into entries
+                           notes                array of human-readable warnings
+
+            Example:
+              c11 doctor
+              c11 doctor --json
             """
         case "new-split":
             return """
@@ -15111,6 +15148,7 @@ struct CMUXCLI {
           refresh-surfaces
           surface-health [--workspace <id|ref>]
           health [--since <duration> | --since-boot] [--rail <name>] [--json]
+          doctor [--json]
           trigger-flash [--workspace <id|ref>] [--surface <id|ref>] [--color <#hex>] [--persistent]
           cancel-flash [--workspace <id|ref>] [--surface <id|ref>]
           list-panels [--workspace <id|ref>]

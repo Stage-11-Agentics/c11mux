@@ -36,6 +36,39 @@ Run this workflow to prepare and publish a c11 release.
   - `./scripts/bump-version.sh patch|major|X.Y.Z`
 - Ensure both `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` are updated.
 
+### Security threat-model recheck
+
+Before the version bump lands, look at whether this release moved any
+security-sensitive surface. The canonical posture lives in
+`docs/security-threat-model.md`; the diff signals below tell you when a
+re-read is warranted. Run this grep against the release range and read
+the threat-model doc end-to-end if any signal fires:
+
+```bash
+git diff "$(git describe --tags --abbrev=0)..HEAD" -- \
+  Resources/Info.plist \
+  c11.entitlements \
+  Resources/c11.sdef \
+  Sources/SocketControlSettings.swift \
+  'Sources/SocketControl*' \
+  Sources/AppDelegate.swift \
+  Sources/Panels/BrowserPanel.swift \
+  Sources/Panels/BrowserPanelView.swift \
+  Sources/BrowserWindowPortal.swift
+```
+
+The URL handler around `Sources/AppDelegate.swift:2301` (`application(_:open:)`)
+and any new `WKWebViewConfiguration` / `WKContentController` configuration
+are the highest-attention sub-targets — they are the chief untrusted-input
+vectors into the app. If a signal fires, update
+`docs/security-threat-model.md` to match the new posture and surface
+the change in the release notes so reviewers can see the security
+posture moved. Benign diffs (NSUsageDescription string tweaks, version
+bumps that touch the plist incidentally) do not require an update —
+acknowledge the diff and continue.
+
+This is a checklist trigger, not a CI gate.
+
 6. Commit and push branch:
 - Stage release files (changelog + version updates).
 - Commit with `Bump version to X.Y.Z`.
