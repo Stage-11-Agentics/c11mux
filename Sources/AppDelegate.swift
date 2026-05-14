@@ -6656,9 +6656,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         }
     }
 
-    /// Module 4: opens a new terminal surface in the active main window and sends
-    /// `c11 install <tui>` to run the installer interactively (with TTY confirm).
-    /// Focus-intent: raises the window and creates a visible surface per the spec.
     @objc func applyUpdateIfAvailable(_ sender: Any?) {
         updateViewModel.overrideState = nil
         updateController.installUpdate()
