@@ -11478,6 +11478,14 @@ extension Workspace: BonsplitDelegate {
                 _ = self.newTerminalSurface(inPane: pane)
             } else {
                 guard self.bonsplitController.allPaneIds.contains(pane) else { return }
+                // Pre-load forceCloseTabIds so Bonsplit's shouldClosePane veto
+                // (which fires when any terminal in the pane is busy / not at
+                // an idle prompt) doesn't silently swallow the close after the
+                // user already confirmed the pane-level action. Mirrors the
+                // isOnlyPane branch above.
+                for tab in self.bonsplitController.tabs(inPane: pane) {
+                    self.forceCloseTabIds.insert(tab.id)
+                }
                 _ = self.bonsplitController.closePane(pane)
             }
         }

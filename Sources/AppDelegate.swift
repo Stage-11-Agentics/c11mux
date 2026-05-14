@@ -5971,7 +5971,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             if let idx = injected.surfaces.firstIndex(where: { surface in
                 surface.kind == .terminal && (surface.command?.isEmpty ?? true)
             }) {
-                injected.surfaces[idx].command = command
+                // Trailing newline submits the command. The "A" tab-bar button
+                // appends "\n" at its call site (Workspace.launchAgentSurface);
+                // SurfaceSpec.command is delivered verbatim by the layout
+                // executor, so the newline has to live in the value itself.
+                injected.surfaces[idx].command = command + "\n"
             }
         }
 
