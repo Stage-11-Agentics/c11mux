@@ -128,9 +128,9 @@ final class TabManagerCloseWorkspacesWithConfirmationTests: XCTestCase {
         manager.setCustomTitle(tabId: second.id, title: "Beta")
         manager.setCustomTitle(tabId: third.id, title: "Gamma")
 
-        var prompts: [(title: String, message: String, acceptCmdD: Bool)] = []
-        manager.confirmCloseHandler = { title, message, acceptCmdD in
-            prompts.append((title, message, acceptCmdD))
+        var prompts: [(title: String, message: String)] = []
+        manager.workspaceCloseConfirmationHandler = { title, message in
+            prompts.append((title, message))
             return true
         }
 
@@ -151,7 +151,6 @@ final class TabManagerCloseWorkspacesWithConfirmationTests: XCTestCase {
             String(localized: "dialog.closeWorkspaces.title", defaultValue: "Close workspaces?")
         )
         XCTAssertEqual(prompts.first?.message, expectedMessage)
-        XCTAssertEqual(prompts.first?.acceptCmdD, false)
         XCTAssertEqual(manager.tabs.map(\.title), ["Gamma"])
     }
 
@@ -161,9 +160,9 @@ final class TabManagerCloseWorkspacesWithConfirmationTests: XCTestCase {
         manager.setCustomTitle(tabId: manager.tabs[0].id, title: "Alpha")
         manager.setCustomTitle(tabId: second.id, title: "Beta")
 
-        var prompts: [(title: String, message: String, acceptCmdD: Bool)] = []
-        manager.confirmCloseHandler = { title, message, acceptCmdD in
-            prompts.append((title, message, acceptCmdD))
+        var prompts: [(title: String, message: String)] = []
+        manager.workspaceCloseConfirmationHandler = { title, message in
+            prompts.append((title, message))
             return false
         }
 
@@ -179,12 +178,14 @@ final class TabManagerCloseWorkspacesWithConfirmationTests: XCTestCase {
             "• Alpha\n• Beta"
         )
         XCTAssertEqual(prompts.count, 1)
+        // Title differentiates "close window" (last workspaces) from
+        // "close workspaces" (some workspaces). Replaces the previous
+        // acceptCmdD assertion since acceptCmdD was an NSAlert-only signal.
         XCTAssertEqual(
             prompts.first?.title,
             String(localized: "dialog.closeWindow.title", defaultValue: "Close window?")
         )
         XCTAssertEqual(prompts.first?.message, expectedMessage)
-        XCTAssertEqual(prompts.first?.acceptCmdD, true)
         XCTAssertEqual(manager.tabs.map(\.title), ["Alpha", "Beta"])
     }
 
@@ -198,9 +199,9 @@ final class TabManagerCloseWorkspacesWithConfirmationTests: XCTestCase {
         manager.selectWorkspace(second)
         manager.setSidebarSelectedWorkspaceIds([manager.tabs[0].id, second.id])
 
-        var prompts: [(title: String, message: String, acceptCmdD: Bool)] = []
-        manager.confirmCloseHandler = { title, message, acceptCmdD in
-            prompts.append((title, message, acceptCmdD))
+        var prompts: [(title: String, message: String)] = []
+        manager.workspaceCloseConfirmationHandler = { title, message in
+            prompts.append((title, message))
             return false
         }
 
@@ -221,7 +222,6 @@ final class TabManagerCloseWorkspacesWithConfirmationTests: XCTestCase {
             String(localized: "dialog.closeWorkspaces.title", defaultValue: "Close workspaces?")
         )
         XCTAssertEqual(prompts.first?.message, expectedMessage)
-        XCTAssertEqual(prompts.first?.acceptCmdD, false)
         XCTAssertEqual(manager.tabs.map(\.title), ["Alpha", "Beta", "Gamma"])
     }
 }

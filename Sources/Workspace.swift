@@ -5221,6 +5221,22 @@ final class Workspace: Identifiable, ObservableObject {
         runtime: paneCloseInteractionRuntime
     )
 
+    /// Workspace-scoped close-confirmation runtime. Distinct keyspace from
+    /// `paneInteractionRuntime` (panel-keyed) and `paneCloseInteractionRuntime`
+    /// (pane-keyed) so the workspace overlay's lifecycle never collides with
+    /// pane-scoped interactions. Only `.confirm` is supported here.
+    let workspaceCloseInteractionRuntime = WorkspaceCloseInteractionRuntime()
+
+    /// Mounts the workspace-scoped close-confirmation overlay (a near-black
+    /// scrim covering the workspace content area only) as an AppKit subview
+    /// of the window's themeFrame, above all portal-hosted content. Anchor
+    /// frame pushed in from `WorkspaceCloseOverlayHostView` rendered inside
+    /// `WorkspaceContentView` so the cover excludes the sidebar by
+    /// construction.
+    lazy var workspaceCloseOverlayController = WorkspaceCloseOverlayController(
+        runtime: workspaceCloseInteractionRuntime
+    )
+
 
     // Closing tabs mutates split layout immediately; terminal views handle their own AppKit
     // layout/size synchronization.
@@ -8181,6 +8197,8 @@ final class Workspace: Identifiable, ObservableObject {
         paneInteractionRuntime.clearAll()
         paneCloseInteractionRuntime.clearAll()
         paneCloseOverlayController.cleanup()
+        workspaceCloseInteractionRuntime.clear()
+        workspaceCloseOverlayController.cleanup()
 
         // CMUX-10: cancel every persistent-flash timer + manifest entry so
         // teardown does not leak repeating timers or stale `flash_state`
@@ -10334,6 +10352,48 @@ extension Workspace: BonsplitDelegate {
             paneInteractionRuntime.present(
                 panelId: panelId,
                 interaction: .confirm(content),
+                dedupeToken: dedupeToken
+            )
+        }
+    }
+
+    /// Present the workspace-scoped close confirmation overlay and await the
+    /// user's decision. Returns `true` only on explicit accept — `.cancelled`
+    /// and `.dismissed` both map to `false` so callers don't fire teardown on
+    /// a workspace whose state may have drifted (e.g. closed mid-prompt).
+    ///
+    /// The overlay is anchored on this workspace's content area (sidebar
+    /// stays visible). At most one workspace-close interaction can be active
+    /// per workspace; re-presenting while one is live dismisses the existing
+    /// one with `.dismissed`.
+    @MainActor
+    func presentConfirmCloseWorkspace(
+        title: String,
+        message: String,
+        source: InteractionSource,
+        dedupeToken: String? = nil
+    ) async -> Bool {
+        await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            let content = ConfirmContent(
+                title: title,
+                message: message.isEmpty ? nil : message,
+                confirmLabel: String(
+                    localized: "dialog.closeWorkspace.confirmButton",
+                    defaultValue: "Close Workspace"
+                ),
+                cancelLabel: String(
+                    localized: "dialog.pane.confirm.cancel",
+                    defaultValue: "Cancel"
+                ),
+                role: .destructive,
+                style: .standard,
+                source: source,
+                completion: { result in
+                    cont.resume(returning: result == .confirmed)
+                }
+            )
+            workspaceCloseInteractionRuntime.present(
+                content: content,
                 dedupeToken: dedupeToken
             )
         }
