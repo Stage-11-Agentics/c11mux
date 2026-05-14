@@ -912,10 +912,17 @@ final class WindowTerminalPortal: NSObject {
     }
 
     private func synchronizeLayoutHierarchy() {
-        installedContainerView?.layoutSubtreeIfNeeded()
-        installedReferenceView?.layoutSubtreeIfNeeded()
-        hostView.superview?.layoutSubtreeIfNeeded()
-        hostView.layoutSubtreeIfNeeded()
+        // Per ensureInstalled / installationTarget: hostView is added as a subview of
+        // installedContainerView, alongside installedReferenceView (a sibling). So
+        // installedContainerView is the topmost in-tree ancestor of all of:
+        //   installedReferenceView, hostView.superview (== installedContainerView),
+        //   and hostView itself.
+        // layoutSubtreeIfNeeded on the topmost ancestor settles the entire subtree;
+        // calls on the descendants that follow used to compound the cascade for no
+        // additional effect. Fall through to hostView.superview / hostView only if
+        // the install isn't current (tearDown, pre-install, or transient drift).
+        let topmost = installedContainerView ?? hostView.superview ?? hostView
+        topmost.layoutSubtreeIfNeeded()
         _ = synchronizeHostFrameToReference()
     }
 
