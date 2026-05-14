@@ -1,4 +1,5 @@
 import AppKit
+import Bonsplit
 import Combine
 import Foundation
 
@@ -64,7 +65,16 @@ final class PaneCloseOverlayController {
             guard let anchor = anchors[id],
                   let window = anchor.window,
                   let themeFrame = window.contentView?.superview
-            else { continue }
+            else {
+#if DEBUG
+                let reason: String
+                if anchors[id] == nil { reason = "no_anchor" }
+                else if anchors[id]?.window == nil { reason = "anchor_window_nil" }
+                else { reason = "no_themeFrame" }
+                dlog("paneClose.sync skip pane=\(id.uuidString.prefix(5)) reason=\(reason)")
+#endif
+                continue
+            }
 
             let host: PaneInteractionOverlayHost
             if let existing = hosts[id] {
