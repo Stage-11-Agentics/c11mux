@@ -11116,6 +11116,14 @@ extension Workspace: BonsplitDelegate {
         // removing on every dismantle orphans surviving panes). This is the
         // one place where we know the pane is actually gone.
         paneCloseOverlayController.removeAnchor(paneIdentity: paneId.id)
+        // After Bonsplit removes a pane, surviving siblings get reflowed into
+        // their new positions but the existing reportFrame paths (SwiftUI
+        // updateNSView, AppKit viewDidMoveToWindow) all fire DURING the
+        // reflow and capture transient/half-applied coordinates. Without
+        // this nudge the controller's anchors map stays stale and the
+        // confirmation overlay mounts at the wrong pane position. Triggers
+        // twice (next tick + ~60ms) to cover multi-pass layouts.
+        paneCloseOverlayController.refreshAllAnchorsAfterReflow()
 
         let closedPanelIds = pendingPaneClosePanelIds.removeValue(forKey: paneId.id) ?? []
         let shouldScheduleFocusReconcile = !isDetachingCloseTransaction
