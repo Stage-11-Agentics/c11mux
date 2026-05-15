@@ -6431,33 +6431,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let initialDirectory = focusedWorkspaceWorkingDirectory()
             ?? FileManager.default.homeDirectoryForCurrentUser.path
 
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 480),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = String(
-            localized: "createWorkspace.windowTitle",
-            defaultValue: "New Workspace"
-        )
-        window.isReleasedWhenClosed = false
-        window.level = .modalPanel
-
         let rootView = CreateWorkspaceSheet(
             initialDirectory: initialDirectory,
-            onCancel: { [weak window] in window?.close() },
-            onCreate: { [weak self, weak window] outcome in
+            onCancel: { [weak self] in self?.createWorkspaceSheetWindow?.close() },
+            onCreate: { [weak self] outcome in
                 guard let self else { return }
                 _ = self.applyWorkspacePlanInPreferredMainWindow(
                     plan: outcome.plan,
                     workingDirectory: outcome.workingDirectory,
                     launchAgent: outcome.launchAgent
                 )
-                window?.close()
+                self.createWorkspaceSheetWindow?.close()
             }
         )
-        window.contentView = NSHostingView(rootView: rootView)
+        // NSHostingController with .preferredContentSize keeps the window's
+        // content size synced to SwiftUI's intrinsic size. Plain NSHostingView
+        // assigned to contentView leaves the window stuck at its initial
+        // contentRect, which on first layout clamps the SwiftUI content to
+        // a too-short frame; the dialog only snaps to its real size after a
+        // focus-driven relayout. See the new-workspace tiny-dialog regression
+        // observed in the 0.47.0 prod build.
+        let controller = NSHostingController(rootView: rootView)
+        controller.sizingOptions = [.preferredContentSize]
+        let window = NSWindow(contentViewController: controller)
+        window.styleMask = [.titled, .closable]
+        window.title = String(
+            localized: "createWorkspace.windowTitle",
+            defaultValue: "New Workspace"
+        )
+        window.isReleasedWhenClosed = false
+        window.level = .modalPanel
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

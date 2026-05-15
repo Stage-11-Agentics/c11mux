@@ -56,7 +56,17 @@ struct CreateWorkspaceSheet: View {
     ) {
         self.initialDirectory = initialDirectory
         _directory = State(initialValue: initialDirectory)
-        _selectionId = State(initialValue: BlueprintEntry.starterIds.first ?? "")
+        // Seed entries + recents synchronously so the very first SwiftUI
+        // layout pass reflects the full dialog height. Doing this in
+        // .onAppear caused NSHostingController's preferredContentSize to
+        // first publish the entries-empty size, then resize once entries
+        // loaded — which read as a flash of a tiny dialog on prod builds.
+        let seededEntries = Self.computeEntries(forDirectory: initialDirectory)
+        _entries = State(initialValue: seededEntries)
+        _recentDirectories = State(initialValue: CreateWorkspaceRecents.load())
+        _selectionId = State(
+            initialValue: seededEntries.first?.id ?? (BlueprintEntry.starterIds.first ?? "")
+        )
         self.onCancel = onCancel
         self.onCreate = onCreate
     }
@@ -70,6 +80,7 @@ struct CreateWorkspaceSheet: View {
         }
         .padding(24)
         .frame(width: 600)
+        .fixedSize(horizontal: false, vertical: true)
         .background(BrandColors.surfaceSwiftUI)
         .environment(\.colorScheme, .dark)
         .onAppear {
@@ -325,6 +336,14 @@ struct CreateWorkspaceSheet: View {
     // MARK: - Loading
 
     private func reloadEntries() {
+        let collected = Self.computeEntries(forDirectory: directory)
+        entries = collected
+        if !entries.contains(where: { $0.id == selectionId }) {
+            selectionId = entries.first?.id ?? ""
+        }
+    }
+
+    private static func computeEntries(forDirectory directory: String) -> [BlueprintEntry] {
         let store = WorkspaceBlueprintStore()
         let cwdURL: URL? = {
             let trimmed = directory.trimmingCharacters(in: .whitespaces)
@@ -359,19 +378,17 @@ struct CreateWorkspaceSheet: View {
                 loader: .index(index)
             ))
         }
-        entries = collected
-        if !entries.contains(where: { $0.id == selectionId }) {
-            selectionId = entries.first?.id ?? ""
-        }
+        return collected
     }
 
-    private func badge(for source: WorkspaceBlueprintIndex.Source) -> String {
+    private static func badge(for source: WorkspaceBlueprintIndex.Source) -> String {
         switch source {
         case .repo:    return String(localized: "createWorkspace.badge.repo", defaultValue: "Repo")
         case .user:    return String(localized: "createWorkspace.badge.user", defaultValue: "User")
         case .builtIn: return String(localized: "createWorkspace.badge.builtIn", defaultValue: "Built-in")
         }
     }
+
 }
 
 // MARK: - Internal blueprint entry model
