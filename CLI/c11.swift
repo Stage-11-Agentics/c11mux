@@ -8074,7 +8074,7 @@ struct CMUXCLI {
             return """
             Usage: c11 new-workspace [--cwd <path>] [--command <text>] [--layout <path|name>]
 
-            Create a new workspace in the current window.
+            Create a new workspace.
 
             Flags:
               --cwd <path>           Set the working directory for the new workspace
