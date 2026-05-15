@@ -66,10 +66,11 @@ final class WorkspaceRenameShortcutDefaultsTests: XCTestCase {
         XCTAssertEqual(KeyboardShortcutSettings.Action.renameTab.label, "Rename Tab")
         XCTAssertEqual(KeyboardShortcutSettings.Action.renameTab.defaultsKey, "shortcut.renameTab")
 
+        // C11-41: default rebound from ⌘R to ⌘⇧E to free ⌘R for Browser → Reload Page.
         let shortcut = KeyboardShortcutSettings.Action.renameTab.defaultShortcut
-        XCTAssertEqual(shortcut.key, "r")
+        XCTAssertEqual(shortcut.key, "e")
         XCTAssertTrue(shortcut.command)
-        XCTAssertFalse(shortcut.shift)
+        XCTAssertTrue(shortcut.shift)
         XCTAssertFalse(shortcut.option)
         XCTAssertFalse(shortcut.control)
     }

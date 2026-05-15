@@ -1918,7 +1918,11 @@ final class AppDelegateShortcutRoutingTests: XCTestCase {
         }
         defer { NotificationCenter.default.removeObserver(switcherToken) }
 
-        withTemporaryShortcut(action: .renameTab) {
+        // C11-41 rebound the default to ⌘⇧E. The original intent of this test
+        // is layout-resolution routing, not the current default, so we set the
+        // legacy ⌘R binding explicitly for the duration of the test.
+        let legacyRenameTabShortcut = StoredShortcut(key: "r", command: true, shift: false, option: false, control: false)
+        withTemporaryShortcut(action: .renameTab, shortcut: legacyRenameTabShortcut) {
             // Dvorak: physical ANSI "O" key can produce "r".
             // This should behave as semantic Cmd+R (rename tab), not Cmd+P.
             guard let event = NSEvent.keyEvent(
