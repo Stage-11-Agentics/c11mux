@@ -16,6 +16,13 @@ final class PaneCloseOverlayController {
     private var hosts: [UUID: PaneInteractionOverlayHost] = [:]
     private var activeIds: Set<UUID> = []
     private var subscription: AnyCancellable?
+    // Weak registry of every live AnchorView so the controller can ask
+    // them to re-query their window-coord frames after a sibling-close
+    // reflow has settled. Required because reportFrame is called by
+    // SwiftUI (updateNSView) and AppKit (viewDidMoveToWindow) DURING
+    // the reflow, when convert(bounds, to: nil) can return transient
+    // half-applied coordinates that the system never corrects.
+    private let liveAnchorViews = NSHashTable<PaneInteractionOverlayHostView.AnchorView>.weakObjects()
 
     private struct AnchorRecord {
         var frameInWindow: NSRect
@@ -52,6 +59,33 @@ final class PaneCloseOverlayController {
         hosts.removeAll()
         anchors.removeAll()
         activeIds.removeAll()
+    }
+
+    /// Called by AnchorView the first time it gains a window. The hash table is
+    /// weak, so dead entries auto-prune when SwiftUI deallocates the view —
+    /// no explicit unregister needed.
+    func registerAnchorView(_ view: PaneInteractionOverlayHostView.AnchorView) {
+        liveAnchorViews.add(view)
+    }
+
+    /// After Bonsplit fires its authoritative didClosePane, ask every live
+    /// AnchorView to re-publish its window-coord frame. We schedule the walk
+    /// on `main.async` (next runloop tick) and again at +60ms because the
+    /// SwiftUI/Bonsplit reflow can take more than one layout pass to settle —
+    /// the in-flight reportFrame calls fire mid-reflow with transient values
+    /// (we've logged `convert(bounds, to: nil)` returning a 923-wide frame
+    /// for a 461-wide pane) and no post-settle event corrects them. Without
+    /// this re-query the controller's anchors map stays stale and the
+    /// confirmation overlay mounts at the wrong pane position.
+    func refreshAllAnchorsAfterReflow() {
+        let refresh: @MainActor () -> Void = { [weak self] in
+            guard let self else { return }
+            for view in self.liveAnchorViews.allObjects {
+                view.reportFrame()
+            }
+        }
+        DispatchQueue.main.async(execute: refresh)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: refresh)
     }
 
     private func synchronize() {

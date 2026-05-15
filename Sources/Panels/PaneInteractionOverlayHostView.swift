@@ -72,6 +72,12 @@ struct PaneInteractionOverlayHostView: View {
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
+            if window != nil {
+                // Register so the controller can ask us to re-poll our
+                // window-coord frame after a sibling-pane close reflow.
+                // The hash table is weak — no explicit unregister needed.
+                controller?.registerAnchorView(self)
+            }
             reportFrame()
         }
 
