@@ -223,8 +223,8 @@ struct WorkspaceContentView: View {
 
         if useThemeM1bWorkspaceContentViewContextPath {
             content
-                .environment(\.c11muxThemeManager, themeManager)
-                .environment(\.c11muxThemeContext, environmentThemeContext)
+                .environment(\.c11ThemeManager, themeManager)
+                .environment(\.c11ThemeContext, environmentThemeContext)
         } else {
             content
         }
