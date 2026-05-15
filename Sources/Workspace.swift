@@ -5526,13 +5526,6 @@ final class Workspace: Identifiable, ObservableObject {
         appearance.splitToolbarSeparatorHeight = tokens.splitToolbarSeparatorHeight
     }
 
-    func setTabBarVisible(_ visible: Bool) {
-        guard bonsplitController.configuration.appearance.showsTabBar != visible else { return }
-        var next = bonsplitController.configuration
-        next.appearance.showsTabBar = visible
-        bonsplitController.configuration = next
-    }
-
     /// Live-update path for chrome-scale changes. Mirrors `applyGhosttyChrome`'s
     /// shape: pull current appearance, mutate via the pure helper, no-op guard
     /// across every routed knob, then assign back. Called by the KVO observer
@@ -5695,10 +5688,8 @@ final class Workspace: Identifiable, ObservableObject {
             context: nil,
             tokens: ChromeScaleTokens.resolved(from: .standard)
         )
-        let initialChromeState = TabBarChromeSettings.state(
-            for: UserDefaults.standard.string(forKey: TabBarChromeSettings.stateKey)
-        )
-        appearance.showsTabBar = initialChromeState == .full
+        // C11-41: tab bar chrome state was removed; always show the full tab bar.
+        appearance.showsTabBar = true
         let config = BonsplitConfiguration(
             allowSplits: true,
             allowCloseTabs: true,
