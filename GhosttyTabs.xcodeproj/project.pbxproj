@@ -90,7 +90,7 @@
 		A5F1001001A1B2C3D4E5F006 /* ThemedValueEvaluator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F006 /* ThemedValueEvaluator.swift */; };
 		A5F1001001A1B2C3D4E5F007 /* ThemeContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F007 /* ThemeContext.swift */; };
 		A5F1001001A1B2C3D4E5F00A /* ThemeRoleRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F00A /* ThemeRoleRegistry.swift */; };
-		A5F1001001A1B2C3D4E5F00B /* C11muxTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F00B /* C11muxTheme.swift */; };
+		A5F1001001A1B2C3D4E5F00B /* C11Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F00B /* C11Theme.swift */; };
 		A5F1001001A1B2C3D4E5F00C /* ResolvedThemeSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F00C /* ResolvedThemeSnapshot.swift */; };
 		A5F1001001A1B2C3D4E5F00D /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F00D /* ThemeManager.swift */; };
 		A5F1001001A1B2C3D4E5F00E /* ThemeDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F00E /* ThemeDiagnostics.swift */; };
@@ -224,7 +224,7 @@
 					A5F1001001A1B2C3D4E5F012 /* ThemeRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F012 /* ThemeRegistryTests.swift */; };
 					A5F1001001A1B2C3D4E5F013 /* ThemeManagerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F013 /* ThemeManagerLifecycleTests.swift */; };
 					A5F1001001A1B2C3D4E5F014 /* ResolverCacheKeyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F014 /* ResolverCacheKeyTests.swift */; };
-					A5F1001001A1B2C3D4E5F015 /* C11muxThemeLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F015 /* C11muxThemeLoaderTests.swift */; };
+					A5F1001001A1B2C3D4E5F015 /* C11ThemeLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F015 /* C11ThemeLoaderTests.swift */; };
 						A5F1001001A1B2C3D4E5F016 /* ThemeResolverBenchmarks.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F016 /* ThemeResolverBenchmarks.swift */; };
 						A5F1001001A1B2C3D4E5F017 /* ThemeResolvedSnapshotArtifactTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F017 /* ThemeResolvedSnapshotArtifactTests.swift */; };
 						A5F1001001A1B2C3D4E5F018 /* ThemeCycleAndInvalidValueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F018 /* ThemeCycleAndInvalidValueTests.swift */; };
@@ -432,7 +432,7 @@
 		A5F1002001A1B2C3D4E5F008 /* ThemedValueParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemedValueParserTests.swift; sourceTree = "<group>"; };
 		A5F1002001A1B2C3D4E5F009 /* ThemedValueEvaluatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemedValueEvaluatorTests.swift; sourceTree = "<group>"; };
 		A5F1002001A1B2C3D4E5F00A /* ThemeRoleRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/ThemeRoleRegistry.swift; sourceTree = "<group>"; };
-		A5F1002001A1B2C3D4E5F00B /* C11muxTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/C11muxTheme.swift; sourceTree = "<group>"; };
+		A5F1002001A1B2C3D4E5F00B /* C11Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/C11Theme.swift; sourceTree = "<group>"; };
 		A5F1002001A1B2C3D4E5F00C /* ResolvedThemeSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/ResolvedThemeSnapshot.swift; sourceTree = "<group>"; };
 		A5F1002001A1B2C3D4E5F00D /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/ThemeManager.swift; sourceTree = "<group>"; };
 		A5F1002001A1B2C3D4E5F00E /* ThemeDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/ThemeDiagnostics.swift; sourceTree = "<group>"; };
@@ -446,7 +446,7 @@
 		A5F1002001A1B2C3D4E5F012 /* ThemeRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeRegistryTests.swift; sourceTree = "<group>"; };
 		A5F1002001A1B2C3D4E5F013 /* ThemeManagerLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManagerLifecycleTests.swift; sourceTree = "<group>"; };
 		A5F1002001A1B2C3D4E5F014 /* ResolverCacheKeyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResolverCacheKeyTests.swift; sourceTree = "<group>"; };
-		A5F1002001A1B2C3D4E5F015 /* C11muxThemeLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C11muxThemeLoaderTests.swift; sourceTree = "<group>"; };
+		A5F1002001A1B2C3D4E5F015 /* C11ThemeLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = C11ThemeLoaderTests.swift; sourceTree = "<group>"; };
 			A5F1002001A1B2C3D4E5F016 /* ThemeResolverBenchmarks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeResolverBenchmarks.swift; sourceTree = "<group>"; };
 			A5F1002001A1B2C3D4E5F017 /* ThemeResolvedSnapshotArtifactTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeResolvedSnapshotArtifactTests.swift; sourceTree = "<group>"; };
 			A5F1002001A1B2C3D4E5F018 /* ThemeCycleAndInvalidValueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCycleAndInvalidValueTests.swift; sourceTree = "<group>"; };
@@ -787,7 +787,7 @@
 				A5F1002001A1B2C3D4E5F006 /* ThemedValueEvaluator.swift */,
 				A5F1002001A1B2C3D4E5F007 /* ThemeContext.swift */,
 				A5F1002001A1B2C3D4E5F00A /* ThemeRoleRegistry.swift */,
-				A5F1002001A1B2C3D4E5F00B /* C11muxTheme.swift */,
+				A5F1002001A1B2C3D4E5F00B /* C11Theme.swift */,
 				A5F1002001A1B2C3D4E5F00C /* ResolvedThemeSnapshot.swift */,
 				A5F1002001A1B2C3D4E5F00D /* ThemeManager.swift */,
 				A5F1002001A1B2C3D4E5F00E /* ThemeDiagnostics.swift */,
@@ -950,7 +950,7 @@
 					A5F1002001A1B2C3D4E5F012 /* ThemeRegistryTests.swift */,
 					A5F1002001A1B2C3D4E5F013 /* ThemeManagerLifecycleTests.swift */,
 					A5F1002001A1B2C3D4E5F014 /* ResolverCacheKeyTests.swift */,
-					A5F1002001A1B2C3D4E5F015 /* C11muxThemeLoaderTests.swift */,
+					A5F1002001A1B2C3D4E5F015 /* C11ThemeLoaderTests.swift */,
 						A5F1002001A1B2C3D4E5F016 /* ThemeResolverBenchmarks.swift */,
 						A5F1002001A1B2C3D4E5F017 /* ThemeResolvedSnapshotArtifactTests.swift */,
 						A5F1002001A1B2C3D4E5F018 /* ThemeCycleAndInvalidValueTests.swift */,
@@ -1229,7 +1229,7 @@
 			A5F1001001A1B2C3D4E5F006 /* ThemedValueEvaluator.swift in Sources */,
 			A5F1001001A1B2C3D4E5F007 /* ThemeContext.swift in Sources */,
 			A5F1001001A1B2C3D4E5F00A /* ThemeRoleRegistry.swift in Sources */,
-			A5F1001001A1B2C3D4E5F00B /* C11muxTheme.swift in Sources */,
+			A5F1001001A1B2C3D4E5F00B /* C11Theme.swift in Sources */,
 			A5F1001001A1B2C3D4E5F00C /* ResolvedThemeSnapshot.swift in Sources */,
 			A5F1001001A1B2C3D4E5F00D /* ThemeManager.swift in Sources */,
 			A5F1001001A1B2C3D4E5F00E /* ThemeDiagnostics.swift in Sources */,
@@ -1351,7 +1351,7 @@
 					A5F1001001A1B2C3D4E5F012 /* ThemeRegistryTests.swift in Sources */,
 					A5F1001001A1B2C3D4E5F013 /* ThemeManagerLifecycleTests.swift in Sources */,
 					A5F1001001A1B2C3D4E5F014 /* ResolverCacheKeyTests.swift in Sources */,
-					A5F1001001A1B2C3D4E5F015 /* C11muxThemeLoaderTests.swift in Sources */,
+					A5F1001001A1B2C3D4E5F015 /* C11ThemeLoaderTests.swift in Sources */,
 					A5C36021 /* StatusBarButtonDisplayTests.swift in Sources */,
 						A5F1001001A1B2C3D4E5F016 /* ThemeResolverBenchmarks.swift in Sources */,
 						A5F1001001A1B2C3D4E5F017 /* ThemeResolvedSnapshotArtifactTests.swift in Sources */,

@@ -29,7 +29,7 @@ public enum ThemeLoadError: Error, Equatable, Sendable, CustomStringConvertible 
     }
 }
 
-public struct C11muxTheme: Codable, Equatable, Sendable {
+public struct C11Theme: Codable, Equatable, Sendable {
     public struct Identity: Codable, Equatable, Sendable {
         public var name: String
         public var displayName: String
@@ -241,8 +241,8 @@ public struct C11muxTheme: Codable, Equatable, Sendable {
         self.behavior = behavior
     }
 
-    public static var fallbackStage11: C11muxTheme {
-        C11muxTheme(
+    public static var fallbackStage11: C11Theme {
+        C11Theme(
             identity: .init(
                 name: "stage11",
                 displayName: "Stage 11",
@@ -313,7 +313,7 @@ public struct C11muxTheme: Codable, Equatable, Sendable {
         )
     }
 
-    public static func fromToml(_ table: TomlTable) throws -> C11muxTheme {
+    public static func fromToml(_ table: TomlTable) throws -> C11Theme {
         let identity = try parseIdentity(from: table)
         guard identity.schema == 1 else {
             throw ThemeLoadError.schemaMismatch(identity.schema)
@@ -331,7 +331,7 @@ public struct C11muxTheme: Codable, Equatable, Sendable {
         let chromeTable = try optionalTable(at: ["chrome"], in: table) ?? [:]
         let behaviorTable = try optionalTable(at: ["behavior"], in: table) ?? [:]
 
-        return C11muxTheme(
+        return C11Theme(
             identity: identity,
             palette: palette,
             variables: variables,

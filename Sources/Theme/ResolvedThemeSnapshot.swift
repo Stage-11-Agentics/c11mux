@@ -18,7 +18,7 @@ public final class ResolvedThemeSnapshot {
         let context: ThemeContext
     }
 
-    let theme: C11muxTheme
+    let theme: C11Theme
 
     private var colorCache: [ResolvedColorKey: NSColor?] = [:]
     private var numberCache: [ResolvedNumberKey: Double?] = [:]
@@ -26,7 +26,7 @@ public final class ResolvedThemeSnapshot {
     private var astCache: [String: ThemedValueAST] = [:]
     private let lock = NSLock()
 
-    init(theme: C11muxTheme) {
+    init(theme: C11Theme) {
         self.theme = theme
     }
 

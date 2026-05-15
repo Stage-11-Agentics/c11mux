@@ -2,13 +2,13 @@ import Foundation
 import XCTest
 @testable import c11
 
-final class C11muxThemeLoaderTests: XCTestCase {
+final class C11ThemeLoaderTests: XCTestCase {
     func testStage11TomlRoundTripsAgainstGoldenSnapshot() throws {
         let stage11URL = try stage11ThemeURL()
         let source = try String(contentsOf: stage11URL, encoding: .utf8)
 
         let table = try TomlSubsetParser.parse(file: stage11URL.path, source: source)
-        let theme = try C11muxTheme.fromToml(table)
+        let theme = try C11Theme.fromToml(table)
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
