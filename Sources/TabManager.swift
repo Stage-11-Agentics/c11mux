@@ -2736,10 +2736,12 @@ class TabManager: ObservableObject {
                 localized: "dialog.closeWorkspace.title",
                 defaultValue: "Close workspace?"
             )
-            let message = String(
-                localized: "dialog.closeWorkspace.message",
-                defaultValue: "This will close the workspace and all of its panes."
+            let displayName = closeWorkspaceDisplayTitle(workspace.title)
+            let format = String(
+                localized: "dialog.closeWorkspace.messageNamed",
+                defaultValue: "This will close the workspace \u{201C}%@\u{201D} and all of its panes."
             )
+            let message = String(format: format, locale: .current, displayName)
             // Test seam: synchronous handler short-circuits the overlay flow so
             // unit tests can exercise the close path without a window.
             if let handler = workspaceCloseConfirmationHandler {

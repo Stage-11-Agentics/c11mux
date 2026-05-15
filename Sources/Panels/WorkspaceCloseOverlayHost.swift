@@ -41,7 +41,7 @@ final class WorkspaceCloseOverlayHost: NSView {
         setAccessibilityHelp(
             String(
                 localized: "accessibility.closeWorkspaceOverlay.hint",
-                defaultValue: "Press Return to close the workspace, or Escape to cancel."
+                defaultValue: "Use the arrow keys or Tab to choose a button, then press Return. Escape cancels."
             )
         )
 
@@ -70,24 +70,23 @@ final class WorkspaceCloseOverlayHost: NSView {
     override func mouseUp(with event: NSEvent) { /* swallow */ }
     override func rightMouseDown(with event: NSEvent) { /* swallow */ }
 
-    /// Esc → cancel, Return / numpad-enter → confirm. The destructive button
-    /// is intentionally not the system default in the SwiftUI card; we
-    /// trigger Confirm via this explicit keyDown handling so a path-of-least-
-    /// resistance Return doesn't close a workspace by accident.
+    /// Route arrow / Tab / Return / Esc through the runtime's selection
+    /// handler. Cancel is selected on present so Return falls into the safe
+    /// path; a deliberate arrow/Tab move is required to confirm the
+    /// destructive action. Mirrors `PaneInteractionOverlayHost` so the two
+    /// dialogs share keyboard behavior.
     override func keyDown(with event: NSEvent) {
         guard !isHidden, runtime.active != nil else {
             super.keyDown(with: event)
             return
         }
-        let keyCode = Int(event.keyCode)
-        switch keyCode {
-        case 53: // escape
-            runtime.cancel()
-        case 36, 76: // return, numpad enter
-            runtime.accept()
-        default:
-            super.keyDown(with: event)
+        if runtime.handleKeyDown(
+            keyCode: Int(event.keyCode),
+            shift: event.modifierFlags.contains(.shift)
+        ) {
+            return
         }
+        super.keyDown(with: event)
     }
 
     // MARK: - Content

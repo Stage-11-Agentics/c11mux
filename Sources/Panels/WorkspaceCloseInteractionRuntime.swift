@@ -16,6 +16,9 @@ import Foundation
 @MainActor
 public final class WorkspaceCloseInteractionRuntime: ObservableObject {
     @Published public private(set) var active: ConfirmContent?
+    /// Highlighted button on the live card. Defaults to `.cancel` on every
+    /// present — the destructive action requires a deliberate move to confirm.
+    @Published public internal(set) var selection: ConfirmSelectionField = .cancel
     private var dedupeToken: String?
 
     public init() {}
@@ -34,6 +37,7 @@ public final class WorkspaceCloseInteractionRuntime: ObservableObject {
             existing.completion(.dismissed)
         }
         active = content
+        selection = .cancel
         self.dedupeToken = dedupeToken
     }
 
@@ -41,6 +45,7 @@ public final class WorkspaceCloseInteractionRuntime: ObservableObject {
         guard let content = active else { return }
         if let interactionId, content.id != interactionId { return }
         active = nil
+        selection = .cancel
         dedupeToken = nil
         content.completion(result)
     }
@@ -54,6 +59,7 @@ public final class WorkspaceCloseInteractionRuntime: ObservableObject {
         guard let content = active else { return false }
         if let interactionId, content.id != interactionId { return false }
         active = nil
+        selection = .cancel
         dedupeToken = nil
         content.completion(.confirmed)
         return true
@@ -64,8 +70,52 @@ public final class WorkspaceCloseInteractionRuntime: ObservableObject {
             existing.completion(.dismissed)
         }
         active = nil
+        selection = .cancel
         dedupeToken = nil
     }
 
     public var hasActive: Bool { active != nil }
+
+    /// Move the highlighted button. No-op when no card is active.
+    public func moveSelection(_ direction: ConfirmMoveDirection) {
+        guard active != nil else { return }
+        switch direction {
+        case .left: selection = .cancel
+        case .right: selection = .confirm
+        case .toggle: selection = (selection == .confirm) ? .cancel : .confirm
+        }
+    }
+
+    /// Resolve the active card using whichever button is currently highlighted.
+    /// Used by Return / Space routing.
+    public func acceptSelected() {
+        guard active != nil else { return }
+        switch selection {
+        case .cancel: cancel()
+        case .confirm: _ = accept()
+        }
+    }
+
+    /// Route arrow / Tab / Return / Esc keys against the active selection.
+    /// Returns true if the key was consumed.
+    @discardableResult
+    public func handleKeyDown(keyCode: Int, shift: Bool = false) -> Bool {
+        _ = shift
+        guard active != nil else { return false }
+        switch keyCode {
+        case 123, 126: // left / up
+            moveSelection(.left)
+        case 124, 125: // right / down
+            moveSelection(.right)
+        case 48: // tab
+            moveSelection(.toggle)
+        case 36, 76, 49: // return / numpad enter / space
+            acceptSelected()
+        case 53: // escape
+            cancel()
+        default:
+            return false
+        }
+        return true
+    }
 }

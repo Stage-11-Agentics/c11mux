@@ -62,6 +62,8 @@ struct WorkspaceCloseCardView: View {
                 }
                 .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
+                .selectionBox(isActive: runtime.selection == .cancel)
+                .accessibilityAddTraits(runtime.selection == .cancel ? .isSelected : [])
                 .accessibilityIdentifier("WorkspaceCloseOverlay.cancel")
 
                 Button(role: .destructive, action: confirm) {
@@ -73,6 +75,8 @@ struct WorkspaceCloseCardView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .tint(.red)
+                .selectionBox(isActive: runtime.selection == .confirm)
+                .accessibilityAddTraits(runtime.selection == .confirm ? .isSelected : [])
                 .accessibilityIdentifier("WorkspaceCloseOverlay.confirm")
             }
         }
@@ -97,5 +101,20 @@ struct WorkspaceCloseCardView: View {
 
     private func cancel() {
         runtime.cancel(ifInteractionId: content.id)
+    }
+}
+
+private extension View {
+    /// White rectangular outline around the currently-selected button. Mirrors
+    /// `PaneInteractionCardView.selectionBox` so workspace-close and pane-close
+    /// share the same focus-ring visual.
+    @ViewBuilder
+    func selectionBox(isActive: Bool) -> some View {
+        overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Color.white, lineWidth: isActive ? 2 : 0)
+                .padding(-3)
+                .animation(.easeInOut(duration: 0.12), value: isActive)
+        )
     }
 }
