@@ -6,6 +6,44 @@ Note: historical entries below pre-date the `c11mux` → `c11` rename and refere
 
 ## [Unreleased]
 
+## [0.47.1] - 2026-05-15
+
+Hotfix release. Triggered by a New Workspace dialog regression observed in the 0.47.0 prod build (the dialog opened tiny on first show — only snapped to its intended size after focus moved away and back). The fix went out alongside a batch of operator-facing polish that had stacked up on `main` over the same day: a second-pass on the New Workspace dialog, a macOS menu-bar reorganization, and a few smaller correctness fixes.
+
+### Added
+
+- **Workspace name field on the New Workspace dialog.** The dialog now collects a workspace name alongside the working directory. Empty input falls back to the directory's basename; the placeholder previews the fallback so the operator can see what they'd get without committing. Threads through `WorkspaceSpec.title → Workspace.setCustomTitle` — the existing custom-title plumbing, no new persistence surface. ([#160](https://github.com/Stage-11-Agentics/c11/pull/160))
+
+- **Top-level Workspace, Pane, and Browser menus on the macOS menu bar.** Workspace-scoped actions (New Workspace, Rename, Pin, Move, Hibernate, Mark Read/Unread, Workspace 1–9) live under their own Workspace menu instead of being sprinkled across File / View / Window. Pane-scoped actions (splits, focus moves, zoom, new surface, surface navigation, Rename Tab) move out of Window and into a dedicated Pane menu. Browser actions (Back / Forward / Reload / Zoom / Reopen Closed Browser Pane / DevTools / Import Browser Data) get their own Browser menu. The top bar now reads: 🍎 c11 File Edit View Workspace Pane Browser Notifications Window. ([#161](https://github.com/Stage-11-Agentics/c11/pull/161))
+
+### Changed
+
+- **New Workspace dialog UX pass.** "Layout selection" / "Saved blueprints" headers renamed to **Default layouts** / **Custom blueprints** to clarify the split between starters c11 ships and what the operator (or repo) has saved. The Recent-directories control is now an always-visible bordered menu button labelled `Recent` with a clock icon (was a flat glyph that vanished entirely on fresh installs when the recents list was empty); the empty state shows a single disabled "No recent directories yet" item so the affordance stays discoverable. Browse… upgraded to a bordered button with folder icon at `.controlSize(.large)` so it reads as a primary action next to Recent rather than as inline text. Hint copy under the name field tightened to the c11 register. ([#160](https://github.com/Stage-11-Agentics/c11/pull/160))
+
+- **`agent-room` built-in blueprint reshuffled.** Browser moves to **top-right** and a server-terminal surface moves to **bottom-right** (was: log-tail top-right, browser bottom-right) — the browser is the higher-glance-rate surface and earns the eye-line slot. Browser defaults to `https://www.stage11.ai` instead of a blank new-tab so the workspace has a recognisable orient point on first run. Surface titles renamed to onboarding-friendly placeholders (`example main terminal` / `example browser` / `example server terminal`) — operators rename them once each pane has a purpose; the placeholder names tell newcomers what the layout is *for* without making them read the description. ([#160](https://github.com/Stage-11-Agentics/c11/pull/160))
+
+- **Close-workspace confirm dialog now names the workspace and defaults to Cancel.** The destructive confirm card previously read "This will close the workspace and all of its panes." with the workspace identity supplied only by the surrounding scrim; it now reads "This will close the workspace "Foo" and all of its panes." and the keyboard default is **Cancel** rather than Close — destructive actions stop being a Return-press away.
+
+- **Promoted Appearance Mode picker, Titlebar Controls Style picker, and Always Show Shortcut Hints toggle from the DEBUG-only Debug menu into View.** These are production-relevant — they shouldn't have lived behind a debug-build gate. ([#161](https://github.com/Stage-11-Agentics/c11/pull/161))
+
+### Fixed
+
+- **New Workspace dialog opens at full size on first show. Prod-build-only regression.** The dialog rendered tiny on first show (~200pt tall — only the middle slice of layout rows visible) and only snapped to its intended ~600pt size after focus moved off and back. Two compounding causes: (1) `presentCreateWorkspaceSheet` assigned an `NSHostingView` to `window.contentView`, which pins the window at its initial 600×480 content rect and never propagates SwiftUI's intrinsic size back to the `NSWindow`; (2) `CreateWorkspaceSheet` seeded `@State entries` to `[]` and loaded them in `.onAppear`, so the first SwiftUI layout pass measured an empty layout-options list. Fix switches to `NSHostingController` with `sizingOptions = [.preferredContentSize]` (window content size now tracks SwiftUI's intrinsic size reactively) and seeds entries + recents synchronously in `init` via a new static `computeEntries(forDirectory:)`. The bug only surfaced in the 0.47.0 prod build — dev and staging builds masked it via release-mode timing differences in the hosting-view layout handshake. ([#159](https://github.com/Stage-11-Agentics/c11/pull/159))
+
+- **Mailbox `stdin` delivery actually submits to the recipient.** The `stdin` mailbox handler was writing the framed `<c11-msg>` block via `terminalPanel.sendText`, which Ghostty wraps in bracketed-paste markers — by design suppressing embedded `\n`/`\r` so TUI raw-mode handlers and shell line discipline don't auto-execute pasted content. Result: the block landed in the recipient's input box but was never submitted until a human pressed Return, defeating the point of stdin delivery. The production writer in `startMailboxDispatcher` now uses `TextBoxSubmit.send`, the same helper `scheduleAgentRestart` uses for exactly this reason: it bracketed-pastes the content, waits 200ms (the documented minimum for Claude CLI's paste-processing), then dispatches a synthetic Return. The `skills/c11/SKILL.md` "Opting in to stdin delivery" snippet documents the canonical `mailbox.delivery=stdin` form (comma-separated string, not JSON array — `["stdin"]` silently registers zero handlers). ([#158](https://github.com/Stage-11-Agentics/c11/pull/158))
+
+- **Tab Bar chrome modes (shrunk / hidden) removed; canonical state is Full.** `TabBarChromeState` enum, `TabBarChromeSettings` helper, the `tabBarChromeStateRaw` AppStorage key, `cycleTabBarChromeState()`, the `Action.toggleTabBarChrome` action, the `TabBarChromeHandle` overlay, and the unused `Workspace.setTabBarVisible(_:)` are all deleted. Users on shrunk/hidden are silently migrated to Full. The two non-Full modes were rarely set deliberately and routinely produced "where did my tabs go" support questions. ([#161](https://github.com/Stage-11-Agentics/c11/pull/161))
+
+- **Surface title bar's description region sizes to its content and only scrolls when capped.** Previously, the description's container had an unconditional minimum width that produced a long empty stripe when the description was short or empty, and content that *did* exceed the cap fought layout. Region now collapses to fit its text and only engages the scroll cap when the description's natural width would otherwise overflow.
+
+- **⌘R now reloads the browser surface (was: previously bound to another action).** Frees Reload for its native-app convention while still routing through the c11 keymap.
+
+- **Help menu removed.** The Help menu was empty (no items) and only existed to satisfy AppKit's default menu structure. macOS hides empty Help menus from the menu bar; the explicit `CommandGroup(replacing: .help) { }` makes the absence intentional rather than incidental. ([#161](https://github.com/Stage-11-Agentics/c11/pull/161))
+
+### Built and shipped by
+
+Stage 11 Agentics. Operator:agent, fused.
+
 ## [0.47.0] - 2026-05-15
 
 ### Added
