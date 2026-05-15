@@ -5951,6 +5951,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applyWorkspacePlanInPreferredMainWindow(
         plan: WorkspaceApplyPlan,
         workingDirectory: String,
+        workspaceName: String? = nil,
         launchAgent: Bool,
         debugSource: String = "createWorkspaceSheet"
     ) -> UUID? {
@@ -5966,6 +5967,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         var injected = plan
         injected.workspace.workingDirectory = workingDirectory
+        if let trimmed = workspaceName?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty {
+            injected.workspace.title = trimmed
+        }
         if launchAgent {
             let command = AgentLauncherSettings.current().shellCommand
             if let idx = injected.surfaces.firstIndex(where: { surface in
@@ -6439,6 +6443,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 _ = self.applyWorkspacePlanInPreferredMainWindow(
                     plan: outcome.plan,
                     workingDirectory: outcome.workingDirectory,
+                    workspaceName: outcome.workspaceName,
                     launchAgent: outcome.launchAgent
                 )
                 self.createWorkspaceSheetWindow?.close()
