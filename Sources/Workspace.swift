@@ -5816,6 +5816,21 @@ final class Workspace: Identifiable, ObservableObject {
     /// UUID and starts watching `$C11_STATE/workspaces/<id>/mailboxes/_outbox/`.
     /// Idempotent. A no-op `silent` handler is registered so topic-silent
     /// flows work before Step 10 lands the real stdin handler.
+    ///
+    /// The `stdin` handler writes via `TextBoxSubmit.send(_:via:)` rather
+    /// than raw `sendText`. Ghostty wraps `sendText` bytes in bracketed-paste
+    /// markers (`ESC[200~…ESC[201~`), and bracketed paste is specifically
+    /// designed so embedded `\n`/`\r` do NOT auto-execute — line discipline
+    /// (zsh ZLE, bash readline) and TUI raw-mode input handlers only submit
+    /// when a real Return arrives outside the paste. So `sendText` alone
+    /// leaves the framed `<c11-msg>` block sitting in the recipient's
+    /// input buffer without ever reaching the agent. `TextBoxSubmit.send`
+    /// bracketed-pastes the content and then dispatches a synthetic Return
+    /// key (with the 200 ms gap Claude CLI's paste-processing requires),
+    /// which submits the multi-line block as one user turn for TUI
+    /// recipients (Claude Code, codex) and as a (failing) command for
+    /// cooked-mode shells — the latter being undefined behavior anyway,
+    /// since `mailbox.delivery=stdin` only makes sense on agent surfaces.
     func startMailboxDispatcher() {
         guard mailboxDispatcher == nil else { return }
         let stateURL: URL
@@ -5852,7 +5867,7 @@ final class Workspace: Identifiable, ObservableObject {
             guard let terminalPanel = panel as? TerminalPanel else {
                 return .surfaceNotTerminal
             }
-            terminalPanel.sendText(text)
+            TextBoxSubmit.send(text, via: terminalPanel.surface)
             return .ok(bytes: text.utf8.count)
         }
         dispatcher.registerHandler(

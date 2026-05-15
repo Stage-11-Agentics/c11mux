@@ -484,6 +484,16 @@ c11 mailbox recv --drain    # list + print + unlink (default)
 c11 mailbox recv --peek     # list + print only
 ```
 
+**Opting in to stdin delivery.** Stdin delivery is per-recipient and off by default. Set `mailbox.delivery` on the surface that should auto-receive — it is a **comma-separated string** (not a JSON array), and the only handlers registered today are `stdin` and `silent`:
+
+```bash
+c11 set-metadata --surface "$CMUX_SURFACE_ID" --key mailbox.delivery --value stdin --type string
+# multiple handlers run in order on the same envelope:
+c11 set-metadata --surface "$CMUX_SURFACE_ID" --key mailbox.delivery --value stdin,silent --type string
+```
+
+Writing the value as JSON (e.g. `--type json --value '["stdin"]'`) is the canonical footgun: the dispatcher splits the stringified blob on commas, doesn't match the literal token `["stdin"]` against `{stdin, silent}`, and silently registers zero handlers — the envelope still lands in the inbox, but the framed block never reaches the PTY. Use `--type string` with the bare token(s) above.
+
 ### Debugging
 
 ```bash
