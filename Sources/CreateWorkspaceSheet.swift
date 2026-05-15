@@ -33,6 +33,7 @@ enum CreateWorkspaceRecents {
 struct CreateWorkspaceSheet: View {
     struct Outcome {
         var workingDirectory: String
+        var workspaceName: String
         var plan: WorkspaceApplyPlan
         var launchAgent: Bool
     }
@@ -42,6 +43,7 @@ struct CreateWorkspaceSheet: View {
     let onCreate: (Outcome) -> Void
 
     @State private var directory: String
+    @State private var workspaceName: String = ""
     @State private var selectionId: String
     @State private var launchAgent: Bool = true
     @State private var entries: [BlueprintEntry] = []
@@ -75,6 +77,7 @@ struct CreateWorkspaceSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             header
             directorySection
+            workspaceNameSection
             blueprintsSection
             footer
         }
@@ -116,29 +119,87 @@ struct CreateWorkspaceSheet: View {
                 TextField("", text: $directory)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12, design: .monospaced))
-                if !recentDirectories.isEmpty {
-                    Menu {
+                Menu {
+                    if recentDirectories.isEmpty {
+                        Button(String(
+                            localized: "createWorkspace.recentDirectories.empty",
+                            defaultValue: "No recent directories yet"
+                        )) {}
+                        .disabled(true)
+                    } else {
                         ForEach(recentDirectories, id: \.self) { path in
                             Button(displayPath(path)) {
                                 directory = path
                             }
                         }
-                    } label: {
-                        Image(systemName: "clock")
                     }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
-                    .help(String(
-                        localized: "createWorkspace.recentDirectories.help",
-                        defaultValue: "Recent directories"
-                    ))
+                } label: {
+                    Label(
+                        String(
+                            localized: "createWorkspace.recentDirectories.label",
+                            defaultValue: "Recent"
+                        ),
+                        systemImage: "clock"
+                    )
+                    .labelStyle(.titleAndIcon)
                 }
-                Button(String(localized: "createWorkspace.browse", defaultValue: "Browse…")) {
+                .menuStyle(.button)
+                .controlSize(.large)
+                .fixedSize()
+                .help(String(
+                    localized: "createWorkspace.recentDirectories.help",
+                    defaultValue: "Pick a recently-used directory"
+                ))
+                Button {
                     chooseDirectory()
+                } label: {
+                    Label(
+                        String(localized: "createWorkspace.browse", defaultValue: "Browse…"),
+                        systemImage: "folder"
+                    )
+                    .labelStyle(.titleAndIcon)
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
         }
+    }
+
+    // MARK: - Workspace name
+
+    private var workspaceNameSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(String(localized: "createWorkspace.name", defaultValue: "Workspace name"))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.62))
+            TextField(
+                "",
+                text: $workspaceName,
+                prompt: Text(defaultWorkspaceName)
+                    .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.4))
+            )
+            .textFieldStyle(.roundedBorder)
+            .font(.system(size: 12))
+            Text(String(
+                localized: "createWorkspace.name.hint",
+                defaultValue: "Defaults to the directory name. Yours to override."
+            ))
+            .font(.system(size: 10))
+            .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.42))
+        }
+    }
+
+    private var defaultWorkspaceName: String {
+        let trimmed = directory.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return "Workspace" }
+        let expanded = (trimmed as NSString).expandingTildeInPath
+        let last = URL(fileURLWithPath: expanded).lastPathComponent
+        return last.isEmpty ? "Workspace" : last
+    }
+
+    private var effectiveWorkspaceName: String {
+        let trimmed = workspaceName.trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? defaultWorkspaceName : trimmed
     }
 
     private func displayPath(_ path: String) -> String {
@@ -172,7 +233,7 @@ struct CreateWorkspaceSheet: View {
 
     private var blueprintsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "createWorkspace.layoutSelection", defaultValue: "Layout selection"))
+            Text(String(localized: "createWorkspace.defaultLayouts", defaultValue: "Default layouts"))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.62))
 
@@ -187,8 +248,8 @@ struct CreateWorkspaceSheet: View {
 
             if !savedEntries.isEmpty {
                 Text(String(
-                    localized: "createWorkspace.savedBlueprints",
-                    defaultValue: "Saved blueprints"
+                    localized: "createWorkspace.customBlueprints",
+                    defaultValue: "Custom blueprints"
                 ))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(BrandColors.whiteSwiftUI.opacity(0.42))
@@ -328,6 +389,7 @@ struct CreateWorkspaceSheet: View {
         let resolvedDir = (directory as NSString).expandingTildeInPath
         onCreate(Outcome(
             workingDirectory: resolvedDir,
+            workspaceName: effectiveWorkspaceName,
             plan: plan,
             launchAgent: launchAgent
         ))
