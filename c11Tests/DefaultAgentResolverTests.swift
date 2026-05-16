@@ -68,6 +68,9 @@ final class DefaultAgentResolverTests: XCTestCase {
     }
 
     func testWorkspaceInlineBeatsProject() throws {
+        // The resolver still accepts an inlineConfig override (reserved for a
+        // follow-up that exposes per-workspace inline config via metadata or
+        // workspace blueprint). C11-14 first PR only wires `useBash`.
         let inline = DefaultAgentConfig(
             agentType: .kimi,
             customCommand: "",
@@ -208,7 +211,7 @@ final class DefaultAgentResolverTests: XCTestCase {
         )
     }
 
-    func testBuildCommandWithInitialPromptAppendsHereString() {
+    func testBuildCommandClaudeWithInitialPromptAppendsPositional() {
         let cfg = DefaultAgentConfig(
             agentType: .claudeCode,
             customCommand: "",
@@ -221,7 +224,7 @@ final class DefaultAgentResolverTests: XCTestCase {
         )
         XCTAssertEqual(
             DefaultAgentResolver.buildCommand(for: cfg),
-            "claude --model 'claude-opus-4-7' <<< 'read the plan and follow it'"
+            "claude --model 'claude-opus-4-7' 'read the plan and follow it'"
         )
     }
 
@@ -239,8 +242,24 @@ final class DefaultAgentResolverTests: XCTestCase {
         // Standard sh single-quote escape: don't  → 'don'\''t'
         XCTAssertEqual(
             DefaultAgentResolver.buildCommand(for: cfg),
-            #"claude <<< 'don'\''t stop'"#
+            #"claude 'don'\''t stop'"#
         )
+    }
+
+    func testBuildCommandCodexIgnoresInitialPrompt() {
+        // Codex/kimi/opencode don't get auto-prompt — they have different
+        // delivery contracts. Operators can put it in extraArgs if they want.
+        let cfg = DefaultAgentConfig(
+            agentType: .codex,
+            customCommand: "",
+            model: "",
+            extraArgs: "--yolo",
+            initialPrompt: "follow the plan",
+            cwdMode: .inherit,
+            fixedCwd: "",
+            envOverrides: [:]
+        )
+        XCTAssertEqual(DefaultAgentResolver.buildCommand(for: cfg), "codex --yolo")
     }
 
     func testShellQuoteEmpty() {

@@ -91,7 +91,24 @@ enum DefaultAgentResolver {
         )
     }
 
-    /// Build the shell command string for a non-bash config.
+    /// Build the shell command string for a non-bash config. The returned
+    /// string is intended to be **typed into the user's login shell** (via
+    /// `TerminalPanel.sendText`), not handed to Ghostty's startup-command
+    /// hook — that way interactive TUIs keep a live stdin and quitting the
+    /// agent leaves the shell available, matching the existing
+    /// `AgentLauncherSettings.launchAgentSurface` and welcome-workspace
+    /// patterns.
+    ///
+    /// Initial-prompt delivery:
+    /// - `claude-code`: appended as a single-quoted positional argument
+    ///   (`claude … 'prompt'`). `claude` accepts an initial prompt that way.
+    /// - All other agents: `initialPrompt` is preserved in the persisted
+    ///   config but **not** auto-appended. Different TUIs have different
+    ///   contracts (codex specifically ignores piped stdin and needs a
+    ///   post-ready file-reference) and we ship per-agent prompt delivery in
+    ///   a follow-up rather than guessing. Operators who want it today can
+    ///   include it inline via `extraArgs`.
+    ///
     /// Visible for testing.
     static func buildCommand(for cfg: DefaultAgentConfig) -> String {
         let binary: String
@@ -124,12 +141,12 @@ enum DefaultAgentResolver {
             parts.append(extra)
         }
 
-        var command = parts.joined(separator: " ")
         let prompt = cfg.initialPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !prompt.isEmpty {
-            command += " <<< \(shellQuote(prompt))"
+        if !prompt.isEmpty && cfg.agentType == .claudeCode {
+            parts.append(shellQuote(prompt))
         }
-        return command
+
+        return parts.joined(separator: " ")
     }
 
     /// Single-quote a value for /bin/sh, escaping embedded single quotes via

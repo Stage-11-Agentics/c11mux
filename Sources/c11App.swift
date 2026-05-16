@@ -6156,7 +6156,7 @@ struct SettingsView: View {
         }
         SettingsCardNote(String(
             localized: "settings.defaultTerminalAgent.note",
-            defaultValue: "Applied to every new terminal surface (menu, keyboard, socket). Use “New Bash Terminal” to bypass for a single surface. Per-project overrides live in `.c11/agents.json`; per-workspace overrides live in workspace metadata (`default_agent_use_bash`, `default_agent_inline`)."
+            defaultValue: "Applied to every new terminal surface (menu, keyboard, socket). Use “New Bash Terminal” to bypass for a single surface. Per-project overrides live in `.c11/agents.json`; per-workspace override is the metadata key `default_agent_use_bash` (set with `c11 set-metadata`). Distinct from the per-pane “A” launcher button below."
         ))
 
         SettingsSectionHeader(title: String(localized: "settings.section.agentSkills", defaultValue: "Agent Skills"))

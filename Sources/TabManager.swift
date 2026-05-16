@@ -3574,18 +3574,10 @@ class TabManager: ObservableObject {
         // Cmd+T should always focus the newly created surface.
         guard let workspace = selectedWorkspace else { return }
         workspace.clearSplitZoom()
-        let override: ResolvedAgent?
-        do {
-            override = try workspace.resolveAgentForNewSurface(
-                forceBash: forceBash,
-                explicitAgent: nil,
-                cwd: workspace.resolverCwdForNewSurface()
-            )
-        } catch {
-            // Resolver only throws for unknown explicit-agent names, which
-            // can't reach here (we don't pass one). Fall through to bash.
-            override = .bash
-        }
+        let override = workspace.resolveAgentForNewSurface(
+            forceBash: forceBash,
+            cwd: workspace.resolverCwdForNewSurface()
+        )
         workspace.newTerminalSurfaceInFocusedPane(focus: true, agentOverride: override)
     }
 
@@ -3733,13 +3725,10 @@ class TabManager: ObservableObject {
         agentOverride: ResolvedAgent? = nil
     ) -> UUID? {
         guard let tab = tabs.first(where: { $0.id == tabId }) else { return nil }
-        let resolved: ResolvedAgent? = agentOverride ?? {
-            try? tab.resolveAgentForNewSurface(
-                forceBash: false,
-                explicitAgent: nil,
-                cwd: tab.resolverCwdForNewSurface()
-            )
-        }()
+        let resolved = agentOverride ?? tab.resolveAgentForNewSurface(
+            forceBash: false,
+            cwd: tab.resolverCwdForNewSurface()
+        )
         return tab.newTerminalSplit(
             from: surfaceId,
             orientation: direction.orientation,

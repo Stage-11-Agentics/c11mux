@@ -15358,17 +15358,15 @@ class TerminalController {
     private func newSplit(_ args: String) -> String {
         guard let tabManager = tabManager else { return "ERROR: TabManager not available" }
 
-        // Tokenize once so --agent= / --bash can appear in any position after
-        // the required direction arg. Direction is the first non-flag token.
+        // Tokenize once so --bash can appear in any position after the
+        // required direction arg. Direction is the first non-flag token.
+        // (C11-14 `--agent <name>` is reserved for the named-presets follow-up.)
         let tokens = args.split(separator: " ").map(String.init)
         var direction: SplitDirection? = nil
         var panelArg: String = ""
-        var explicitAgent: String? = nil
         var forceBash = false
         for token in tokens {
-            if token.hasPrefix("--agent=") {
-                explicitAgent = String(token.dropFirst(8))
-            } else if token == "--bash" {
+            if token == "--bash" {
                 forceBash = true
             } else if direction == nil, let parsed = parseSplitDirection(token) {
                 direction = parsed
@@ -15405,20 +15403,10 @@ class TerminalController {
             }
 
             // C11-14: resolve the default-terminal-agent decision.
-            let agentOverride: ResolvedAgent
-            do {
-                agentOverride = try tab.resolveAgentForNewSurface(
-                    forceBash: forceBash,
-                    explicitAgent: explicitAgent,
-                    cwd: tab.resolverCwdForNewSurface()
-                )
-            } catch DefaultAgentResolverError.unknownAgentName(let name) {
-                result = "ERROR: unknown agent name: \(name)"
-                return
-            } catch {
-                result = "ERROR: agent resolution failed: \(error)"
-                return
-            }
+            let agentOverride = tab.resolveAgentForNewSurface(
+                forceBash: forceBash,
+                cwd: tab.resolverCwdForNewSurface()
+            )
 
             if let newPanelId = tabManager.newSplit(
                 tabId: tabId,
@@ -17188,12 +17176,12 @@ class TerminalController {
     private func newPane(_ args: String) -> String {
         guard let tabManager = tabManager else { return "ERROR: TabManager not available" }
 
-        // Parse arguments: --type=terminal|browser --direction=left|right|up|down --url=... --agent=<name> --bash
+        // Parse arguments: --type=terminal|browser --direction=left|right|up|down --url=... --bash
+        // (C11-14 `--agent <name>` is reserved for the named-presets follow-up.)
         var panelType: PanelType = .terminal
         var direction: SplitDirection = .right
         var url: URL? = nil
         var invalidDirection = false
-        var explicitAgent: String? = nil
         var forceBash = false
 
         let parts = args.split(separator: " ")
@@ -17212,8 +17200,6 @@ class TerminalController {
             } else if partStr.hasPrefix("--url=") {
                 let urlStr = String(partStr.dropFirst(6))
                 url = URL(string: urlStr)
-            } else if partStr.hasPrefix("--agent=") {
-                explicitAgent = String(partStr.dropFirst(8))
             } else if partStr == "--bash" {
                 forceBash = true
             }
@@ -17237,24 +17223,12 @@ class TerminalController {
 
             // C11-14: resolve the default-terminal-agent decision before
             // splitting. Only applies to terminal splits.
-            let agentOverride: ResolvedAgent?
-            if panelType == .terminal {
-                do {
-                    agentOverride = try tab.resolveAgentForNewSurface(
-                        forceBash: forceBash,
-                        explicitAgent: explicitAgent,
-                        cwd: tab.resolverCwdForNewSurface()
-                    )
-                } catch DefaultAgentResolverError.unknownAgentName(let name) {
-                    result = "ERROR: unknown agent name: \(name)"
-                    return
-                } catch {
-                    result = "ERROR: agent resolution failed: \(error)"
-                    return
-                }
-            } else {
-                agentOverride = nil
-            }
+            let agentOverride: ResolvedAgent? = (panelType == .terminal)
+                ? tab.resolveAgentForNewSurface(
+                    forceBash: forceBash,
+                    cwd: tab.resolverCwdForNewSurface()
+                )
+                : nil
 
             let newPanelId: UUID?
             if panelType == .browser {
@@ -18755,11 +18729,11 @@ class TerminalController {
     private func newSurface(_ args: String) -> String {
         guard let tabManager = tabManager else { return "ERROR: TabManager not available" }
 
-        // Parse arguments: --type=terminal|browser --pane=<pane_id> --url=... --agent=<name> --bash
+        // Parse arguments: --type=terminal|browser --pane=<pane_id> --url=... --bash
+        // (C11-14 `--agent <name>` is reserved for the named-presets follow-up.)
         var panelType: PanelType = .terminal
         var paneArg: String? = nil
         var url: URL? = nil
-        var explicitAgent: String? = nil
         var forceBash = false
 
         let parts = args.split(separator: " ")
@@ -18773,8 +18747,6 @@ class TerminalController {
             } else if partStr.hasPrefix("--url=") {
                 let urlStr = String(partStr.dropFirst(6))
                 url = URL(string: urlStr)
-            } else if partStr.hasPrefix("--agent=") {
-                explicitAgent = String(partStr.dropFirst(8))
             } else if partStr == "--bash" {
                 forceBash = true
             }
@@ -18810,24 +18782,12 @@ class TerminalController {
 
             // C11-14: resolve the default-terminal-agent decision before
             // creating the surface. Only applies to terminal surfaces.
-            let agentOverride: ResolvedAgent?
-            if panelType == .terminal {
-                do {
-                    agentOverride = try tab.resolveAgentForNewSurface(
-                        forceBash: forceBash,
-                        explicitAgent: explicitAgent,
-                        cwd: tab.resolverCwdForNewSurface()
-                    )
-                } catch DefaultAgentResolverError.unknownAgentName(let name) {
-                    result = "ERROR: unknown agent name: \(name)"
-                    return
-                } catch {
-                    result = "ERROR: agent resolution failed: \(error)"
-                    return
-                }
-            } else {
-                agentOverride = nil
-            }
+            let agentOverride: ResolvedAgent? = (panelType == .terminal)
+                ? tab.resolveAgentForNewSurface(
+                    forceBash: forceBash,
+                    cwd: tab.resolverCwdForNewSurface()
+                )
+                : nil
 
             let newPanelId: UUID?
             if panelType == .browser {

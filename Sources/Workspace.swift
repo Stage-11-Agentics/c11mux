@@ -7753,11 +7753,13 @@ final class Workspace: Identifiable, ObservableObject {
     ) -> TerminalPanel? {
         guard let paneId = paneIdForPanel(panelId) else { return nil }
         let inheritedConfig = inheritedTerminalConfig(preferredPanelId: panelId, inPane: paneId)
-        // C11-14: a configured default terminal agent (or `--agent` flag, or
-        // `--bash` flag, or workspace override) takes precedence over the
-        // remote-config startup command. When nil we keep the historical
-        // behavior — drop into bash unless the workspace is a remote session.
-        let initialCommand = agentOverride?.command ?? remoteTerminalStartupCommand()
+        // C11-14: agent command is delivered post-ready via `sendText` (same
+        // pattern as `launchAgentSurface` + the welcome workspace) so the
+        // interactive TUI sits inside the operator's login shell. Only the
+        // remote-relay startup command goes to Ghostty's startup-command hook;
+        // the agent typed-line follows after the shell prompt is up.
+        let initialCommand = remoteTerminalStartupCommand()
+        let agentTypedCommand = agentOverride?.command
 
         // Inherit working directory: agent override wins, then caller-supplied
         // override, then the source panel's reported cwd, then its requested
@@ -7860,6 +7862,11 @@ final class Workspace: Identifiable, ObservableObject {
             )
         }
 
+        // C11-14: deliver the agent command into the panel's shell after creation.
+        if let cmd = agentTypedCommand, !cmd.isEmpty {
+            newPanel.sendText(cmd + "\n")
+        }
+
         return newPanel
     }
 
@@ -7881,8 +7888,12 @@ final class Workspace: Identifiable, ObservableObject {
         let previousHostedView = focusedTerminalPanel?.hostedView
 
         let inheritedConfig = inheritedTerminalConfig(inPane: paneId)
-        // C11-14: agent override wins over the remote-config startup command.
-        let initialCommand = agentOverride?.command ?? remoteTerminalStartupCommand()
+        // C11-14: agent command is delivered post-ready via `sendText` (same
+        // pattern as `launchAgentSurface` + welcome workspace) so the
+        // interactive TUI sits inside the operator's login shell. Only the
+        // remote-relay startup command goes to Ghostty's startup-command hook.
+        let initialCommand = remoteTerminalStartupCommand()
+        let agentTypedCommand = agentOverride?.command
 
         // Merge: caller-supplied startupEnvironment wins over the agent's
         // env overrides (the agent's env is the baseline; specific call sites
@@ -7958,6 +7969,15 @@ final class Workspace: Identifiable, ObservableObject {
                 previousHostedView: previousHostedView
             )
         }
+
+        // C11-14: deliver the agent command after the panel exists. The panel
+        // queues `sendText` until its surface is ready, then flushes — matching
+        // the welcome-workspace + AgentLauncherSettings.launchAgentSurface
+        // pattern.
+        if let cmd = agentTypedCommand, !cmd.isEmpty {
+            newPanel.sendText(cmd + "\n")
+        }
+
         return newPanel
     }
 
@@ -7970,14 +7990,16 @@ final class Workspace: Identifiable, ObservableObject {
         return command
     }
 
-    /// C11-14: workspace metadata keys that override the user-level default
-    /// agent for this specific workspace.
+    /// C11-14: workspace metadata key that forces bash for any new terminal
+    /// in this workspace, overriding the user-level default. Set via
+    /// `c11 set-metadata --workspace <id> --key default_agent_use_bash --value true`.
+    ///
+    /// A richer per-workspace override (inline config / per-workspace agent
+    /// type) is intentionally deferred; the single boolean covers the
+    /// motivating "this workspace is a shell workspace" case and avoids the
+    /// JSON-in-metadata-blob awkwardness flagged in plan review.
     enum DefaultAgentMetadataKey {
-        /// `"true"` ⇒ force bash for any new terminal in this workspace.
         static let useBash = "default_agent_use_bash"
-        /// JSON blob of `DefaultAgentConfig` ⇒ used in place of the user
-        /// default for this workspace.
-        static let inline = "default_agent_inline"
     }
 
     /// C11-14: resolve the agent decision for a new terminal in this workspace.
@@ -7989,30 +8011,27 @@ final class Workspace: Identifiable, ObservableObject {
     /// discovery is skipped.
     func resolveAgentForNewSurface(
         forceBash: Bool,
-        explicitAgent: String?,
         cwd: String?
-    ) throws -> ResolvedAgent {
+    ) -> ResolvedAgent {
         let userDefault = DefaultAgentConfigStore.shared.current
         let projectConfig = DefaultAgentProjectConfig.find(from: cwd)
         let override = workspaceAgentOverride()
 
-        return try DefaultAgentResolver.resolve(
-            explicitAgent: explicitAgent,
+        // The pure resolver only throws for unknown `explicitAgent` names; we
+        // no longer accept `--agent <name>` in this PR (named presets deferred)
+        // so the call is effectively non-throwing.
+        return (try? DefaultAgentResolver.resolve(
+            explicitAgent: nil,
             forceBash: forceBash,
             workspaceOverride: override,
             userDefault: userDefault,
             projectConfig: projectConfig
-        )
+        )) ?? .bash
     }
 
     private func workspaceAgentOverride() -> WorkspaceAgentOverride {
         if (metadata[DefaultAgentMetadataKey.useBash] ?? "").lowercased() == "true" {
             return WorkspaceAgentOverride(useBash: true, inlineConfig: nil)
-        }
-        if let blob = metadata[DefaultAgentMetadataKey.inline],
-           let data = blob.data(using: .utf8),
-           let inline = try? JSONDecoder().decode(DefaultAgentConfig.self, from: data) {
-            return WorkspaceAgentOverride(useBash: false, inlineConfig: inline)
         }
         return .none
     }
