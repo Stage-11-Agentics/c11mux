@@ -2227,6 +2227,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var lastSessionAutosaveFingerprint: Int?
     private var lastSessionAutosavePersistedAt: Date = .distantPast
     private var lastTypingActivityAt: TimeInterval = 0
+    private var lastBackgroundedAt: Date?
     private var didHandleExplicitOpenIntentAtStartup = false
     private var isTerminatingApp = false
     private var didInstallLifecycleSnapshotObservers = false
@@ -2797,9 +2798,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 #endif
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        sentryBreadcrumb("app.didBecomeActive", category: "lifecycle", data: [
+        var crumbData: [String: Any] = [
             "tabCount": tabManager?.tabs.count ?? 0
-        ])
+        ]
+        if let backgroundedAt = lastBackgroundedAt {
+            crumbData["seconds_since_background"] = Int(Date().timeIntervalSince(backgroundedAt))
+        }
+        lastBackgroundedAt = nil
+        sentryBreadcrumb("app.didBecomeActive", category: "lifecycle", data: crumbData)
         if TelemetrySettings.enabledForCurrentLaunch && !isRunningUnderXCTestCached {
             PostHogAnalytics.shared.trackActive(reason: "didBecomeActive")
         }
@@ -2862,6 +2868,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
     func applicationWillResignActive(_ notification: Notification) {
         guard !isTerminatingApp else { return }
+        lastBackgroundedAt = Date()
+        sentryBreadcrumb("app.willResignActive", category: "lifecycle", data: [
+            "tabCount": tabManager?.tabs.count ?? 0
+        ])
         _ = saveSessionSnapshot(includeScrollback: false)
     }
 
