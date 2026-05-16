@@ -106,6 +106,7 @@ The one-liner: after any code change, `./scripts/reload.sh --tag <your-branch-sl
   - `TerminalSurface.forceRefresh()` in `GhosttyTerminalView.swift`: called on every keystroke. Do not add allocations, file I/O, or formatting here.
 - **Terminal find layering contract:** `SurfaceSearchOverlay` must be mounted from `GhosttySurfaceScrollView` in `Sources/GhosttyTerminalView.swift` (AppKit portal layer), not from SwiftUI panel containers such as `Sources/Panels/TerminalPanelView.swift`. Portal-hosted terminal views can sit above SwiftUI during split/workspace churn.
 - **Submodule safety:** When modifying a submodule (ghostty, vendor/bonsplit, etc.), always push the submodule commit to its remote `main` branch BEFORE committing the updated pointer in the parent repo. Never commit on a detached HEAD or temporary branch — the commit will be orphaned and lost. Verify with: `cd <submodule> && git merge-base --is-ancestor HEAD origin/main`.
+- **pbxproj edits via the `xcodeproj` Ruby gem normalize formatting on save** (3-tab → 2-tab indent, reordered `PBXBuildFile` entries, re-issued some object IDs). A "small" semantic edit can produce a multi-thousand-line diff; line-by-line review is not the right gate. Reviewers of future pbxproj-touching tickets should expect the diff bloat and gate on `xcodebuild -list` + file-membership counts + `xcodebuild -showBuildSettings` spot-checks instead. Don't fight the gem by hand-restoring whitespace; that just compounds churn on the next save.
 
 ## Localization
 
@@ -127,12 +128,28 @@ c11 ships in English plus six translations: Japanese (ja), Ukrainian (uk), Korea
 
 ## Testing policy
 
-**Never run tests locally.** All tests (E2E, UI, python socket tests) run via GitHub Actions or on the VM.
+c11 has two unit-test targets. The split is the whole point of C11-27.
 
-- **E2E / UI tests:** trigger via `gh workflow run test-e2e.yml` (see cmuxterm-hq CLAUDE.md for details)
-- **Unit tests:** `xcodebuild -scheme c11-unit` is safe (no app launch), but prefer CI
-- **Python socket tests (tests_v2/):** these connect to a running c11 instance's socket. Never launch an untagged `c11 DEV.app` to run them. If you must test locally, use a tagged build's socket (`/tmp/c11-debug-<tag>.sock`) with `C11_SOCKET=/tmp/c11-debug-<tag>.sock` (or `CMUX_SOCKET=…` as compat).
+- **`c11LogicTests` (scheme: `c11-logic`)** — logic-only. No Host Application, no DEV.app launch. **Safe to run locally** for fast iteration:
+
+  ```
+  xcodebuild -project GhosttyTabs.xcodeproj -scheme c11-logic -configuration Debug \
+    -destination "platform=macOS" test
+  ```
+
+  Expected wall time on a warm cache: around 30 seconds, dominated by `xcodebuild`'s ~10–15 s of inherent overhead rather than test execution (the test phase itself is ~5–10 s for 74 tests). Compare to the host scheme's ~35 s, where most of the gap is the DEV.app launch. **First invocation after a clean checkout pays the c11 app build cost** (multi-minute) because `c11-logic` depends on the `c11` target — Strategy B needs `c11.debug.dylib` available for the test bundle's `BUNDLE_LOADER` + rpath. Subsequent warm-build runs are ~30 s. Use this for any iteration on Mailbox, Theme, Workspace snapshot, Health parser, CLI runtime, persistence, and parser code.
+
+- **`c11Tests` (scheme: `c11-unit`)** — host-required. Spawns a `c11 DEV.app` XCTest host whose main thread is monopolized for ~22 s and whose window beachballs until the run completes (per the 2026-05-15 PR #164 incident — confirmed not to affect the operator's main c11 process, only the freshly-spawned test host). **Do not run locally.** Send to CI via GitHub Actions. The `c11-unit` scheme builds both targets but its TestAction runs both `c11Tests` and `c11LogicTests` sequentially in one invocation.
+
+  Schemes that build c11-unit (or `c11-ci`) without the `test` action are safe — they only compile.
+
+- **Python socket tests (`tests_v2/`)** — connect to a running c11 instance's socket. Never launch an untagged `c11 DEV.app` to run them. If you must test locally, use a tagged build's socket (`/tmp/c11-debug-<tag>.sock`) with `C11_SOCKET=/tmp/c11-debug-<tag>.sock` (or `CMUX_SOCKET=…` as compat).
+
+- **E2E / UI tests** — trigger via `gh workflow run test-e2e.yml`. Never run locally.
+
 - **Never `open` an untagged `c11 DEV.app`** from DerivedData. It conflicts with the user's running debug instance.
+
+**Rule of thumb:** if you're touching parsers, snapshots, persistence, or any pure model code, `c11-logic` is your local loop. If you're touching window/view/event/IME code, your iteration loop is `xcodebuild build` + a tagged reload (`./scripts/reload.sh --tag <tag>`), and tests go to CI.
 
 ## Socket command threading policy
 

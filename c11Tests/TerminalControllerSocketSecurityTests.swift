@@ -1,5 +1,4 @@
 import XCTest
-import AppKit
 import Darwin
 
 #if canImport(c11_DEV)
