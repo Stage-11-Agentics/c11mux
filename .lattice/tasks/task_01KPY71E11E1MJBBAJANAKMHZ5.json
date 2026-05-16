@@ -23,21 +23,26 @@
       "id": "art_01KRS9E9PNDGH2S932E0GGEF9M",
       "role": "plan-review",
       "source_type": "artifact"
+    },
+    {
+      "id": "art_01KRSB8H4RC55WPJXGB0MW58J2",
+      "role": "review",
+      "source_type": "artifact"
     }
   ],
   "id": "task_01KPY71E11E1MJBBAJANAKMHZ5",
-  "last_event_id": "ev_01KRSB4K9R7QYYN2MYHKXXE6PW",
-  "last_status_changed_at": "2026-05-16T21:30:06Z",
+  "last_event_id": "ev_01KRSB8H4VCT9BPVCVSJQPKCB8",
+  "last_status_changed_at": "2026-05-16T21:31:50Z",
   "linked_files": [],
   "priority": "low",
   "relationships_out": [],
   "reopened_count": 0,
   "schema_version": 1,
   "short_id": "C11-14",
-  "status": "in_progress",
+  "status": "review",
   "tags": null,
   "title": "Default terminal agent: launch a configured agent on new-terminal",
   "type": "task",
-  "updated_at": "2026-05-16T21:30:06Z",
+  "updated_at": "2026-05-16T21:32:15Z",
   "urgency": null
 }
