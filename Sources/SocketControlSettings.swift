@@ -61,7 +61,7 @@ enum SocketControlMode: String, CaseIterable, Identifiable {
 }
 
 enum SocketControlPasswordStore {
-    static let directoryName = "c11mux"
+    static let directoryName = "c11"
     static let fileName = "socket-control-password"
     private static let keychainMigrationDefaultsKey = "socketControlPasswordMigrationVersion"
     private static let keychainMigrationVersion = 1
@@ -218,6 +218,7 @@ enum SocketControlPasswordStore {
         appSupportDirectory: URL? = nil,
         fileManager: FileManager = .default
     ) -> URL? {
+        StateDirectoryMigration.ensureMigrated(fileManager: fileManager)
         let resolvedAppSupport: URL
         if let appSupportDirectory {
             resolvedAppSupport = appSupportDirectory
@@ -293,7 +294,7 @@ struct SocketControlSettings {
     static let socketPasswordEnvKey = "CMUX_SOCKET_PASSWORD"
     static let launchTagEnvKey = "CMUX_TAG"
     static let baseDebugBundleIdentifier = "com.stage11.c11.debug"
-    private static let socketDirectoryName = "c11mux"
+    private static let socketDirectoryName = "c11"
     private static let stableSocketFileName = "c11.sock"
     private static let lastSocketPathFileName = "last-socket-path"
     static let legacyStableDefaultSocketPath = "/tmp/c11.sock"
@@ -571,6 +572,7 @@ struct SocketControlSettings {
     }
 
     static func stableSocketDirectoryURL(fileManager: FileManager = .default) -> URL? {
+        StateDirectoryMigration.ensureMigrated(fileManager: fileManager)
         guard let appSupportDirectory = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
         }

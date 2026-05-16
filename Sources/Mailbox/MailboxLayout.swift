@@ -26,7 +26,7 @@ enum MailboxLayout {
     /// `SocketControlSettings.socketDirectoryName`; duplicated here so the
     /// CLI target (which compiles without SocketControlSettings.swift) can
     /// resolve the state root without a cross-target import.
-    static let stateDirectoryName = "c11mux"
+    static let stateDirectoryName = "c11"
 
     static let workspacesDirectoryName = "workspaces"
     static let mailboxesDirectoryName = "mailboxes"
@@ -65,9 +65,10 @@ enum MailboxLayout {
     // MARK: - State root
 
     /// Resolves the c11 state root (default:
-    /// `~/Library/Application Support/c11mux`). Tests that need isolation
+    /// `~/Library/Application Support/c11`). Tests that need isolation
     /// override HOME on the c11 process rather than overriding this function.
     static func defaultStateURL(fileManager: FileManager = .default) throws -> URL {
+        StateDirectoryMigration.ensureMigrated(fileManager: fileManager)
         guard let appSupport = fileManager.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -157,6 +158,64 @@ enum MailboxLayout {
         }
         if name.hasPrefix(".") {
             throw Error.invalidSurfaceName(name: name, reason: .leadingDot)
+        }
+    }
+}
+
+/// One-time-per-process migration of the c11 state directory from the legacy
+/// `c11mux` name to the canonical `c11` name. Every state-root resolver
+/// (`MailboxLayout.defaultStateURL`, `SocketControlSettings.stableSocketDirectoryURL`,
+/// the password-store path builder, `SessionPersistence`, and the
+/// remote-daemon cache root) calls `ensureMigrated` before constructing
+/// its URL. Idempotent and thread-safe; cross-process safety is best-effort
+/// via `moveItem`'s atomicity.
+///
+/// Migration steps (only when legacy exists and current does not):
+///   1. `moveItem` `~/Library/Application Support/c11mux` →
+///      `~/Library/Application Support/c11` (atomic on same volume).
+///   2. Create a relative symlink at the legacy path pointing at `c11`,
+///      so downgraded older binaries continue to find their state.
+///      The symlink can be dropped in a later release once the downgrade
+///      window has closed; see `docs/c11-state-dir-rename-plan.md`.
+enum StateDirectoryMigration {
+    static let legacyName = "c11mux"
+    static let currentName = "c11"
+
+    private static let lock = NSLock()
+    private static var didRun = false
+
+    static func ensureMigrated(fileManager: FileManager = .default) {
+        lock.lock()
+        defer { lock.unlock() }
+        if didRun { return }
+        didRun = true
+
+        guard let appSupport = fileManager.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        ).first else {
+            return
+        }
+
+        let legacyURL = appSupport.appendingPathComponent(legacyName, isDirectory: true)
+        let currentURL = appSupport.appendingPathComponent(currentName, isDirectory: true)
+
+        // Fresh install (neither exists) or already migrated (current exists)
+        // or co-existing (both exist, leave alone): nothing to do.
+        let legacyExists = fileManager.fileExists(atPath: legacyURL.path)
+        let currentExists = fileManager.fileExists(atPath: currentURL.path)
+        guard legacyExists, !currentExists else { return }
+
+        do {
+            try fileManager.moveItem(at: legacyURL, to: currentURL)
+            try fileManager.createSymbolicLink(
+                atPath: legacyURL.path,
+                withDestinationPath: currentName
+            )
+        } catch {
+            FileHandle.standardError.write(Data(
+                "c11: state-directory migration failed: \(error.localizedDescription)\n".utf8
+            ))
         }
     }
 }

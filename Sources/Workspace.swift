@@ -4033,6 +4033,7 @@ final class WorkspaceRemoteSessionController {
     }
 
     private static func remoteDaemonCacheRoot(fileManager: FileManager = .default) throws -> URL {
+        StateDirectoryMigration.ensureMigrated(fileManager: fileManager)
         let appSupportRoot = try fileManager.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -4040,7 +4041,7 @@ final class WorkspaceRemoteSessionController {
             create: true
         )
         let cacheRoot = appSupportRoot
-            .appendingPathComponent("c11mux", isDirectory: true)
+            .appendingPathComponent("c11", isDirectory: true)
             .appendingPathComponent("remote-daemons", isDirectory: true)
         try fileManager.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
         return cacheRoot
