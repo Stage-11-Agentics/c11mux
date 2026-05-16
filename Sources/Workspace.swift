@@ -5705,6 +5705,11 @@ final class Workspace: Identifiable, ObservableObject {
             autoCloseEmptyPanes: true,
             contentViewLifecycle: .keepAllAlive,
             newTabPosition: .current,
+            // C11-26: left-anchored always-visible close X + two-item
+            // right-click menu (Close Tab, Close Pane). Sidesteps the
+            // right-edge hit-collision bug and matches native macOS
+            // Cocoa tab convention (Finder, Terminal.app, Notes).
+            simplifiedTabContextMenu: true,
             appearance: appearance
         )
         self.bonsplitController = BonsplitController(configuration: config)
@@ -9114,6 +9119,11 @@ final class Workspace: Identifiable, ObservableObject {
                 shortcuts[contextAction] = KeyboardShortcut(key, modifiers: stored.eventModifiers)
             }
         }
+        // C11-26: ⌘W routes through AppDelegate's keyDown handler, not a
+        // SwiftUI .keyboardShortcut on a Button. Surface the hint in the
+        // context menu anyway so the gesture is discoverable. Hardcoded
+        // because there's no KeyboardShortcutSettings.Action for it.
+        shortcuts[.closeTab] = KeyboardShortcut("w", modifiers: .command)
         return shortcuts
     }
 
@@ -11614,6 +11624,18 @@ extension Workspace: BonsplitDelegate {
         case .clearName:
             guard let panelId = panelIdFromSurfaceId(tab.id) else { return }
             setPanelCustomTitle(panelId: panelId, title: nil)
+        case .closeTab:
+            // Route through the same path as clicking the close X so the
+            // shouldCloseTab gate (pin protection, dirty-confirm dialog,
+            // workspace-on-last-surface routing) runs identically.
+            markExplicitClose(surfaceId: tab.id)
+            _ = controller.closeTab(tab.id, inPane: pane)
+        case .closePane:
+            // Reuse the existing pane-close confirmation flow (same as
+            // clicking the trailing-toolbar X on the tab bar). Handles the
+            // only-pane-in-workspace degenerate case via "Reset entire pane?"
+            // — the pane is reset with a fresh terminal rather than torn down.
+            splitTabBar(controller, didRequestClosePane: pane)
         case .closeToLeft:
             closeTabs(tabIdsToLeft(of: tab.id, inPane: pane))
         case .closeToRight:
