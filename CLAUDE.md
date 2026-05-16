@@ -106,6 +106,7 @@ The one-liner: after any code change, `./scripts/reload.sh --tag <your-branch-sl
   - `TerminalSurface.forceRefresh()` in `GhosttyTerminalView.swift`: called on every keystroke. Do not add allocations, file I/O, or formatting here.
 - **Terminal find layering contract:** `SurfaceSearchOverlay` must be mounted from `GhosttySurfaceScrollView` in `Sources/GhosttyTerminalView.swift` (AppKit portal layer), not from SwiftUI panel containers such as `Sources/Panels/TerminalPanelView.swift`. Portal-hosted terminal views can sit above SwiftUI during split/workspace churn.
 - **Submodule safety:** When modifying a submodule (ghostty, vendor/bonsplit, etc.), always push the submodule commit to its remote `main` branch BEFORE committing the updated pointer in the parent repo. Never commit on a detached HEAD or temporary branch — the commit will be orphaned and lost. Verify with: `cd <submodule> && git merge-base --is-ancestor HEAD origin/main`.
+- **pbxproj edits via the `xcodeproj` Ruby gem normalize formatting on save** (3-tab → 2-tab indent, reordered `PBXBuildFile` entries, re-issued some object IDs). A "small" semantic edit can produce a multi-thousand-line diff; line-by-line review is not the right gate. Reviewers of future pbxproj-touching tickets should expect the diff bloat and gate on `xcodebuild -list` + file-membership counts + `xcodebuild -showBuildSettings` spot-checks instead. Don't fight the gem by hand-restoring whitespace; that just compounds churn on the next save.
 
 ## Localization
 
