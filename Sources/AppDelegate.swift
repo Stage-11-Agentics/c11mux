@@ -6554,6 +6554,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     /// reference. Same AppKit retention gotcha applies.
     private var tccPrimerWindow: NSWindow?
     private var tccPrimerCloseObserver: NSObjectProtocol?
+    private var fdaProbe: FullDiskAccessProbe?
+    private var fdaActiveObserver: NSObjectProtocol?
+    private var tccPrimerCoordinator: TCCPrimerCoordinator?
 
     /// First-run primer explaining why macOS is about to ask about folders.
     /// Consent-gated; the "Got it" button is the only thing that writes the
@@ -6582,13 +6585,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         )
         window.isReleasedWhenClosed = false
         window.level = .modalPanel
+        let coordinator = TCCPrimerCoordinator()
+        tccPrimerCoordinator = coordinator
         let rootView = TCCPrimerSheet(
-            onGrantFDA: { TCCPrimer.openFullDiskAccessPane() },
-            onContinueWithout: { [weak window] in
+            coordinator: coordinator,
+            onGrantFDA: { [weak self] in self?.handleGrantFDA() },
+            onContinueWithout: { [weak self, weak window] in
+                self?.cancelFDAProbe()
                 UserDefaults.standard.set(true, forKey: TCCPrimer.shownKey)
                 window?.close()
             },
-            onDismiss: { [weak window] in window?.close() }
+            onDismiss: { [weak self, weak window] in
+                self?.cancelFDAProbe()
+                window?.close()
+            }
         )
         window.contentView = NSHostingView(rootView: rootView)
         window.center()
@@ -6601,12 +6611,68 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         ) { [weak self] _ in
             guard let self else { return }
             TCCPrimer.markDismissedThisLaunch()
+            self.cancelFDAProbe()
+            self.tccPrimerCoordinator = nil
             if let observer = self.tccPrimerCloseObserver {
                 NotificationCenter.default.removeObserver(observer)
             }
             self.tccPrimerCloseObserver = nil
             self.tccPrimerWindow = nil
             onCompletion?()
+        }
+    }
+
+    private func handleGrantFDA() {
+        TCCPrimer.openFullDiskAccessPane()
+        startFDAProbeIfNeeded()
+    }
+
+    private func startFDAProbeIfNeeded() {
+        guard fdaProbe == nil else { return }
+        let probe = FullDiskAccessProbe(onGranted: { [weak self] in
+            // Probe hops to the main queue before invoking this callback.
+            // We're in MainActor's thread; assume the isolation rather than
+            // posting another Task hop and risking ordering surprises.
+            MainActor.assumeIsolated {
+                self?.handleFDADetected()
+            }
+        })
+        fdaProbe = probe
+        probe.start()
+        // didBecomeActive kicks an extra probe attempt so we get a fast
+        // detection on the user's return from System Settings rather than
+        // waiting up to the schedule's 10s ceiling.
+        fdaActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.fdaProbe?.kick()
+        }
+    }
+
+    private func cancelFDAProbe() {
+        fdaProbe?.stop()
+        fdaProbe = nil
+        if let observer = fdaActiveObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        fdaActiveObserver = nil
+    }
+
+    /// Called once on the main queue when the FDA probe observes a grant.
+    /// Persists the shown flag, transitions the coordinator to the brief
+    /// confirmation state, and closes the window after a 1.2s interstitial.
+    /// MUST NOT call `NSApp.activate(ignoringOtherApps:)`,
+    /// `makeKeyAndOrderFront(_:)`, or any other reactivation API: the user
+    /// may still be in System Settings, and stealing focus from there is
+    /// the exact failure mode this ticket is designed to avoid.
+    private func handleFDADetected() {
+        UserDefaults.standard.set(true, forKey: TCCPrimer.shownKey)
+        cancelFDAProbe()
+        tccPrimerCoordinator?.autoAdvanceState = .granted
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            self?.tccPrimerWindow?.close()
         }
     }
 

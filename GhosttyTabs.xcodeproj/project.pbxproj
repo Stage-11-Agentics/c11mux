@@ -12,6 +12,7 @@
 		063BC42CEE257D6213A2E30C /* WindowAndDragTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE83F8394D90ACACD8E19DD /* WindowAndDragTests.swift */; };
 		06D1536ABCF81C2938399DAB /* SidebarWidthPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0171AF1F49F7547191CEE5 /* SidebarWidthPolicyTests.swift */; };
 		076B1D5338134A1CD69B5467 /* TCCPrimerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7016BF1A1B2C3D4E5F60718 /* TCCPrimerTests.swift */; };
+		FDA0BE0001234A1CD69B5467 /* FullDiskAccessProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7017BF1A1B2C3D4E5F60718 /* FullDiskAccessProbeTests.swift */; };
 		0F2C25F9170130F8DC09DD1B /* WorkspaceManualUnreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D301919B10F22B8708E8883 /* WorkspaceManualUnreadTests.swift */; };
 		100913C268BE26DBACE5A563 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800DBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotRoundTripAcceptanceTests.swift */; };
 		113331FB73920A113901C03E /* WorkspaceSnapshotCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800CBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotCaptureTests.swift */; };
@@ -214,6 +215,7 @@
 		CC401005A1B2C3D4E5F60719 /* AgentSkillsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC401004A1B2C3D4E5F60719 /* AgentSkillsView.swift */; };
 		CC401007A1B2C3D4E5F60719 /* TCCPrimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC401006A1B2C3D4E5F60719 /* TCCPrimerView.swift */; };
 		CC401009A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC401008A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift */; };
+		CC40100BA1B2C3D4E5F60719 /* FullDiskAccessProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC40100AA1B2C3D4E5F60719 /* FullDiskAccessProbe.swift */; };
 		CFA9529EA1B3835E1A2586A2 /* DescriptionSanitizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7002BF1A1B2C3D4E5F60718 /* DescriptionSanitizerTests.swift */; };
 		D0E0F0B0A1B2C3D4E5F60718 /* BrowserPaneNavigationKeybindUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E0F0B1A1B2C3D4E5F60718 /* BrowserPaneNavigationKeybindUITests.swift */; };
 		D0E0F0B2A1B2C3D4E5F60718 /* BrowserOmnibarSuggestionsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E0F0B3A1B2C3D4E5F60718 /* BrowserOmnibarSuggestionsUITests.swift */; };
@@ -517,6 +519,7 @@
 		CC401004A1B2C3D4E5F60719 /* AgentSkillsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSkillsView.swift; sourceTree = "<group>"; };
 		CC401006A1B2C3D4E5F60719 /* TCCPrimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCPrimerView.swift; sourceTree = "<group>"; };
 		CC401008A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateWorkspaceSheet.swift; sourceTree = "<group>"; };
+		CC40100AA1B2C3D4E5F60719 /* FullDiskAccessProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullDiskAccessProbe.swift; sourceTree = "<group>"; };
 		D0E0F0B1A1B2C3D4E5F60718 /* BrowserPaneNavigationKeybindUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserPaneNavigationKeybindUITests.swift; sourceTree = "<group>"; };
 		D0E0F0B3A1B2C3D4E5F60718 /* BrowserOmnibarSuggestionsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserOmnibarSuggestionsUITests.swift; sourceTree = "<group>"; };
 		D1BEF00001A1B2C3D4E5F719 /* open */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = Resources/bin/open; sourceTree = SOURCE_ROOT; };
@@ -536,6 +539,7 @@
 		D7012BF1A1B2C3D4E5F60718 /* PaneMetadataPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneMetadataPersistenceTests.swift; sourceTree = "<group>"; };
 		D7015BF1A1B2C3D4E5F60718 /* DefaultGridSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultGridSettingsTests.swift; sourceTree = "<group>"; };
 		D7016BF1A1B2C3D4E5F60718 /* TCCPrimerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TCCPrimerTests.swift; sourceTree = "<group>"; };
+		D7017BF1A1B2C3D4E5F60718 /* FullDiskAccessProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullDiskAccessProbeTests.swift; sourceTree = "<group>"; };
 		D7016CF1A1B2C3D4E5F60718 /* LegacyPrefsMigrationGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyPrefsMigrationGateTests.swift; sourceTree = "<group>"; };
 		D70A3BF1A1B2C3D4E5F60718 /* WorkspaceMetadataKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataKeys.swift; sourceTree = "<group>"; };
 		D70A4BF1A1B2C3D4E5F60718 /* WorkspaceMetadataValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceMetadataValidatorTests.swift; sourceTree = "<group>"; };
@@ -879,6 +883,7 @@
 				CC401004A1B2C3D4E5F60719 /* AgentSkillsView.swift */,
 				CC401006A1B2C3D4E5F60719 /* TCCPrimerView.swift */,
 				CC401008A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift */,
+				CC40100AA1B2C3D4E5F60719 /* FullDiskAccessProbe.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -970,6 +975,7 @@
 				C116000800A1B2C3D4E5F013 /* ChromeScaleObserverTests.swift */,
 				C116000A00A1B2C3D4E5F014 /* WorkspaceApplyChromeScaleTests.swift */,
 				D7016BF1A1B2C3D4E5F60718 /* TCCPrimerTests.swift */,
+				D7017BF1A1B2C3D4E5F60718 /* FullDiskAccessProbeTests.swift */,
 				D7016CF1A1B2C3D4E5F60718 /* LegacyPrefsMigrationGateTests.swift */,
 				D8002BF1A1B2C3D4E5F60718 /* WorkspaceApplyPlanCodableTests.swift */,
 				D8004BF1A1B2C3D4E5F60718 /* WorkspaceLayoutExecutorAcceptanceTests.swift */,
@@ -1252,6 +1258,7 @@
 				949D60897130D3A2A359CC20 /* CommandPaletteSearchEngineTests.swift in Sources */,
 				B16AE553A156E736A1DE50DB /* DefaultGridSettingsTests.swift in Sources */,
 				CFA9529EA1B3835E1A2586A2 /* DescriptionSanitizerTests.swift in Sources */,
+				FDA0BE0001234A1CD69B5467 /* FullDiskAccessProbeTests.swift in Sources */,
 				5E5FA83B76AB6FA59171D8C2 /* HealthFlagsTests.swift in Sources */,
 				2E31BAE909C0A3DD44589F3E /* HealthIPSParserTests.swift in Sources */,
 				113A1271915E49BDE5D8F723 /* HealthMetricKitParserTests.swift in Sources */,
@@ -1452,6 +1459,7 @@
 				CC401005A1B2C3D4E5F60719 /* AgentSkillsView.swift in Sources */,
 				CC401007A1B2C3D4E5F60719 /* TCCPrimerView.swift in Sources */,
 				CC401009A1B2C3D4E5F60719 /* CreateWorkspaceSheet.swift in Sources */,
+				CC40100BA1B2C3D4E5F60719 /* FullDiskAccessProbe.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
