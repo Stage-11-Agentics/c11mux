@@ -49,6 +49,7 @@
 		56D5F7E29DC4C9999E4EDA7B /* DefaultAgentProjectConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76375733F860DAB840D28800 /* DefaultAgentProjectConfig.swift */; };
 		5AEB95ABF100C21BFCDB40E4 /* C11ThemeLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5F1002001A1B2C3D4E5F015 /* C11ThemeLoaderTests.swift */; };
 		5E5FA83B76AB6FA59171D8C2 /* HealthFlagsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DH014BF1A1B2C3D4E5F60718 /* HealthFlagsTests.swift */; };
+		5F20D96106D7E1D0215F6D66 /* DefaultAgentSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2C80718F1B0DC883CC3D99 /* DefaultAgentSettingsView.swift */; };
 		60C99BCDF095711E213AAF1C /* BrowserImportMappingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA100001A1B2C3D4E5F60718 /* BrowserImportMappingTests.swift */; };
 		629F9C54FEC34F811A25CC65 /* DefaultAgentResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F39832E954005AB276046A4 /* DefaultAgentResolverTests.swift */; };
 		644F7D93251E2E307F2E4830 /* SurfaceMetadataStoreValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D800EBF1A1B2C3D4E5F60718 /* SurfaceMetadataStoreValidationTests.swift */; };
@@ -612,6 +613,7 @@
 		D8019BF1A1B2C3D4E5F60718 /* WorkspaceBlueprintMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceBlueprintMarkdownTests.swift; sourceTree = "<group>"; };
 		D801ABF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotSet.swift; sourceTree = "<group>"; };
 		D801BBF1A1B2C3D4E5F60718 /* WorkspaceSnapshotSetCodableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceSnapshotSetCodableTests.swift; sourceTree = "<group>"; };
+		DA2C80718F1B0DC883CC3D99 /* DefaultAgentSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DefaultAgentSettingsView.swift; sourceTree = "<group>"; };
 		DA7A10CA710E000000000001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		DA7A10CA710E000000000002 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		DA7A10CA710E000000000005 /* welcome.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = welcome.md; sourceTree = "<group>"; };
@@ -899,6 +901,7 @@
 				F6B62D2ECDC52E5244D9C6E3 /* DefaultAgentConfig.swift */,
 				3566F50A753107233CC16743 /* DefaultAgentResolver.swift */,
 				76375733F860DAB840D28800 /* DefaultAgentProjectConfig.swift */,
+				DA2C80718F1B0DC883CC3D99 /* DefaultAgentSettingsView.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -1482,6 +1485,7 @@
 				D3A97DA994E2DA451F6020CF /* DefaultAgentConfig.swift in Sources */,
 				AEFAF44A763C596E3C066BC6 /* DefaultAgentResolver.swift in Sources */,
 				56D5F7E29DC4C9999E4EDA7B /* DefaultAgentProjectConfig.swift in Sources */,
+				5F20D96106D7E1D0215F6D66 /* DefaultAgentSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

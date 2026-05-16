@@ -18,6 +18,7 @@ SOURCE_FILES = %w[
   DefaultAgentConfig.swift
   DefaultAgentResolver.swift
   DefaultAgentProjectConfig.swift
+  DefaultAgentSettingsView.swift
 ].freeze
 
 TEST_FILES = %w[

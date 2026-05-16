@@ -7748,17 +7748,27 @@ final class Workspace: Identifiable, ObservableObject {
         orientation: SplitOrientation,
         insertFirst: Bool = false,
         focus: Bool = true,
-        workingDirectory: String? = nil
+        workingDirectory: String? = nil,
+        agentOverride: ResolvedAgent? = nil
     ) -> TerminalPanel? {
         guard let paneId = paneIdForPanel(panelId) else { return nil }
         let inheritedConfig = inheritedTerminalConfig(preferredPanelId: panelId, inPane: paneId)
-        let remoteTerminalStartupCommand = remoteTerminalStartupCommand()
+        // C11-14: a configured default terminal agent (or `--agent` flag, or
+        // `--bash` flag, or workspace override) takes precedence over the
+        // remote-config startup command. When nil we keep the historical
+        // behavior — drop into bash unless the workspace is a remote session.
+        let initialCommand = agentOverride?.command ?? remoteTerminalStartupCommand()
 
-        // Inherit working directory: caller-supplied override wins, then the
-        // source panel's reported cwd, then its requested startup cwd if
-        // shell integration has not reported back yet, and finally fall back
-        // to the workspace's current directory.
+        // Inherit working directory: agent override wins, then caller-supplied
+        // override, then the source panel's reported cwd, then its requested
+        // startup cwd if shell integration has not reported back yet, and
+        // finally fall back to the workspace's current directory.
         let splitWorkingDirectory: String? = {
+            if let agentCwd = agentOverride?.workingDirectory?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+               !agentCwd.isEmpty {
+                return agentCwd
+            }
             if let override = workingDirectory?.trimmingCharacters(in: .whitespacesAndNewlines),
                !override.isEmpty {
                 return override
@@ -7789,11 +7799,12 @@ final class Workspace: Identifiable, ObservableObject {
             configTemplate: inheritedConfig,
             workingDirectory: splitWorkingDirectory,
             portOrdinal: portOrdinal,
-            initialCommand: remoteTerminalStartupCommand
+            initialCommand: initialCommand,
+            additionalEnvironment: agentOverride?.envOverrides ?? [:]
         )
         panels[newPanel.id] = newPanel
         panelTitles[newPanel.id] = newPanel.displayTitle
-        if remoteTerminalStartupCommand != nil {
+        if initialCommand != nil {
             trackRemoteTerminalSurface(newPanel.id)
         }
         seedTerminalInheritanceFontPoints(panelId: newPanel.id, configTemplate: inheritedConfig)
@@ -7821,7 +7832,7 @@ final class Workspace: Identifiable, ObservableObject {
             panels.removeValue(forKey: newPanel.id)
             panelTitles.removeValue(forKey: newPanel.id)
             surfaceIdToPanelId.removeValue(forKey: newTab.id)
-            if remoteTerminalStartupCommand != nil {
+            if initialCommand != nil {
                 untrackRemoteTerminalSurface(newPanel.id)
             }
             terminalInheritanceFontPointsByPanelId.removeValue(forKey: newPanel.id)
@@ -7862,14 +7873,37 @@ final class Workspace: Identifiable, ObservableObject {
         focus: Bool? = nil,
         workingDirectory: String? = nil,
         startupEnvironment: [String: String] = [:],
-        panelId: UUID? = nil
+        panelId: UUID? = nil,
+        agentOverride: ResolvedAgent? = nil
     ) -> TerminalPanel? {
         let shouldFocusNewTab = focus ?? (bonsplitController.focusedPaneId == paneId)
         let previousFocusedPanelId = focusedPanelId
         let previousHostedView = focusedTerminalPanel?.hostedView
 
         let inheritedConfig = inheritedTerminalConfig(inPane: paneId)
-        let remoteTerminalStartupCommand = remoteTerminalStartupCommand()
+        // C11-14: agent override wins over the remote-config startup command.
+        let initialCommand = agentOverride?.command ?? remoteTerminalStartupCommand()
+
+        // Merge: caller-supplied startupEnvironment wins over the agent's
+        // env overrides (the agent's env is the baseline; specific call sites
+        // can layer on top).
+        var mergedEnv: [String: String] = agentOverride?.envOverrides ?? [:]
+        for (k, v) in startupEnvironment { mergedEnv[k] = v }
+
+        // Agent override's fixed cwd wins over the caller-supplied
+        // workingDirectory only when the caller didn't pass one.
+        let resolvedWorkingDirectory: String? = {
+            if let wd = workingDirectory?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !wd.isEmpty {
+                return wd
+            }
+            if let agentCwd = agentOverride?.workingDirectory?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+               !agentCwd.isEmpty {
+                return agentCwd
+            }
+            return nil
+        }()
 
         // Create new terminal panel
         let newPanel = TerminalPanel(
@@ -7877,14 +7911,14 @@ final class Workspace: Identifiable, ObservableObject {
             workspaceId: id,
             context: GHOSTTY_SURFACE_CONTEXT_SPLIT,
             configTemplate: inheritedConfig,
-            workingDirectory: workingDirectory,
+            workingDirectory: resolvedWorkingDirectory,
             portOrdinal: portOrdinal,
-            initialCommand: remoteTerminalStartupCommand,
-            additionalEnvironment: startupEnvironment
+            initialCommand: initialCommand,
+            additionalEnvironment: mergedEnv
         )
         panels[newPanel.id] = newPanel
         panelTitles[newPanel.id] = newPanel.displayTitle
-        if remoteTerminalStartupCommand != nil {
+        if initialCommand != nil {
             trackRemoteTerminalSurface(newPanel.id)
         }
         seedTerminalInheritanceFontPoints(panelId: newPanel.id, configTemplate: inheritedConfig)
@@ -7900,7 +7934,7 @@ final class Workspace: Identifiable, ObservableObject {
         ) else {
             panels.removeValue(forKey: newPanel.id)
             panelTitles.removeValue(forKey: newPanel.id)
-            if remoteTerminalStartupCommand != nil {
+            if initialCommand != nil {
                 untrackRemoteTerminalSurface(newPanel.id)
             }
             terminalInheritanceFontPointsByPanelId.removeValue(forKey: newPanel.id)
@@ -7934,6 +7968,65 @@ final class Workspace: Identifiable, ObservableObject {
             return nil
         }
         return command
+    }
+
+    /// C11-14: workspace metadata keys that override the user-level default
+    /// agent for this specific workspace.
+    enum DefaultAgentMetadataKey {
+        /// `"true"` ⇒ force bash for any new terminal in this workspace.
+        static let useBash = "default_agent_use_bash"
+        /// JSON blob of `DefaultAgentConfig` ⇒ used in place of the user
+        /// default for this workspace.
+        static let inline = "default_agent_inline"
+    }
+
+    /// C11-14: resolve the agent decision for a new terminal in this workspace.
+    /// Reads workspace metadata, user defaults, and project `.c11/agents.json`,
+    /// then dispatches to the pure `DefaultAgentResolver`.
+    ///
+    /// `cwd` is used for project-config discovery; pass the focused panel's
+    /// cwd (or workspace currentDirectory as fallback). When `nil`, project
+    /// discovery is skipped.
+    func resolveAgentForNewSurface(
+        forceBash: Bool,
+        explicitAgent: String?,
+        cwd: String?
+    ) throws -> ResolvedAgent {
+        let userDefault = DefaultAgentConfigStore.shared.current
+        let projectConfig = DefaultAgentProjectConfig.find(from: cwd)
+        let override = workspaceAgentOverride()
+
+        return try DefaultAgentResolver.resolve(
+            explicitAgent: explicitAgent,
+            forceBash: forceBash,
+            workspaceOverride: override,
+            userDefault: userDefault,
+            projectConfig: projectConfig
+        )
+    }
+
+    private func workspaceAgentOverride() -> WorkspaceAgentOverride {
+        if (metadata[DefaultAgentMetadataKey.useBash] ?? "").lowercased() == "true" {
+            return WorkspaceAgentOverride(useBash: true, inlineConfig: nil)
+        }
+        if let blob = metadata[DefaultAgentMetadataKey.inline],
+           let data = blob.data(using: .utf8),
+           let inline = try? JSONDecoder().decode(DefaultAgentConfig.self, from: data) {
+            return WorkspaceAgentOverride(useBash: false, inlineConfig: inline)
+        }
+        return .none
+    }
+
+    /// Convenience: the cwd to feed the resolver for menu/CLI-initiated new
+    /// surfaces. Falls back through focused panel → workspace currentDirectory
+    /// → process cwd so project-config discovery still has something to walk.
+    func resolverCwdForNewSurface() -> String {
+        if let panel = focusedTerminalPanel, !panel.directory.isEmpty {
+            return panel.directory
+        }
+        let dir = currentDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !dir.isEmpty { return dir }
+        return FileManager.default.currentDirectoryPath
     }
 
     /// Create a new browser panel split
@@ -9071,9 +9164,12 @@ final class Workspace: Identifiable, ObservableObject {
 
     /// Create a new terminal surface in the currently focused pane
     @discardableResult
-    func newTerminalSurfaceInFocusedPane(focus: Bool? = nil) -> TerminalPanel? {
+    func newTerminalSurfaceInFocusedPane(
+        focus: Bool? = nil,
+        agentOverride: ResolvedAgent? = nil
+    ) -> TerminalPanel? {
         guard let focusedPaneId = bonsplitController.focusedPaneId else { return nil }
-        return newTerminalSurface(inPane: focusedPaneId, focus: focus)
+        return newTerminalSurface(inPane: focusedPaneId, focus: focus, agentOverride: agentOverride)
     }
 
     @discardableResult
