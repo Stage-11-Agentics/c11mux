@@ -9,9 +9,10 @@ name: Mailbox parity
 # Scope today:
 #   1. Python syntax check on tests_v2/test_mailbox_parity.py so the
 #      end-to-end test never goes stale.
-#   2. xcodebuild test against the `c11-unit` scheme, filtered to the
-#      Mailbox* and StdinHandler* test classes. These tests assert the
-#      byte-level invariants the parity test depends on (e.g. that
+#   2. xcodebuild test against the `c11-logic` scheme, filtered to the
+#      Mailbox* and StdinHandler* test classes (which moved to
+#      c11LogicTests in C11-27). These tests assert the byte-level
+#      invariants the parity test depends on (e.g. that
 #      JSONSerialization does not escape forward slashes).
 #
 # Out of scope (follow-up): launching a real c11 app on a virtual
