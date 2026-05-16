@@ -2,7 +2,12 @@
 # C11-27: mint a new c11LogicTests target and move PURE tests into it.
 # Idempotent: re-running finds the existing target instead of duplicating it.
 # Strategy is chosen by env var (default B, no per-file edits to existing tests).
-#   STRATEGY=B  -> BUNDLE_LOADER points at c11.app/c11 DEV.app, c11 is a target dep.
+#   STRATEGY=B  -> BUNDLE_LOADER points at the c11 host's link artifact, c11 is
+#                  a target dep. Because c11 has ENABLE_DEBUG_DYLIB=YES, Debug
+#                  points at c11 DEV.app/Contents/MacOS/c11.debug.dylib (with
+#                  an rpath so dyld can find it); Release points at the
+#                  classic c11.app/Contents/MacOS/c11 stub. See the inline
+#                  block at lines 140-152 for the rpath arithmetic.
 #   STRATEGY=A  -> dual-compile Sources/ files listed in c11-27-sources.txt.
 # INCLUDE_VERIFY_PROMOTE=1 also moves the one VERIFY-PROMOTE test
 #   (TerminalControllerSocketSecurityTests).
