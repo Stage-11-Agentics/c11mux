@@ -970,6 +970,12 @@ struct cmuxApp: App {
                         activeTabManager.newSurface()
                     }
 
+                    // C11-14: bypass the default-terminal-agent for callers
+                    // who explicitly want a clean shell.
+                    Button(String(localized: "menu.pane.newBashTerminal", defaultValue: "New Bash Terminal")) {
+                        activeTabManager.newSurface(forceBash: true)
+                    }
+
                     splitCommandButton(title: String(localized: "menu.pane.newBrowser", defaultValue: "New Browser"), shortcut: openBrowserMenuShortcut) {
                         _ = AppDelegate.shared?.openBrowserAndFocusAddressBar(insertAtEnd: true)
                     }
@@ -6140,6 +6146,19 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var agentsAutomationSettingsPage: some View {
+        // C11-14: default terminal agent for new terminals.
+        SettingsSectionHeader(title: String(
+            localized: "settings.section.defaultTerminalAgent",
+            defaultValue: "Default terminal agent"
+        ))
+        SettingsCard {
+            DefaultAgentSettingsSection()
+        }
+        SettingsCardNote(String(
+            localized: "settings.defaultTerminalAgent.note",
+            defaultValue: "Applied to every new terminal surface (menu, keyboard, socket). Use “New Bash Terminal” to bypass for a single surface. Per-project overrides live in `.c11/agents.json`; per-workspace override is the metadata key `default_agent_use_bash` (set with `c11 set-metadata`). Distinct from the per-pane “A” launcher button below."
+        ))
+
         SettingsSectionHeader(title: String(localized: "settings.section.agentSkills", defaultValue: "Agent Skills"))
         SettingsCard {
             AgentSkillsSettingsSection()

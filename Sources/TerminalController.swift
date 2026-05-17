@@ -15358,16 +15358,23 @@ class TerminalController {
     private func newSplit(_ args: String) -> String {
         guard let tabManager = tabManager else { return "ERROR: TabManager not available" }
 
-        let trimmed = args.trimmingCharacters(in: .whitespacesAndNewlines)
-        let parts = trimmed.split(separator: " ", maxSplits: 1).map(String.init)
-        guard !parts.isEmpty else {
-            return "ERROR: Invalid direction. Use left, right, up, or down."
+        // Tokenize once so --bash can appear in any position after the
+        // required direction arg. Direction is the first non-flag token.
+        // (C11-14 `--agent <name>` is reserved for the named-presets follow-up.)
+        let tokens = args.split(separator: " ").map(String.init)
+        var direction: SplitDirection? = nil
+        var panelArg: String = ""
+        var forceBash = false
+        for token in tokens {
+            if token == "--bash" {
+                forceBash = true
+            } else if direction == nil, let parsed = parseSplitDirection(token) {
+                direction = parsed
+            } else if panelArg.isEmpty {
+                panelArg = token
+            }
         }
-
-        let directionArg = parts[0]
-        let panelArg = parts.count > 1 ? parts[1] : ""
-
-        guard let direction = parseSplitDirection(directionArg) else {
+        guard let direction else {
             return "ERROR: Invalid direction. Use left, right, up, or down."
         }
 
@@ -15395,7 +15402,18 @@ class TerminalController {
                 return
             }
 
-            if let newPanelId = tabManager.newSplit(tabId: tabId, surfaceId: targetSurface, direction: direction) {
+            // C11-14: resolve the default-terminal-agent decision.
+            let agentOverride = tab.resolveAgentForNewSurface(
+                forceBash: forceBash,
+                cwd: tab.resolverCwdForNewSurface()
+            )
+
+            if let newPanelId = tabManager.newSplit(
+                tabId: tabId,
+                surfaceId: targetSurface,
+                direction: direction,
+                agentOverride: agentOverride
+            ) {
                 result = "OK \(newPanelId.uuidString)"
             }
         }) != nil else {
@@ -17158,11 +17176,13 @@ class TerminalController {
     private func newPane(_ args: String) -> String {
         guard let tabManager = tabManager else { return "ERROR: TabManager not available" }
 
-        // Parse arguments: --type=terminal|browser --direction=left|right|up|down --url=...
+        // Parse arguments: --type=terminal|browser --direction=left|right|up|down --url=... --bash
+        // (C11-14 `--agent <name>` is reserved for the named-presets follow-up.)
         var panelType: PanelType = .terminal
         var direction: SplitDirection = .right
         var url: URL? = nil
         var invalidDirection = false
+        var forceBash = false
 
         let parts = args.split(separator: " ")
         for part in parts {
@@ -17180,6 +17200,8 @@ class TerminalController {
             } else if partStr.hasPrefix("--url=") {
                 let urlStr = String(partStr.dropFirst(6))
                 url = URL(string: urlStr)
+            } else if partStr == "--bash" {
+                forceBash = true
             }
         }
 
@@ -17199,6 +17221,15 @@ class TerminalController {
                 return
             }
 
+            // C11-14: resolve the default-terminal-agent decision before
+            // splitting. Only applies to terminal splits.
+            let agentOverride: ResolvedAgent? = (panelType == .terminal)
+                ? tab.resolveAgentForNewSurface(
+                    forceBash: forceBash,
+                    cwd: tab.resolverCwdForNewSurface()
+                )
+                : nil
+
             let newPanelId: UUID?
             if panelType == .browser {
                 newPanelId = tab.newBrowserSplit(
@@ -17213,7 +17244,8 @@ class TerminalController {
                     from: focusedPanelId,
                     orientation: orientation,
                     insertFirst: insertFirst,
-                    focus: focus
+                    focus: focus,
+                    agentOverride: agentOverride
                 )?.id
             }
 
@@ -18697,10 +18729,12 @@ class TerminalController {
     private func newSurface(_ args: String) -> String {
         guard let tabManager = tabManager else { return "ERROR: TabManager not available" }
 
-        // Parse arguments: --type=terminal|browser --pane=<pane_id> --url=...
+        // Parse arguments: --type=terminal|browser --pane=<pane_id> --url=... --bash
+        // (C11-14 `--agent <name>` is reserved for the named-presets follow-up.)
         var panelType: PanelType = .terminal
         var paneArg: String? = nil
         var url: URL? = nil
+        var forceBash = false
 
         let parts = args.split(separator: " ")
         for part in parts {
@@ -18713,6 +18747,8 @@ class TerminalController {
             } else if partStr.hasPrefix("--url=") {
                 let urlStr = String(partStr.dropFirst(6))
                 url = URL(string: urlStr)
+            } else if partStr == "--bash" {
+                forceBash = true
             }
         }
 
@@ -18744,11 +18780,24 @@ class TerminalController {
                 return
             }
 
+            // C11-14: resolve the default-terminal-agent decision before
+            // creating the surface. Only applies to terminal surfaces.
+            let agentOverride: ResolvedAgent? = (panelType == .terminal)
+                ? tab.resolveAgentForNewSurface(
+                    forceBash: forceBash,
+                    cwd: tab.resolverCwdForNewSurface()
+                )
+                : nil
+
             let newPanelId: UUID?
             if panelType == .browser {
                 newPanelId = tab.newBrowserSurface(inPane: targetPaneId, url: url, focus: focus)?.id
             } else {
-                newPanelId = tab.newTerminalSurface(inPane: targetPaneId, focus: focus)?.id
+                newPanelId = tab.newTerminalSurface(
+                    inPane: targetPaneId,
+                    focus: focus,
+                    agentOverride: agentOverride
+                )?.id
             }
 
             if let id = newPanelId {

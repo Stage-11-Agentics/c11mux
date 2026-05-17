@@ -3564,11 +3564,21 @@ class TabManager: ObservableObject {
         selectedWorkspace?.selectLastSurface()
     }
 
-    /// Create a new terminal surface in the focused pane of the selected workspace
-    func newSurface() {
+    /// Create a new terminal surface in the focused pane of the selected workspace.
+    ///
+    /// `forceBash: true` ⇒ bypass the C11-14 default-terminal-agent and drop
+    /// into the shell unconditionally. Used by the "New Bash Terminal" menu
+    /// item. When `false`, the workspace consults `DefaultAgentResolver` (user
+    /// default + project `.c11/agents.json` + workspace metadata) to decide.
+    func newSurface(forceBash: Bool = false) {
         // Cmd+T should always focus the newly created surface.
-        selectedWorkspace?.clearSplitZoom()
-        selectedWorkspace?.newTerminalSurfaceInFocusedPane(focus: true)
+        guard let workspace = selectedWorkspace else { return }
+        workspace.clearSplitZoom()
+        let override = workspace.resolveAgentForNewSurface(
+            forceBash: forceBash,
+            cwd: workspace.resolverCwdForNewSurface()
+        )
+        workspace.newTerminalSurfaceInFocusedPane(focus: true, agentOverride: override)
     }
 
     // MARK: - Split Creation
@@ -3703,14 +3713,28 @@ class TabManager: ObservableObject {
     // MARK: - Split Operations (Backwards Compatibility)
 
     /// Create a new split in the specified direction
-    /// Returns the new panel's ID (which is also the surface ID for terminals)
-    func newSplit(tabId: UUID, surfaceId: UUID, direction: SplitDirection, focus: Bool = true) -> UUID? {
+    /// Returns the new panel's ID (which is also the surface ID for terminals).
+    /// `agentOverride` (C11-14) lets CLI/menu callers pre-resolve the default
+    /// terminal agent. When nil, the workspace resolves it from user defaults +
+    /// project `.c11/agents.json` + workspace metadata.
+    func newSplit(
+        tabId: UUID,
+        surfaceId: UUID,
+        direction: SplitDirection,
+        focus: Bool = true,
+        agentOverride: ResolvedAgent? = nil
+    ) -> UUID? {
         guard let tab = tabs.first(where: { $0.id == tabId }) else { return nil }
+        let resolved = agentOverride ?? tab.resolveAgentForNewSurface(
+            forceBash: false,
+            cwd: tab.resolverCwdForNewSurface()
+        )
         return tab.newTerminalSplit(
             from: surfaceId,
             orientation: direction.orientation,
             insertFirst: direction.insertFirst,
-            focus: focus
+            focus: focus,
+            agentOverride: resolved
         )?.id
     }
 
