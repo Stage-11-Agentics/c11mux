@@ -5164,6 +5164,7 @@ final class Workspace: Identifiable, ObservableObject {
         let appearance: FlashAppearance
         let timer: Timer
         let startedAt: Date
+        var lastBreadcrumbAt: Date?
     }
 
     @Published private(set) var persistentFlashPanels: [UUID: PersistentFlashState] = [:]
@@ -9201,14 +9202,27 @@ final class Workspace: Identifiable, ObservableObject {
         let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             DispatchQueue.main.async {
                 guard let self else { return }
-                guard self.persistentFlashPanels[panelId] != nil else { return }
+                guard var state = self.persistentFlashPanels[panelId] else { return }
+                let now = Date()
+                let lastEmittedAt = state.lastBreadcrumbAt ?? state.startedAt
+                if state.lastBreadcrumbAt == nil || now.timeIntervalSince(lastEmittedAt) >= 60 {
+                    sentryBreadcrumb("flash.persistent.tick", category: "flash", data: [
+                        "panelId": panelId.uuidString,
+                        "seconds_active": Int(now.timeIntervalSince(state.startedAt)),
+                        "seconds_since_last_tick_breadcrumb": Int(now.timeIntervalSince(lastEmittedAt)),
+                        "app_active": NSApp?.isActive ?? false
+                    ])
+                    state.lastBreadcrumbAt = now
+                    self.persistentFlashPanels[panelId] = state
+                }
                 self.runFlashPulse(panelId: panelId, appearance: appearance)
             }
         }
         persistentFlashPanels[panelId] = PersistentFlashState(
             appearance: appearance,
             timer: timer,
-            startedAt: Date()
+            startedAt: Date(),
+            lastBreadcrumbAt: nil
         )
 
         // Manifest overlay: write once on start so external agents asking
